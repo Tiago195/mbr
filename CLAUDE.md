@@ -214,9 +214,26 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 
 ### Onde parar de ler e começar a trabalhar
 
-O Passo 4 — traduzir o original para o nosso vocabulário — **está concluído**.
-Leia `docs/10-traducao-do-original.md` e depois decida o próximo passo com a
-seção *"O que o usuário disse que falta"*, mais abaixo.
+O Passo 4 — traduzir o original para o nosso vocabulário — **está concluído e
+validado**: oito rodadas de revalidação adversarial, sete reprovando, a oitava
+aprovando. Leia `docs/10-traducao-do-original.md` e depois decida o próximo
+passo com a seção *"O que o usuário disse que falta"*, mais abaixo.
+
+**O que essas oito rodadas ensinaram, e vale para tudo daqui em diante:**
+
+1. **Cobertura silenciosa é indistinguível de cobertura errada.** Todo achado
+   material veio de medir, nunca de reler. Daí o censo de colunas do tradutor,
+   o contador de valores desconhecidos da `EffectFactory`, e a guarda que
+   recusa emitir efeito que o motor descartaria.
+2. **Número em documento é asserção.** Três rodadas seguidas reprovaram por
+   número defasado, e nunca o mesmo. `tools/conferir_numeros.py` existe por
+   isso — rodar antes de commitar documentação.
+3. **Padrão que cobre dado ausente é a armadilha mais cara.** Um cone lendo
+   coluna inexistente alcançava 1 metro; um arremesso copiando `Duration = 0`
+   não fazia nada. Nenhum dos dois dava erro. O que pega é conferir se o
+   RESULTADO faz sentido, não se a coluna foi lida.
+4. **Teste de mutação, sempre.** Quatro defeitos passaram por suíte verde
+   antes de alguém tentar quebrá-los de propósito.
 
 Na leitura desta sessão, o próximo passo com mais retorno é **oposição**: mobs
 com IA simples usando o mesmo `Combatant`, `AbilityBook` e `AbilityEngine` do
