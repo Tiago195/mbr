@@ -231,6 +231,15 @@ Loot no chão, coletar, equipar, efeito nos atributos.
 ### 5.3 — Zona
 Encolhimento em fases, dano fora da zona.
 
+> **Lógica implementada fora de ordem em 22/08/2026**, enquanto a extração dos
+> dados do original rodava em segundo plano. `scripts/core/match/zone.gd`,
+> 18 testes. Falta a camada visual — o círculo desenhado no mapa — e ligar ao
+> fluxo de partida da 5.4.
+>
+> Cada fase tem tempo de **aviso** (próximo círculo visível, zona parada) e de
+> **encolhimento** (zona viajando). Separar os dois é o que cria a decisão que
+> define o gênero: rotacionar agora e ceder posição, ou ficar e pagar dano.
+
 ### 5.4 — Fluxo de partida
 Início, spawn de todos, condição de vitória, fim, voltar ao lobby.
 
