@@ -20,6 +20,7 @@ signal died()
 @export_group("Atributos base")
 @export var max_health: float = 600.0
 @export var attack_damage: float = 60.0
+@export var ability_power: float = 0.0
 @export var armor: float = 30.0
 @export var magic_resist: float = 30.0
 ## Ataques por segundo.
@@ -36,8 +37,26 @@ var unit: Unit
 var stats: Stats
 var health: Health
 
+## Grupo de todos os combatentes da cena. É como a resolução de habilidade
+## descobre os candidatos sem precisar de referência direta a cada um.
+const GROUP: StringName = &"combatants"
+
 func _ready() -> void:
 	ensure_ready()
+	add_to_group(GROUP)
+
+## Todos os `Unit` vivos da cena. É o que `AbilityShape` filtra por forma.
+##
+## Varrer o grupo inteiro é aceitável com 8 jogadores e alguns bonecos. Com
+## 30+ combatentes e habilidades disparando o tempo todo, isto vira o grid
+## espacial da Fase 4.6 — a mesma estrutura que a área de interesse vai pedir.
+static func all_units(tree: SceneTree) -> Array:
+	var units: Array = []
+	for node: Node in tree.get_nodes_in_group(GROUP):
+		var combatant := node as Combatant
+		if combatant != null and combatant.unit != null:
+			units.append(combatant.unit)
+	return units
 
 ## Constrói o `Unit` se ainda não existir.
 ##
@@ -53,6 +72,7 @@ func ensure_ready() -> void:
 	built.set_bases({
 		Stat.Id.MAX_HEALTH: max_health,
 		Stat.Id.ATTACK_DAMAGE: attack_damage,
+		Stat.Id.ABILITY_POWER: ability_power,
 		Stat.Id.ARMOR: armor,
 		Stat.Id.MAGIC_RESIST: magic_resist,
 		Stat.Id.ATTACK_SPEED: attack_speed,

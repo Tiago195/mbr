@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="Ability" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/abilities/ability_effect.gd" id="1_l6n3i"]
+[ext_resource type="Script" path="res://scripts/core/abilities/effects/displacement_effect.gd" id="2_1ma41"]
+[ext_resource type="Script" path="res://scripts/core/abilities/effects/damage_effect.gd" id="3_y4x27"]
+[ext_resource type="Script" path="res://scripts/core/abilities/effects/shield_effect.gd" id="4_xnj3g"]
+[ext_resource type="Script" path="res://scripts/core/abilities/ability.gd" id="5_dlcan"]
+
+[sub_resource type="Resource" id="Resource_lxtd6"]
+script = ExtResource("2_1ma41")
+distance = 6.5
+recipient = 1
+
+[sub_resource type="Resource" id="Resource_g41x6"]
+script = ExtResource("3_y4x27")
+base_damage = 60.0
+scaling_ratio = 0.3
+damage_type = 0
+
+[sub_resource type="Resource" id="Resource_2tm4g"]
+script = ExtResource("4_xnj3g")
+base_shield = 90.0
+scaling_ratio = 0.5
+recipient = 1
+
+[resource]
+script = ExtResource("5_dlcan")
+id = &"investida"
+display_name = "Investida"
+cooldown = 12.0
+aim = 2
+cast_range = 0.0
+form = 3
+length = 6.5
+width = 2.2
+max_targets = 3
+effects = Array[ExtResource("1_l6n3i")]([SubResource("Resource_lxtd6"), SubResource("Resource_g41x6"), SubResource("Resource_2tm4g")])

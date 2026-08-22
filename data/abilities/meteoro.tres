@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="Ability" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/abilities/ability_effect.gd" id="1_aoan8"]
+[ext_resource type="Script" path="res://scripts/core/abilities/effects/damage_effect.gd" id="2_v4mqq"]
+[ext_resource type="Script" path="res://scripts/core/abilities/ability.gd" id="3_yv2iw"]
+
+[sub_resource type="Resource" id="Resource_awbcx"]
+script = ExtResource("2_v4mqq")
+base_damage = 90.0
+scaling_ratio = 0.6
+
+[resource]
+script = ExtResource("3_yv2iw")
+id = &"meteoro"
+display_name = "Meteoro"
+cast_time = 0.45
+cast_range = 9.0
+radius = 3.0
+effects = Array[ExtResource("1_aoan8")]([SubResource("Resource_awbcx")])

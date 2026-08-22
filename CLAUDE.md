@@ -232,9 +232,18 @@ stun e silêncio impedem conjurar; stun no meio corta a conjuração; habilidade
 nova NÃO cancela a anterior (recusa com BUSY); recarga começa ao **iniciar** a
 conjuração, então cortar a conjuração de alguém não devolve a habilidade.
 
-**Próximo: Fase 3.3** — três habilidades reais e o feedback visual da 3.4. O
-critério da 3.3 ("quarta habilidade só com configuração") já passa em teste,
-mas escolher as três e sentir se são divertidas precisa de humano.
+**Fases 3.3 e 3.4 — implementadas (21/08/2026), aguardando validação.**
+Três habilidades em `data/abilities/*.tres`, ligadas a Q/W/E por
+`AbilityCaster`. Telegrafia primitiva em `AbilityTelegraph`. 103 testes.
+
+Habilidade nova é um `.tres` novo — **não** se escreve classe. Se precisar de
+classe, o vocabulário está incompleto: generalize `AbilityEffect` antes.
+
+Os `.tres` foram gerados por script headless em vez de escritos à mão: índice
+de enum e id de sub-recurso são fáceis de errar em texto. Para criar mais,
+repetir o padrão — script descartável usando `ResourceSaver.save()`.
+
+**Próximo: Fase 4** — multiplayer, o maior risco técnico do projeto.
 
 ## Testes
 

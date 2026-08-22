@@ -457,6 +457,80 @@ func test_slots_guardam_as_habilidades() -> void:
 	assert_null(book.ability_in(AbilityBook.Slot.R))
 	assert_eq(book.known_abilities().size(), 1)
 
+# ---------------------------------------------------------------- dados reais
+
+## As três habilidades da Fase 3.3, carregadas dos `.tres` que o jogo usa.
+##
+## Sem isto, alguém quebra um recurso — enum trocado, efeito nulo — e só se
+## descobre abrindo o jogo e apertando a tecla.
+const CAMINHOS: Array[String] = [
+	"res://data/abilities/meteoro.tres",
+	"res://data/abilities/raio.tres",
+	"res://data/abilities/investida.tres",
+]
+
+func test_habilidades_do_jogo_carregam() -> void:
+	for caminho: String in CAMINHOS:
+		var ability := load(caminho) as Ability
+		assert_not_null(ability, caminho)
+		if ability == null:
+			continue
+		assert_false(String(ability.id).is_empty(), "%s sem id" % caminho)
+		assert_false(ability.effects.is_empty(), "%s sem efeitos" % caminho)
+		for effect: AbilityEffect in ability.effects:
+			assert_not_null(effect, "%s com efeito nulo" % caminho)
+
+func test_meteoro_causa_dano_em_area() -> void:
+	var ability := load("res://data/abilities/meteoro.tres") as Ability
+	var caster := _unit()
+	var alvo := _unit(Vector3(4, 0, 0), 1)
+	var book := AbilityBook.new()
+
+	var inicio := AbilityEngine.cast(
+		book, ability, AbilityCast.at_point(caster, Vector3(4, 0, 0)), [alvo]
+	)
+	assert_eq(inicio.status, CastResult.Status.CASTING, "tem tempo de conjuração")
+
+	book.advance_time(ability.cast_time + 0.1, caster)
+	var fim := AbilityEngine.resolve_pending(book, [alvo])
+	assert_true(fim.succeeded())
+	# 90 + 100*0.6 = 150 mágico, sem resistência no alvo de teste
+	assert_almost_eq(alvo.health.current, 350.0)
+
+func test_investida_avanca_e_escuda_o_conjurador() -> void:
+	var ability := load("res://data/abilities/investida.tres") as Ability
+	var caster := _unit()
+	var alvo := _unit(Vector3(0, 0, -3), 1)
+
+	var result := AbilityEngine.cast(
+		AbilityBook.new(), ability,
+		AbilityCast.toward(caster, Vector3(0, 0, -1)), [alvo]
+	)
+
+	assert_true(result.succeeded())
+	assert_almost_eq(caster.consume_displacement().z, -6.5, "avançou")
+	# 90 + 100*0.5 = 140 de escudo, no conjurador
+	assert_almost_eq(caster.health.shield, 140.0)
+	assert_almost_eq(alvo.health.shield, 0.0, "o inimigo não ganha escudo")
+	assert_true(alvo.health.current < 500.0, "e leva dano")
+
+func test_raio_para_no_primeiro_e_deixa_lento() -> void:
+	var ability := load("res://data/abilities/raio.tres") as Ability
+	var caster := _unit()
+	var primeiro := _unit(Vector3(0, 0, -3), 1)
+	var segundo := _unit(Vector3(0, 0, -7), 1)
+
+	var result := AbilityEngine.cast(
+		AbilityBook.new(), ability,
+		AbilityCast.toward(caster, Vector3(0, 0, -1)), [segundo, primeiro]
+	)
+
+	assert_eq(result.targets.size(), 1, "não atravessa")
+	assert_almost_eq(segundo.health.current, 500.0, "o de trás fica ileso")
+	assert_almost_eq(
+		primeiro.stats.get_value(Stat.Id.MOVE_SPEED), 3.25, "5 com 35% de lentidão"
+	)
+
 # ------------------------------------------- CRITÉRIO ANTECIPADO DA FASE 3.3
 
 func test_quarta_habilidade_nasce_so_de_configuracao() -> void:
