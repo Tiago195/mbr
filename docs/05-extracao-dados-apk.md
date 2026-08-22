@@ -290,7 +290,11 @@ melhor:**
 Campos extras: `BonusExp` por fase (XP escala conforme a partida avança),
 `AISurvivalRate`, `StatueInteractionTime`.
 
-### Atributos (`actorattribute_xml`) — 66 contra os nossos 18
+### Atributos (`actorattribute_xml`) — 66 contra os nossos 18 **na época**
+
+> Este número é histórico: era 18 quando a extração foi feita. Hoje são 44,
+> e foi justamente esta tabela que mostrou o que faltava — ver
+> `10-traducao-do-original.md`.
 
 Vários apontam sistemas inteiros que não estavam no radar:
 
@@ -315,7 +319,7 @@ Campos de timing que o próprio doc dizia não se descrever de memória:
 `TargetType` vem no formato `TargetAlly(11), TargetEnemy(1,2,3,5,10,11)` — um
 sistema de camadas de alvo mais fino que o nosso filtro de três booleanos.
 
-### Personagens (`actor_xml` + `actor_2_xml`) — 116 registros
+### Personagens — 116 registros em `actor_xml`, 345 em `actor_2_xml`
 
 `DefaultSkillId_1..4`, `UltimateSkill`, `PassiveBuffs`, e pares
 `StatType_N`/`StatValue_N`. É exatamente o modelo "personagem = kit +

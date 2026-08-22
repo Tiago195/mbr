@@ -1420,7 +1420,26 @@ class Tradutor:
         }
         pulso.update(geometria)
         pulso.update(alvos)
+        self._conferir_geometria(pulso, skill)
         return pulso
+
+    ## Acusa forma direcional que saiu com alcance ridículo.
+    ##
+    ## Existe porque o ramo do cone leu por muito tempo uma coluna inexistente
+    ## e caía num padrão de 1 metro — sem erro, sem lacuna, e sem o censo ver
+    ## nada, porque as colunas envolvidas constavam como consultadas. O que
+    ## pega esse tipo de defeito não é conferir coluna: é conferir se o
+    ## resultado faz sentido ao lado do alcance da habilidade.
+    def _conferir_geometria(self, pulso: dict, skill: dict[str, str]) -> None:
+        if pulso["form"] not in ("CONE", "LINE", "TRAPEZOID", "PROJECTILE"):
+            return
+        alcance = num(skill.get("AI_SkillRange"), 0.0)
+        if pulso.get("length", 0.0) <= 1.0 and alcance >= 3.0:
+            self.r.lacuna(
+                "forma %s com alcance de %.1fm numa habilidade de %.1fm — "
+                "geometria suspeita" % (pulso["form"], pulso["length"], alcance),
+                f"skill {skill['Id']}",
+            )
 
     ## Registra o que o timing do impacto diz e o pulso não expressa.
     ##
@@ -1462,8 +1481,18 @@ class Tradutor:
             }
 
         if ui == "CastCircularSector":
+            # O alcance do cone vem de `AI_SkillRange`, como no ramo `LINE`.
+            #
+            # Isto já leu `CircularSector_Range` — uma coluna que **não existe
+            # em nenhuma das 18 habilidades de cone do original**. O padrão
+            # caía em `raio`, que por sua vez caía em 1.0 quando o impacto não
+            # declara `Radius`; 15 das 18 não declaram. Resultado: 20 dos 25
+            # pulsos de cone alcançavam 1 metro onde o original alcança 4 ou 5.
+            #
+            # Não era decorativo: `AbilityShape._in_cone` usa `length` como
+            # alcance, e o cone do Leo virava um golpe colado no corpo.
             return "CONE", {
-                "length": num(parametros.get("CircularSector_Range"), raio or 6.0),
+                "length": num(skill.get("AI_SkillRange"), max(raio, 4.0)),
                 "cone_angle": num(parametros.get("CircularSector_Angle"), 60.0),
                 "radius": raio,
             }

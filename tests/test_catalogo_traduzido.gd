@@ -364,6 +364,51 @@ func test_toda_forma_e_valida() -> void:
 				invalidas += 1
 	assert_eq(invalidas, 0)
 
+func test_forma_direcional_alcanca_o_que_a_habilidade_promete() -> void:
+	# O defeito que isto pega já existiu e passou por quatro revalidações: o
+	# ramo do cone lia uma coluna que NÃO EXISTE em nenhuma habilidade do
+	# original, caía num padrão de 1 metro, e 20 dos 25 pulsos de cone
+	# acertavam só quem estivesse colado. Nenhum erro, nenhuma lacuna, e o
+	# censo de colunas cego — porque as colunas envolvidas constavam como
+	# consultadas.
+	#
+	# O que pega esse tipo de coisa não é conferir coluna, é conferir se o
+	# resultado faz sentido ao lado do alcance declarado da habilidade.
+	var suspeitos: PackedStringArray = []
+	for id: StringName in _abilities().by_id:
+		var ability: Ability = _abilities().by_id[id]
+		if ability.cast_range < 3.0:
+			continue
+		for pulse: AbilityPulse in ability.pulses:
+			match pulse.form:
+				AbilityPulse.Form.CONE, AbilityPulse.Form.LINE, 				AbilityPulse.Form.TRAPEZOID, AbilityPulse.Form.PROJECTILE:
+					if pulse.length <= 1.0:
+						suspeitos.append("%s(%s len=%.1f alcance=%.1f)" % [
+							id, AbilityPulse.Form.keys()[pulse.form],
+							pulse.length, ability.cast_range
+						])
+				_:
+					pass
+	assert_eq(
+		suspeitos.size(), 0,
+		"forma direcional que não alcança nada: %s" % ", ".join(suspeitos.slice(0, 5))
+	)
+
+func test_o_cone_do_corpus_tem_alcance_de_verdade() -> void:
+	var cones: int = 0
+	var soma: float = 0.0
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			if pulse.form == AbilityPulse.Form.CONE:
+				cones += 1
+				soma += pulse.length
+	assert_true(cones >= 20, "só %d pulsos de cone no corpus" % cones)
+	assert_true(
+		soma / float(cones) >= 3.0,
+		"alcance médio do cone é %.1fm — baixo demais para ser dado do original"
+			% (soma / float(cones))
+	)
+
 func test_geometria_nao_tem_valor_absurdo() -> void:
 	var ruins: PackedStringArray = []
 	for id: StringName in _abilities().by_id:

@@ -130,9 +130,9 @@ critério é **comportamento, não tema**:
 | `Slow` | `SLOW` | Modificador de `move_speed`, não estado |
 | `Root`, `Silence`, `Blind`, `Charmed`, `Taunt`, `Polymorph` | idem | |
 
-Espelhar os 13 daria quatro caminhos diferentes para o mesmo
-`can_move() == false` — `Stun`, `HardStun`, `Freeze` e `ThrowUp`/`Airborne` — e
-cada regra de interação teria que lembrar de todos.
+Espelhar os 13 daria **cinco** caminhos diferentes para o mesmo
+`can_move() == false` — `Stun`, `HardStun`, `Freeze`, `ThrowUp` e `Airborne` —
+e cada regra de interação teria que lembrar dos cinco.
 
 Junto vieram as regras: cegueira deixa atacar **e errar** (diferente de
 desarmar), provocação deixa atacar (é o que a torna perigosa), transformação
@@ -342,7 +342,7 @@ Rótulo curto não é justificativa.
 | Lacuna | Onde | Por que fica fora |
 |---|---|---|
 | Curva de deslocamento | `MoveCurve`, 154 | Trajetória de dash como curva editada. É camada visual, e depende de asset |
-| `BuffReleaseCondition` de animação | `SkillFinish`, `Move`, `InteractionStart`, 58 | Dependem de eventos que `core/` não emite. `ShieldExhaust` e `SkillActivated` **foram fechados** — viraram `TriggerEffect` + `CleanseEffect` |
+| `BuffReleaseCondition` de animação | `SkillFinish` 41, `InteractionStart` 16, `OnStartSkill` 4, `Move` 3, `OnCCMoved` 1 — **65** | Dependem de eventos que `core/` não emite. `ShieldExhaust` e `SkillActivated` **foram fechados** — viraram `TriggerEffect` + `CleanseEffect` |
 | Valor de poção | `RecoverDataType`, 43 | Os números vivem no texto localizado, que não extraímos. Melhor uma lacuna honesta que um valor inventado |
 | Ping | `PingList`, 22 | Interface, não combate |
 | Veículo e zona vermelha | 3 | Modo de jogo específico |

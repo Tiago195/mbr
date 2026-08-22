@@ -358,6 +358,86 @@ def main() -> int:
         c.afirma("docs/04 lacuna %s" % rotulo, roadmap, padrao,
                  _emissoes_lacuna(relatorio, chave))
 
+    # --------------------------------- as tabelas de lacuna de docs/10
+    #
+    # Dezessete números, e foi exatamente aqui que um deles se escondeu por
+    # quatro revalidações: a linha de `BuffReleaseCondition` dizia 58 quando o
+    # relatório somava 60, porque uma das parcelas subiu numa correção e o
+    # documento ficou. Bloco numérico grande sem conferência é onde o próximo
+    # vai se esconder.
+    #
+    # Cada par é (rótulo na tabela do doc, chave no RELATORIO.md). Quando a
+    # linha soma várias lacunas, a lista tem mais de uma chave.
+    LACUNAS_DO_DOC = [
+        (r"`UltimateCharge`, (\d+) habilidades",
+         ["UltimateCharge (carga de suprema)"]),
+        (r"`ComboSkillInfo`, (\d+)", ["ComboSkillInfo (corrente de combo)"]),
+        (r"e três irmãs, (\d+)", ["janela de cancelamento por tempo"]),
+        (r"`Link`, (\d+)",
+         ["Link (corrente que liga dois alvos e rompe na distância)"]),
+        (r"`UseSkillSlot`, (\d+)",
+         ["UseSkillSlot (troca a habilidade de um espaço)"]),
+        (r"`PhysicalDamageAmp_SkillE`, (\d+)",
+         ["StatType=PhysicalDamageAmp_SkillE"]),
+        (r"`FollowTarget`, (\d+)",
+         ["área que acompanha o alvo em vez de ficar no chão "
+          "(`FollowTarget` em impact)"]),
+        (r"`BeAbleToAttackBush`, (\d+)",
+         ["arbusto que se pode atacar (não há arbusto) "
+          "(`BeAbleToAttackBush` em impact)"]),
+        (r"`ResetAttackCoolTime`, (\d+)",
+         ["habilidade que zera a cadência do ataque básico "
+          "(`ResetAttackCoolTime` em skill)"]),
+        (r"`TrackingMode`, (\d+)",
+         ["projétil teleguiado (`TrackingMode` em skill)"]),
+        (r"`StopCondition`, (\d+)",
+         ["a investida que PARA ao acertar (OnImpactEnemy / OnDamage / "
+          "OnLostTarget) — nosso dash sempre completa (`StopCondition` em skill)"]),
+        (r"`LimitSourceDistance`, (\d+)",
+         ["o gancho que arrebenta quando estica demais "
+          "(`LimitSourceDistance` em crowd_control)"]),
+        (r"`MoveCurve`, (\d+)", ["curva de deslocamento (MoveCurve)"]),
+        (r"`RecoverDataType`, (\d+)", [
+            "RecoverDataType=RegenHealth sem valor legível "
+            "(os números vivem no texto localizado)",
+            "RecoverDataType=RegenAll sem valor legível "
+            "(os números vivem no texto localizado)",
+            "RecoverDataType=RegenMana sem valor legível "
+            "(os números vivem no texto localizado)",
+        ]),
+        (r"`PingList`, (\d+)",
+         ["PingList (aviso na interface, não é combate)"]),
+        (r"— \*\*(\d+)\*\* \| Dependem de eventos", [
+            "BuffReleaseCondition=SkillFinish",
+            "BuffReleaseCondition=InteractionStart",
+            "BuffReleaseCondition=OnStartSkill",
+            "BuffReleaseCondition=Move",
+            "BuffReleaseCondition=OnCCMoved",
+        ]),
+    ]
+    for padrao, chaves in LACUNAS_DO_DOC:
+        soma = sum(_emissoes_lacuna(relatorio, k) for k in chaves)
+        c.afirma("docs/10 lacuna %s" % chaves[0][:34], doc10, padrao, soma)
+
+    # As parcelas nomeadas na linha de `BuffReleaseCondition` também são
+    # conferidas uma a uma: somar certo com parcela errada ainda é errado.
+    for nome, chave in (
+        ("SkillFinish", "BuffReleaseCondition=SkillFinish"),
+        ("InteractionStart", "BuffReleaseCondition=InteractionStart"),
+        ("OnStartSkill", "BuffReleaseCondition=OnStartSkill"),
+        ("Move", "BuffReleaseCondition=Move"),
+        ("OnCCMoved", "BuffReleaseCondition=OnCCMoved"),
+    ):
+        c.afirma("docs/10 parcela %s" % nome, doc10,
+                 r"`%s` (\d+)" % nome, _emissoes_lacuna(relatorio, chave))
+
+    # --------------------------------- cabeçalho duplicado de docs/10
+    #
+    # `docs/10:111` repete o fato do `:116` fora do padrão conferido, e mutar
+    # só o cabeçalho passava despercebido. Ancorar os dois.
+    c.afirma("docs/10 cabeçalho de controle", doc10,
+             r"### Controle de grupo: 4 → (\d+) estados", estados)
+
     # ------------------------------------------------- contagem de testes
     c.afirma("CLAUDE.md testes", claude,
              r"\*\*(\d+) testes, \d+ asserções\*\*", _contar_testes())
