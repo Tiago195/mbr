@@ -351,6 +351,8 @@ class Relatorio:
         self.nao_consultadas: dict[str, collections.Counter] = {}
         ## Toda coluna vista no XML, para achar declaração que nunca dispara.
         self.colunas_vistas: set[str] = set()
+        ## Chaves de `UI_Params` que ninguém lê nem declara ignorar.
+        self.chaves_orfas: collections.Counter = collections.Counter()
 
     def usou(self, chave: str) -> None:
         self.usos[chave] += 1
@@ -397,6 +399,39 @@ class Relatorio:
             self.nao_consultadas[nome] = sobrando
             self.colunas_vistas |= set(presentes)
 
+        # `UI_Params` é UMA coluna com várias chaves dentro. O censo de colunas
+        # a dá por consultada e não vê o que há lá — foi assim que
+        # `CastDirection_Count` (leque de projéteis) ficou dois commits sem
+        # tradução. Chave também é dado, e também precisa de censo.
+        chaves: collections.Counter = collections.Counter()
+        for registro in tabelas.skills.values():
+            for parte in (registro.get("UI_Params") or "").split(","):
+                if "=" in parte:
+                    chaves[parte.split("=")[0].strip()] += 1
+        self.chaves_orfas = collections.Counter({
+            k: n for k, n in chaves.items() if k not in CHAVES_DE_UI
+        })
+
+
+## Chaves de `UI_Params` que o tradutor lê ou declara ignorar, com o motivo.
+##
+## Existe porque `UI_Params` é uma coluna só, com pares `chave=valor` dentro.
+## O censo de colunas a marca como consultada e fica cego para o conteúdo —
+## e foi exatamente aí que o leque de projéteis se escondeu.
+CHAVES_DE_UI = {
+    "CastDirection_Width": "lido: largura da linha",
+    "CastDirection_Count": "lido: quantos projéteis no leque",
+    "CastDirection_Angle": "lido: abertura do leque",
+    "CircularSector_Angle": "lido: abertura do cone",
+    "CastTrapezoid_Start_Width": "lido",
+    "CastTrapezoid_End_Width": "lido",
+    "CastTrapezoid_Start_Distance": "lido",
+    "CastTrapezoid_End_Distance": "lido",
+    # `CastArea_Bound` é o RETÍCULO de mira, não o raio do golpe. Conferido:
+    # vale 2 em todas as 186, enquanto os impactos das mesmas habilidades têm
+    # raios de 0,8 a 2,8. Quem acerta é o impacto.
+    "CastArea_Bound": "retículo de mira; o raio que acerta vem do impacto",
+}
 
 ## Colunas que o tradutor CONSULTA, por tabela. Mantida à mão e conferida pelo
 ## censo: se uma coluna sai do código e fica aqui, o censo não acusa nada — mas
@@ -1478,7 +1513,7 @@ class Tradutor:
                 # `ImpactCount` 0 quer dizer "sem teto", e um projétil sem teto
                 # é um que atravessa.
                 "pierces": inteiro(impacto.get("ImpactCount"), 0) != 1,
-            }
+            } | self._leque(self._ui_params(skill))
 
         if ui == "CastCircularSector":
             # O alcance do cone vem de `AI_SkillRange`, como no ramo `LINE`.
@@ -1513,13 +1548,31 @@ class Tradutor:
                 "length": num(skill.get("AI_SkillRange"), 8.0),
                 "width": num(parametros.get("CastDirection_Width"), max(raio, 1.0)),
                 "radius": raio,
-            }
+            } | self._leque(parametros)
 
         if impacto.get("Radius"):
             return "CIRCLE", {"radius": raio}
 
         # Sem raio e sem direção: acerta quem foi apontado, e mais ninguém.
         return "SINGLE", {"radius": raio}
+
+    ## `CastDirection_Count` + `CastDirection_Angle` -> leque.
+    ##
+    ## Sete habilidades do original disparam 3 ou 5 projéteis abertos em leque.
+    ## O tradutor lia só a largura e emitia UM projétil — os outros dois ou
+    ## quatro sumiam sem nada avisar, porque a chave vive dentro de `UI_Params`
+    ## e o censo de colunas só enxerga a coluna inteira.
+    ##
+    ## Foi o que motivou o censo de CHAVES de `UI_Params`, logo abaixo.
+    def _leque(self, parametros: dict[str, str]) -> dict:
+        quantos = inteiro(parametros.get("CastDirection_Count"), 1)
+        if quantos <= 1:
+            return {}
+        self.r.usou("leque de projéteis")
+        return {
+            "spread_count": quantos,
+            "spread_angle": num(parametros.get("CastDirection_Angle"), 0.0),
+        }
 
     @staticmethod
     def _ui_params(skill: dict[str, str]) -> dict[str, str]:
@@ -1956,6 +2009,15 @@ def escrever_relatorio(
         linhas.append("")
         for chave in orfas_declaradas:
             linhas.append(f"- `{chave}`")
+        linhas.append("")
+
+    if r.chaves_orfas:
+        linhas.append("### Chaves de `UI_Params` sem leitura nem decisão")
+        linhas.append("")
+        linhas.append("| Chave | Habilidades |")
+        linhas.append("|---|---|")
+        for chave, quantas in r.chaves_orfas.most_common():
+            linhas.append(f"| `{chave}` | {quantas} |")
         linhas.append("")
 
     linhas.append("## Lacunas — o que o original diz e nós ainda não")

@@ -212,6 +212,20 @@ Decisões que vieram junto:
   ranques como cinco linhas de `skill_xml` com o mesmo `SkillGroupID` — ou
   seja, ranque é *outro conjunto de números*, não uma escala em cima. Copiamos.
 
+### Leque de projéteis
+
+`CastDirection_Count` + `CastDirection_Angle`: sete habilidades do original
+disparam **três ou cinco projéteis abertos em leque** — três a 20 graus, cinco
+a 7. O tradutor lia só a largura e emitia um projétil; os outros sumiam.
+
+Virou `AbilityPulse.spread_count` e `spread_angle`, e `AbilityShape` testa cada
+direção do leque. Acertar em uma basta: três flechas não somam dano em quem
+está no meio.
+
+**Como isso escapou:** a chave vive dentro de `UI_Params`, que é *uma* coluna
+com vários pares `chave=valor` dentro. O censo de colunas a dava por consultada
+e ficava cego para o conteúdo. Agora há um censo das **chaves** também.
+
 ### Forma nova: `TRAPEZOID`
 
 `CastTrapezoid`: um retângulo que começa a uma distância mínima e alarga com o

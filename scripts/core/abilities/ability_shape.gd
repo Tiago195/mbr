@@ -32,7 +32,7 @@ static func resolve(
 			continue
 		if not _passes_filter(pulse, cast.caster, unit):
 			continue
-		if _is_inside(pulse, cast, anchor, unit):
+		if _is_inside_any(pulse, cast, anchor, unit):
 			inside.append(unit)
 
 	inside.sort_custom(func(a: Unit, b: Unit) -> bool:
@@ -55,8 +55,28 @@ static func _passes_filter(pulse: AbilityPulse, caster: Unit, unit: Unit) -> boo
 
 # ---------------------------------------------------------------- geometria
 
-static func _is_inside(
+## Dentro de QUALQUER direção do leque.
+##
+## Sem leque é uma direção só, e o custo é uma comparação. Com leque são N, e
+## acertar em uma basta — três flechas em leque não somam dano em quem está no
+## meio, e é por isso que a resposta é "alguma", não "quantas".
+static func _is_inside_any(
 		pulse: AbilityPulse, cast: AbilityCast, anchor: Vector3, unit: Unit
+) -> bool:
+	var direcoes: Array[Vector3] = pulse.spread_directions(cast.direction)
+	if direcoes.size() == 1:
+		return _is_inside(pulse, cast, anchor, unit, cast.direction)
+	for direcao: Vector3 in direcoes:
+		if _is_inside(pulse, cast, anchor, unit, direcao):
+			return true
+	return false
+
+static func _is_inside(
+		pulse: AbilityPulse,
+		cast: AbilityCast,
+		anchor: Vector3,
+		unit: Unit,
+		direcao: Vector3
 ) -> bool:
 	match pulse.form:
 		AbilityPulse.Form.SINGLE:
@@ -66,16 +86,16 @@ static func _is_inside(
 		AbilityPulse.Form.CIRCLE:
 			return unit.ground_distance_to_point(anchor) <= pulse.radius
 		AbilityPulse.Form.CONE:
-			return _in_cone(pulse, cast, anchor, unit)
+			return _in_cone(pulse, anchor, unit, direcao)
 		AbilityPulse.Form.TRAPEZOID:
-			return _in_trapezoid(pulse, cast, anchor, unit)
+			return _in_trapezoid(pulse, anchor, unit, direcao)
 		_:
 			# LINE e PROJECTILE compartilham a geometria; o que muda entre
 			# eles é o voo, que é assunto da camada de gameplay.
-			return _in_line(pulse, cast, anchor, unit)
+			return _in_line(pulse, anchor, unit, direcao)
 
 static func _in_cone(
-		pulse: AbilityPulse, cast: AbilityCast, anchor: Vector3, unit: Unit
+		pulse: AbilityPulse, anchor: Vector3, unit: Unit, direcao: Vector3
 ) -> bool:
 	var to_unit: Vector3 = _flat(unit.position - anchor)
 	var distance: float = to_unit.length()
@@ -86,20 +106,20 @@ static func _in_cone(
 	if distance <= 0.0001:
 		return true
 	var half_angle: float = deg_to_rad(pulse.cone_angle) * 0.5
-	return to_unit.normalized().angle_to(cast.direction) <= half_angle
+	return to_unit.normalized().angle_to(direcao) <= half_angle
 
 static func _in_line(
-		pulse: AbilityPulse, cast: AbilityCast, anchor: Vector3, unit: Unit
+		pulse: AbilityPulse, anchor: Vector3, unit: Unit, direcao: Vector3
 ) -> bool:
 	var to_unit: Vector3 = _flat(unit.position - anchor)
 	# Projeção sobre a direção da mira: quanto o alvo avançou ao longo da
 	# linha. Negativo significa atrás da âncora.
-	var along: float = to_unit.dot(cast.direction)
+	var along: float = to_unit.dot(direcao)
 	if along < 0.0 or along > pulse.length:
 		return false
 	# O que sobra depois de tirar a componente ao longo da linha é a distância
 	# perpendicular ao eixo.
-	var perpendicular: float = (to_unit - cast.direction * along).length()
+	var perpendicular: float = (to_unit - direcao * along).length()
 	return perpendicular <= pulse.width * 0.5
 
 ## Trapézio: um retângulo cuja largura interpola entre `near_width` e
@@ -107,10 +127,10 @@ static func _in_line(
 ## de fora — é isso que dá o "buraco colado nos pés" do tiro de longo alcance,
 ## e é a diferença entre ele e um cone comum.
 static func _in_trapezoid(
-		pulse: AbilityPulse, cast: AbilityCast, anchor: Vector3, unit: Unit
+		pulse: AbilityPulse, anchor: Vector3, unit: Unit, direcao: Vector3
 ) -> bool:
 	var to_unit: Vector3 = _flat(unit.position - anchor)
-	var along: float = to_unit.dot(cast.direction)
+	var along: float = to_unit.dot(direcao)
 	if along < pulse.near_distance or along > pulse.length:
 		return false
 
@@ -121,7 +141,7 @@ static func _in_trapezoid(
 		else (along - pulse.near_distance) / span
 	var half_width: float = lerpf(pulse.near_width, pulse.far_width, progress) * 0.5
 
-	var perpendicular: float = (to_unit - cast.direction * along).length()
+	var perpendicular: float = (to_unit - direcao * along).length()
 	return perpendicular <= half_width
 
 static func _flat(vector: Vector3) -> Vector3:

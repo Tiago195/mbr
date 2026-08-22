@@ -7347,6 +7347,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031000,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7382,6 +7384,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031001,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7428,6 +7432,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031010,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7463,6 +7469,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031011,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7509,6 +7517,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031020,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7544,6 +7554,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031021,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     }
    ],
@@ -7613,6 +7625,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031100,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7648,6 +7662,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031101,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7694,6 +7710,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031110,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7729,6 +7747,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031111,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7775,6 +7795,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031120,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7810,6 +7832,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031121,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     }
    ],
@@ -7879,6 +7903,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031200,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7914,6 +7940,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031201,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7960,6 +7988,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031210,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -7995,6 +8025,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031211,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8041,6 +8073,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031220,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8076,6 +8110,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031221,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     }
    ],
@@ -8145,6 +8181,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031300,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8180,6 +8218,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031301,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8226,6 +8266,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031310,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8261,6 +8303,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031311,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8307,6 +8351,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031320,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8342,6 +8388,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031321,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     }
    ],
@@ -8411,6 +8459,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031400,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8446,6 +8496,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031401,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8492,6 +8544,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031410,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8527,6 +8581,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031411,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8573,6 +8629,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031420,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     },
     {
@@ -8608,6 +8666,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10031421,
+     "spread_angle": 20.0,
+     "spread_count": 3,
      "width": 2.0
     }
    ],
@@ -21918,6 +21978,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10078000,
+     "spread_angle": 7.0,
+     "spread_count": 5,
      "width": 2.0
     },
     {
@@ -21953,6 +22015,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10078001,
+     "spread_angle": 7.0,
+     "spread_count": 5,
      "width": 2.0
     },
     {
@@ -21988,6 +22052,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10078002,
+     "spread_angle": 7.0,
+     "spread_count": 5,
      "width": 2.0
     },
     {
@@ -22023,6 +22089,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10078003,
+     "spread_angle": 7.0,
+     "spread_count": 5,
      "width": 2.0
     },
     {
@@ -22058,6 +22126,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10078004,
+     "spread_angle": 7.0,
+     "spread_count": 5,
      "width": 2.0
     },
     {
@@ -22093,6 +22163,8 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10078005,
+     "spread_angle": 7.0,
+     "spread_count": 5,
      "width": 2.0
     }
    ],

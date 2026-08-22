@@ -71,6 +71,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `passiva de ranque` | 40 |
 | `impacto de buff, imediato` | 39 |
 | `execute` | 37 |
+| `leque de projéteis` | 36 |
 | `heal:percent_hp` | 34 |
 | `damage:siege` | 33 |
 | `stat:out_of_combat_health_regen` | 28 |
@@ -126,6 +127,18 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 A tabela de lacunas abaixo só sabe do que o tradutor **tentou** mapear. Uma coluna que o código nunca menciona não gera lacuna nenhuma — ela some, e a ausência fica indistinguível de uma decisão. Este censo varre as colunas presentes no XML e lista as que não estão nem em `CONSULTADAS` nem em `IGNORADAS`. Ele cobre **todas** as tabelas que o tradutor abre — inclusive a de receitas, que ficou de fora na primeira versão.
 
 **Nenhuma.** Toda coluna das 6 tabelas que o tradutor lê (`buff`, `craft_recipe`, `crowd_control`, `equipment`, `impact`, `skill`) ou é consultada, ou está declarada em `IGNORADAS` com o motivo.
+
+### Chaves de `UI_Params` sem leitura nem decisão
+
+| Chave | Habilidades |
+|---|---|
+| `CastDirectionalSquareArea_Distance` | 6 |
+| `CastDirectionalSquareArea_Width` | 6 |
+| `CastDirection_Height` | 6 |
+| `CastCurveDirection_Offset_X` | 6 |
+| `CastCurveDirection_Width` | 6 |
+| `CastSquare_Height` | 1 |
+| `CastSquare_Width` | 1 |
 
 ## Lacunas — o que o original diz e nós ainda não
 

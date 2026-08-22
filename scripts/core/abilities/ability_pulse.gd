@@ -81,6 +81,18 @@ enum Origin {
 ## PROJECTILE. Se falso, para no primeiro atingido.
 @export var pierces: bool = false
 
+@export_group("Leque")
+## Quantas cópias da forma saem de uma vez, abertas em leque. 1 = uma só.
+##
+## `CastDirection_Count` do original, em 7 habilidades: três flechas a 20 graus
+## de abertura, cinco a 7. Sem isto, a habilidade de três flechas traduzia como
+## uma flecha — e as outras duas sumiam sem nada avisar.
+@export var spread_count: int = 1
+
+## Abertura TOTAL do leque, em graus. As cópias se distribuem uniformemente
+## dentro dela, simétricas em torno da direção mirada.
+@export var spread_angle: float = 0.0
+
 @export_group("Deslocamento da âncora")
 ## Metros à frente, na direção da mira. `StartPositionZ` do original, diferente
 ## de zero em 293 impactos: é a explosão que nasce um pouco adiante dos pés, e
@@ -139,6 +151,23 @@ func _offset(cast: AbilityCast) -> Vector3:
 	frente = frente.normalized()
 	var lado: Vector3 = frente.cross(Vector3.UP)
 	return frente * forward_offset + lado * side_offset
+
+## As direções que esta forma cobre, a partir da direção mirada.
+##
+## Uma só quando não há leque — o caso de tudo menos sete habilidades. Com
+## leque, N direções simétricas: três a 20 graus dão -10, 0 e +10.
+##
+## O eixo é o Y, porque o leque abre no plano do chão. Abrir em qualquer outro
+## eixo faria a flecha de cima passar por cima da cabeça de todo mundo.
+func spread_directions(aim: Vector3) -> Array[Vector3]:
+	if spread_count <= 1 or is_zero_approx(spread_angle):
+		return [aim]
+	var direcoes: Array[Vector3] = []
+	var passo: float = spread_angle / float(spread_count - 1)
+	var inicio: float = -spread_angle * 0.5
+	for i: int in range(spread_count):
+		direcoes.append(aim.rotated(Vector3.UP, deg_to_rad(inicio + passo * i)))
+	return direcoes
 
 ## Se um projétil que não atravessa, o teto de alvos é 1 por construção.
 func effective_max_targets() -> int:

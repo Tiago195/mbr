@@ -269,6 +269,100 @@ func test_morrer_limpa_os_pulsos_marcados() -> void:
 	AbilityEngine.resolve_scheduled(book, [alvo])
 	assert_almost_eq(alvo.health.current, 1000.0)
 
+# ---------------------------------------------------------------- leque
+
+func test_leque_pega_quem_esta_de_lado() -> void:
+	# Três flechas a 60 graus de abertura: -30, 0 e +30. Quem está a 30 graus
+	# é pego pela flecha da ponta, e sem leque escaparia.
+	var caster: Unit = _unit()
+	var reto: Unit = _unit(Vector3(0, 0, -5), 1)
+	# 30 graus a partir de -Z, num raio de 5: (-2.5, 0, -4.33)
+	var de_lado: Unit = _unit(Vector3(-2.5, 0, -4.33), 1)
+
+	var ability := Ability.new()
+	ability.id = &"leque"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var flechas: AbilityPulse = _pulso(AbilityPulse.Form.LINE, 40.0)
+	flechas.origin = AbilityPulse.Origin.CASTER
+	flechas.length = 8.0
+	flechas.width = 1.0
+	flechas.spread_count = 3
+	flechas.spread_angle = 60.0
+	ability.pulses = [flechas]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)),
+		[reto, de_lado]
+	)
+	assert_almost_eq(reto.health.current, 960.0, "a flecha do meio")
+	assert_almost_eq(de_lado.health.current, 960.0, "a flecha da ponta")
+
+func test_sem_leque_a_flecha_de_lado_erra() -> void:
+	var caster: Unit = _unit()
+	var de_lado: Unit = _unit(Vector3(-2.5, 0, -4.33), 1)
+	var ability := Ability.new()
+	ability.id = &"unica"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var flecha: AbilityPulse = _pulso(AbilityPulse.Form.LINE, 40.0)
+	flecha.origin = AbilityPulse.Origin.CASTER
+	flecha.length = 8.0
+	flecha.width = 1.0
+	ability.pulses = [flecha]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)), [de_lado]
+	)
+	assert_almost_eq(de_lado.health.current, 1000.0)
+
+func test_leque_nao_soma_dano_em_quem_esta_no_meio() -> void:
+	# Três flechas, um alvo no eixo. Ele é pego por uma e leva UM dano —
+	# acertar em mais de uma direção não multiplica.
+	var caster: Unit = _unit()
+	var reto: Unit = _unit(Vector3(0, 0, -3), 1)
+	var ability := Ability.new()
+	ability.id = &"leque"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var flechas: AbilityPulse = _pulso(AbilityPulse.Form.LINE, 40.0)
+	flechas.origin = AbilityPulse.Origin.CASTER
+	flechas.length = 8.0
+	flechas.width = 4.0
+	flechas.spread_count = 3
+	flechas.spread_angle = 20.0
+	ability.pulses = [flechas]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)), [reto]
+	)
+	assert_almost_eq(reto.health.current, 960.0, "um dano, não três")
+
+func test_direcoes_do_leque_sao_simetricas() -> void:
+	var pulse := AbilityPulse.new()
+	pulse.spread_count = 3
+	pulse.spread_angle = 60.0
+	var direcoes: Array[Vector3] = pulse.spread_directions(Vector3.FORWARD)
+	assert_eq(direcoes.size(), 3)
+	assert_almost_eq(
+		rad_to_deg(direcoes[0].angle_to(Vector3.FORWARD)), 30.0, "", 0.01
+	)
+	assert_almost_eq(
+		rad_to_deg(direcoes[1].angle_to(Vector3.FORWARD)), 0.0, "", 0.01
+	)
+	assert_almost_eq(
+		rad_to_deg(direcoes[2].angle_to(Vector3.FORWARD)), 30.0, "", 0.01
+	)
+
+func test_sem_leque_devolve_a_mira() -> void:
+	var pulse := AbilityPulse.new()
+	var direcoes: Array[Vector3] = pulse.spread_directions(Vector3.FORWARD)
+	assert_eq(direcoes.size(), 1)
+	assert_almost_eq(direcoes[0].z, Vector3.FORWARD.z)
+
 # ---------------------------------------------------------------- âncora deslocada
 
 func test_deslocamento_para_a_frente_move_a_area() -> void:
