@@ -259,9 +259,9 @@ Atualizar ao fim de cada sessão. Manter também o "Estado atual" no `CLAUDE.md`
 | Fase | Status | Data | Notas |
 |---|---|---|---|
 | 1.1 | ✅ Concluída | 21/08/2026 | Critério verificado: anda até o clique, `FrontMarker` na direção certa. Feita **com** IA, contra a recomendação do doc — decisão consciente. Movimento no **botão direito** (decisão 7) |
-| 1.2 | 🟡 Aguardando validação | 21/08/2026 | Três obstáculos em `Walls`. Botão direito segurado passa a mover continuamente (era decisão em aberto — tomada) |
-| 1.3 | 🟡 Aguardando validação | 21/08/2026 | `camera_rig.gd`: segue o Player com suavização exponencial, vista travada |
+| 1.2 | ✅ Concluída | 21/08/2026 | Validado: contorna a parede e desliza ao encostar. Botão direito segurado move continuamente |
+| 1.3 | ✅ Concluída | 21/08/2026 | Validado: câmera presa ao personagem, sem perdê-lo de vista |
 | 1.4 | ⏭️ Adiada | | NavMesh. O doc já a marcava como opcional aqui; só vira necessária para a IA dos mobs na Fase 6 |
 | 2.1 | ✅ Concluída | 21/08/2026 | `Stat`, `StatModifier`, `Stats`. Critério verificado por `test_equipar_e_desequipar_devolve_ao_estado_anterior` |
 | 2.2 | ✅ Concluída | 21/08/2026 | `Damage` como função pura. 42 testes, 115 asserções, todos os casos de borda do doc de design. Convenções em aberto fechadas na decisão 8 |
-| 2.3 | ⬜ Não iniciada | | Precisa de validação humana: "consigo matar um boneco de treino clicando nele?" |
+| 2.3 | 🟡 Aguardando validação | 21/08/2026 | `Health`, `Combatant`, boneco de treino. Ataque com alcance e cadência. 10 testes cobrem a vida; o clique em si precisa de olho humano |

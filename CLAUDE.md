@@ -191,12 +191,17 @@ segurado movendo continuamente. Rodam sem erro; os critérios são visuais.
 **Fase 1.4 (NavMesh) adiada** — o roadmap já a marcava como opcional; só vira
 necessária para a IA dos mobs na Fase 6.
 
-**Fases 2.1 e 2.2 — concluídas (21/08/2026).** Atributos, modificadores e
-cálculo de dano em `scripts/core/combat/`, com 42 testes passando. Convenções
-de combate fechadas na decisão 8 de `docs/02-decisoes-tecnicas.md`.
+**Fases 2.1, 2.2 e 2.3 — implementadas (21/08/2026).** Motor de combate em
+`scripts/core/combat/` (atributos, modificadores, dano, vida) e a integração
+com o personagem via `Combatant`, um componente Node que se pendura tanto no
+`CharacterBody3D` do jogador quanto no `StaticBody3D` do boneco de treino.
+52 testes passando. Convenções fechadas na decisão 8 de
+`docs/02-decisoes-tecnicas.md`.
 
-**Próximo: Fase 2.3** — ligar o motor de combate ao personagem. O critério
-("consigo matar um boneco de treino clicando nele?") exige validação humana.
+A 2.3 aguarda validação humana: "consigo matar um boneco de treino clicando
+nele?".
+
+**Próximo: Fase 3** — vocabulário de efeitos e motor de habilidades.
 
 ## Testes
 
@@ -213,6 +218,20 @@ velho — rodar um passe de importação antes:
 Todo teste novo entra em `tests/` e é registrado em `SUITES`, dentro de
 `tests/run_tests.gd`. Só `scripts/core/` é testável assim: é a parte que não
 conhece nó da engine.
+
+**Armadilha do arnês.** GDScript não deixa capturar erro em tempo de execução:
+`call()` volta normalmente mesmo quando o método estourou no meio, e um teste
+que crashou passaria como sucesso. Duas defesas:
+
+1. Teste que não registra **nenhuma** asserção é contado como falha — pega o
+   estouro antes da primeira asserção, e também o teste vazio
+2. Um estouro **depois** da primeira asserção ainda escapa. Por isso, ao rodar
+   a suíte, tratar `SCRIPT ERROR` no console como falha mesmo com exit 0
+
+Não confiar em suíte verde recém-escrita: quebrar a lógica de propósito e
+confirmar que ela fica vermelha. Já pegou um bug real aqui — lambda em
+GDScript captura por valor, então reatribuir variável de fora dentro dela não
+tem efeito; mutar funciona.
 
 Particularidade do ambiente: a chave SSH do GitHub está **só no WSL2**.
 Commit funciona no Windows; o push precisa passar pelo WSL:

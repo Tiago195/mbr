@@ -11,6 +11,7 @@ extends SceneTree
 const SUITES: Array[String] = [
 	"res://tests/test_stats.gd",
 	"res://tests/test_damage.gd",
+	"res://tests/test_health.gd",
 ]
 
 func _init() -> void:

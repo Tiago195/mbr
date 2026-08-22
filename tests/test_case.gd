@@ -31,7 +31,19 @@ func run() -> Dictionary:
 		seen[method_name] = true
 		_current = method_name
 		count += 1
+
+		var before: int = _assertions
 		call(method_name)
+		# GDScript não deixa capturar erro de execução: `call()` volta
+		# normalmente mesmo quando o método estourou no meio. Um teste que não
+		# registrou nenhuma asserção ou está vazio, ou morreu antes da
+		# primeira — nos dois casos, é falha.
+		#
+		# LIMITE CONHECIDO: um estouro DEPOIS da primeira asserção ainda passa
+		# despercebido aqui. O console mostra "SCRIPT ERROR"; por isso o
+		# comando de teste em CLAUDE.md também falha se essa string aparecer.
+		if _assertions == before:
+			_fail("nenhuma asserção registrada — teste vazio ou erro em tempo de execução (procure SCRIPT ERROR no console)")
 	return {
 		"suite": _suite_name(),
 		"tests": count,

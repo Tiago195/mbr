@@ -1,0 +1,30 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/training_dummy.gd" id="1_dummy"]
+[ext_resource type="Script" path="res://scripts/gameplay/combatant.gd" id="2_combatant"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_dummy"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_dummy"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dummy"]
+albedo_color = Color(0.8, 0.78, 0.72, 1)
+
+[node name="TrainingDummy" type="StaticBody3D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_dummy")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+material_override = SubResource("StandardMaterial3D_dummy")
+mesh = SubResource("CapsuleMesh_dummy")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_dummy")
+
+[node name="Combatant" type="Node" parent="."]
+script = ExtResource("2_combatant")
+team = 1
+max_health = 300.0
+attack_damage = 0.0
+armor = 20.0
