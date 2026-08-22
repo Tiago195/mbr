@@ -262,3 +262,6 @@ Atualizar ao fim de cada sessão. Manter também o "Estado atual" no `CLAUDE.md`
 | 1.2 | 🟡 Aguardando validação | 21/08/2026 | Três obstáculos em `Walls`. Botão direito segurado passa a mover continuamente (era decisão em aberto — tomada) |
 | 1.3 | 🟡 Aguardando validação | 21/08/2026 | `camera_rig.gd`: segue o Player com suavização exponencial, vista travada |
 | 1.4 | ⏭️ Adiada | | NavMesh. O doc já a marcava como opcional aqui; só vira necessária para a IA dos mobs na Fase 6 |
+| 2.1 | ✅ Concluída | 21/08/2026 | `Stat`, `StatModifier`, `Stats`. Critério verificado por `test_equipar_e_desequipar_devolve_ao_estado_anterior` |
+| 2.2 | ✅ Concluída | 21/08/2026 | `Damage` como função pura. 42 testes, 115 asserções, todos os casos de borda do doc de design. Convenções em aberto fechadas na decisão 8 |
+| 2.3 | ⬜ Não iniciada | | Precisa de validação humana: "consigo matar um boneco de treino clicando nele?" |

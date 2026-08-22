@@ -208,6 +208,62 @@ clique**: é tecla + posição do cursor. O raycast tela → mundo do
 
 ---
 
+## Decisão 8: convenções de combate fechadas na Fase 2
+
+`03-sistemas-de-jogo.md` deixou pontos em aberto no cálculo de dano. Fechados
+assim, todos cobertos por teste:
+
+### Crítico não se aplica a habilidade
+
+O doc perguntava explicitamente. **Só ataque básico critita.** É a convenção do
+LoL e tem uma razão prática: se habilidade crititasse, todo escalonamento
+teria que ser balanceado contra a variância do crítico, e o dano de burst
+viraria loteria.
+
+Habilidade que *deva* crititar é exceção declarada no efeito, não regra geral.
+Na API isso é o parâmetro `Damage.Source`.
+
+### Roubo de vida incide sobre o dano pós-mitigação, escudo incluso
+
+O doc diz "sobre o dano final aplicado, não sobre o bruto". O contraste que ele
+estabelece é com o **bruto**, então bater num escudo ainda cura — que é a
+convenção de MOBA. Se a intenção fosse "só o que saiu da vida", o teste
+`test_bater_em_escudo_ainda_cura` é onde inverter.
+
+`lifesteal` vale para ataque básico, `spell_vamp` para habilidade. A separação
+é pela **fonte**, não pelo tipo de dano: habilidade que causa dano verdadeiro
+ainda devolve spell vamp.
+
+### Penetração: percentual primeiro, flat depois, nunca abaixo de zero
+
+`defesa_efetiva = max(0, defesa * (1 - pen%) - pen_flat)`. A ordem importa e é
+a convenção usual. Penetração zera a defesa, não a inverte.
+
+### Defesa negativa amplifica com retorno decrescente
+
+Redução de armadura pode levar a defesa abaixo de zero. Em vez de deixar a
+fórmula `100/(100+d)` explodir, usa-se `2 - 100/(100-d)` — simétrica e
+limitada. Sem isso, -100 de armadura daria divisão por zero.
+
+### Ordem de aplicação de modificador
+
+`final = (base + soma_dos_flats) * (1 + soma_dos_percentuais)`.
+
+O ponto de fixar isso não é a fórmula em si: é que a **ordem em que os itens
+foram equipados não pode mudar o resultado**. Sem convenção única, a ordem de
+clique no inventário mudaria o dano do personagem.
+
+### Sem GUT: arnês de teste próprio
+
+O GUT é o framework de teste padrão da Godot, mas é addon externo a versionar.
+Para lógica pura em `RefCounted`, descobrir métodos `test_` por reflexão e
+contar falhas resolve em ~90 linhas (`tests/test_case.gd`).
+
+Se a suíte passar a precisar de fixtures, mocks ou testes parametrizados,
+trocar por GUT é barato — os testes em si mudam pouco.
+
+---
+
 ## Decisões ainda em aberto
 
 | Questão | Quando decidir |

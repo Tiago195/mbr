@@ -191,6 +191,29 @@ segurado movendo continuamente. Rodam sem erro; os critérios são visuais.
 **Fase 1.4 (NavMesh) adiada** — o roadmap já a marcava como opcional; só vira
 necessária para a IA dos mobs na Fase 6.
 
+**Fases 2.1 e 2.2 — concluídas (21/08/2026).** Atributos, modificadores e
+cálculo de dano em `scripts/core/combat/`, com 42 testes passando. Convenções
+de combate fechadas na decisão 8 de `docs/02-decisoes-tecnicas.md`.
+
+**Próximo: Fase 2.3** — ligar o motor de combate ao personagem. O critério
+("consigo matar um boneco de treino clicando nele?") exige validação humana.
+
+## Testes
+
+Suíte headless, sem abrir o editor. Sai com código 1 se algo falhar:
+
+```
+godot --headless --path . --script res://tests/run_tests.gd
+```
+
+Se der `Could not find type "TestCase"`, o cache de classes globais está
+velho — rodar um passe de importação antes:
+`godot --headless --editor --quit --path .`
+
+Todo teste novo entra em `tests/` e é registrado em `SUITES`, dentro de
+`tests/run_tests.gd`. Só `scripts/core/` é testável assim: é a parte que não
+conhece nó da engine.
+
 Particularidade do ambiente: a chave SSH do GitHub está **só no WSL2**.
 Commit funciona no Windows; o push precisa passar pelo WSL:
 `wsl -e bash -lc "cd /mnt/c/Godot/projetos/mbr && git push"`
