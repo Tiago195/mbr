@@ -383,6 +383,29 @@ precisa ser chamado pela camada de gameplay).
 - **Fase 1.4 (NavMesh)** — o roadmap já a marcava opcional; só é necessária
   para a IA dos mobs.
 
+### O veredito do usuário sobre as habilidades em jogo (22/08/2026)
+
+> *"achei vários problemas com as skills dos personagens, várias não estão
+> funcionando como deveria, mas acho q por hora tá tudo bem"*
+
+**Não é bug de tradução — são as lacunas registradas, medidas por campeão.**
+Das 124 habilidades dos 31 campeões com suprema:
+
+| Quantas | O que falta |
+|---|---|
+| 61 | Têm vários golpes e `AbilityCaster._draw` desenha **só o primeiro pulso** |
+| 65 | Alimentam a carga da suprema, que não existe |
+| 43 | Deveriam **zerar a cadência do ataque básico** (`ResetAttackCoolTime`) |
+| 35 | Área que **acompanha o alvo** (`FollowTarget`); a nossa planta no chão |
+| 24 | Deslocamento em **arco** (`ZMoveCurvePath`); o nosso é reta |
+| 14 | **Corrente de combo**: apertar Q de novo deveria virar outra habilidade |
+
+26 dos 31 campeões têm ao menos uma afetada. Regerar esta medição é uma varredura
+de `skill_xml` + `impact_xml` pelas colunas de `ORFAS_QUE_SAO_LACUNA`.
+
+**A mais barata e a que mais aparece é a primeira**: a telegrafia de um pulso
+só faz metade do kit parecer que não faz nada. As outras são sistema.
+
 ### Três sistemas que a tradução revelou e o roadmap não previa
 
 Achados por medição, não por memória. Nenhum é urgente; todos são refinamento
