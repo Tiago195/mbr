@@ -128,6 +128,13 @@ def id_e_pilha(bruto: str) -> tuple[str, int]:
     return achado.group(1), int(achado.group(2) or 1)
 
 
+def _linha_do_item(equip: dict, equip_id: str) -> str:
+    linha = (equip.get("EquipLine") or "").strip()
+    if not linha or linha == "0":
+        return f"rc_line_{equip_id}"
+    return f"rc_line_{linha}"
+
+
 def lista_ids(texto: str | None) -> list[str]:
     if not texto:
         return []
@@ -1586,9 +1593,11 @@ class Tradutor:
         # Projétil primeiro: a coluna de voo é a evidência mais forte, e ela
         # convive com qualquer `UI_Type`.
         if impacto.get("ProjectileEffectId") or num(impacto.get("MoveDistance")) > 0:
-            if not impacto.get("MoveDistance"):
+            if num(impacto.get("MoveDistance")) <= 0.0:
                 self._inventado("alcance do projétil", skill)
-            if not impacto.get("MoveSpeedZ"):
+            # `"0"` é uma string verdadeira em Python — sem o teste numérico,
+            # quatro projéteis com velocidade zero passavam por "declarada".
+            if num(impacto.get("MoveSpeedZ")) <= 0.0:
                 self._inventado("velocidade do projétil", skill)
             distancia = num(impacto.get("MoveDistance"), 8.0)
 
@@ -1986,7 +1995,11 @@ class Tradutor:
             "slot": espaco,
             "rarity": RARIDADE.get(equip.get("Rarity", "Common"), "COMMON"),
             "max_stack": inteiro(equip.get("MaxStackCount"), 1),
-            "line_id": f"rc_line_{equip.get('EquipLine', equip_id)}",
+            # `EquipLine = 0` é o marcador de "sem linha", não uma linha
+            # chamada zero. Copiá-lo literalmente juntava nove itens sem
+            # parentesco nenhum — três elmos, quatro luvas e duas botas — numa
+            # "linha de melhoria" de nove degraus que não existe.
+            "line_id": _linha_do_item(equip, equip_id),
             "sockets": inteiro(equip.get("Socket"), 0),
             "charges": inteiro(equip.get("UsableItemCount"), 0),
             "flat_bonuses": planos,

@@ -185,10 +185,10 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | TriggerTiming=OnHitWall no pulso (sem aproximação) | 10 |  |
 | TriggerTiming=OnHitActorObject no pulso (sem aproximação) | 10 |  |
 | geometria inventada: alcance do projétil (o original guarda o colisor fora do XML) | 9 | skill 1001201 |
+| geometria inventada: velocidade do projétil (o original guarda o colisor fora do XML) | 9 | skill 1001201 |
 | TriggerTiming=OnEvasion | 8 | skill 1014301 |
 | RemoveCC só de Slow traduzido como purificação ampla | 6 | skill 1012200 |
 | ReleaseImpact (cancela impacto em curso) | 6 | skill 1016250 |
-| geometria inventada: velocidade do projétil (o original guarda o colisor fora do XML) | 5 | skill 1001201 |
 | TriggerTiming=OnEvasion no pulso (sem aproximação) | 5 |  |
 | modificador só deste golpe: PhysicalDrain (temos modificador por personagem, não por golpe) | 5 | skill 1025301 |
 | RecoverDataType=RegenMana sem valor legível (os números vivem no texto localizado) | 5 | equipment 5000001 |

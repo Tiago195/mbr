@@ -631,6 +631,91 @@ func test_linhas_de_item_saem_da_menor_raridade_para_a_maior() -> void:
 				return
 	assert_true(linhas_conferidas > 50, "esperava muitas linhas de melhoria")
 
+func test_reducao_de_defesa_do_corpus_e_negativa() -> void:
+	# `PhysicalDefenseReduce` é DEBUFF no alvo: no nosso modelo vira armadura
+	# negativa. Traduzir sem inverter o sinal transformaria toda redução de
+	# defesa do original num buff de defesa — e a mutação que faz isso
+	# sobrevivia, porque nada exigia o sinal.
+	var reducoes: int = 0
+	var positivas: PackedStringArray = []
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			for effect: AbilityEffect in pulse.effects:
+				var mod := effect as StatModEffect
+				if mod == null:
+					continue
+				if mod.stat != Stat.Id.ARMOR and mod.stat != Stat.Id.MAGIC_RESIST:
+					continue
+				if effect.recipient != AbilityEffect.Recipient.TARGETS:
+					continue
+				if mod.value < 0.0:
+					reducoes += 1
+				elif mod.value > 0.0:
+					positivas.append(String(id))
+	assert_true(
+		reducoes > 50,
+		"só %d reduções de defesa no corpus — o sinal deve ter invertido" % reducoes
+	)
+
+func test_bonus_percentual_de_item_e_fracao() -> void:
+	# `0.15` no original quer dizer +15%, e `Stats` multiplica por
+	# `(1 + percent)`. Se um percentual entrasse como plano, +15% viraria +0,15
+	# de atributo — e a mutação que troca os dois sobrevivia.
+	var maiores_que_um: PackedStringArray = []
+	var total: int = 0
+	for id: StringName in _items().by_id:
+		var item: Item = _items().by_id[id]
+		for stat: Stat.Id in item.percent_bonuses:
+			total += 1
+			var valor: float = float(item.percent_bonuses[stat])
+			if absf(valor) > 1.0:
+				maiores_que_um.append("%s(%s=%.2f)" % [
+					id, Stat.name_of(stat), valor
+				])
+	assert_true(total > 30, "só %d bônus percentuais no corpus" % total)
+	assert_eq(
+		maiores_que_um.size(), 0,
+		"percentual maior que 1.0 é sinal de fração virada em plano: %s"
+			% ", ".join(maiores_que_um.slice(0, 5))
+	)
+
+func test_bonus_percentual_chega_ao_atributo_como_percentual() -> void:
+	# A prova de comportamento, não só de faixa: um item com +15% de recarga
+	# tem que dar 0.15 no atributo, e não 15.
+	var achado: Item = null
+	for id: StringName in _items().by_id:
+		var item: Item = _items().by_id[id]
+		if item.percent_bonuses.has(Stat.Id.ATTACK_SPEED):
+			achado = item
+			break
+	assert_not_null(achado, "nenhum item com bônus percentual de ataque")
+	if achado == null:
+		return
+	var portador: Unit = _unit()
+	for mod: StatModifier in achado.build_modifiers():
+		portador.stats.add_modifier(mod)
+	var fator: float = portador.stats.get_value(Stat.Id.ATTACK_SPEED)
+	assert_true(
+		fator > 1.0 and fator < 2.5,
+		"velocidade de ataque foi para %.2f — o percentual virou plano" % fator
+	)
+
+func test_nenhuma_linha_de_item_e_fabricada() -> void:
+	# `EquipLine = 0` é "sem linha". Copiá-lo literalmente juntava nove itens
+	# sem parentesco — três elmos, quatro luvas e duas botas — numa linha de
+	# melhoria de nove degraus que não existe.
+	var maior: int = 0
+	var linha_maior: StringName = &""
+	for linha: StringName in _items().by_line:
+		var tamanho: int = (_items().by_line[linha] as Array).size()
+		if tamanho > maior:
+			maior = tamanho
+			linha_maior = linha
+	assert_true(
+		maior <= 4,
+		"linha %s com %d degraus — o original vai até 3" % [linha_maior, maior]
+	)
+
 func test_nenhum_controle_do_corpus_e_inerte() -> void:
 	# `StatusSet.apply` descarta duração <= 0, então um controle com duração
 	# zero é um efeito que existe no dado e não faz nada. Já foram 121: TODO
