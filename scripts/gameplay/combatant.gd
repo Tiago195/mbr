@@ -14,6 +14,12 @@ extends Node
 signal damaged(result: DamageResult)
 signal died()
 
+## Emitido depois de um dash, empurrão ou puxão ser aplicado ao corpo.
+##
+## Existe porque a ordem de movimento anterior fica obsoleta: quem tinha um
+## destino guardado voltaria andando para lá assim que o dash terminasse.
+signal displaced(offset: Vector3)
+
 ## Times diferentes são inimigos. 0 = jogador, 1 = hostil.
 @export var team: int = 0
 
@@ -121,6 +127,7 @@ func _apply_displacement(host: Node3D, push: Vector3) -> void:
 	else:
 		host.global_position += push
 	unit.position = host.global_position
+	displaced.emit(push)
 
 # ---------------------------------------------------------------- atalhos
 

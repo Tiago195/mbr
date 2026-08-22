@@ -29,6 +29,18 @@ var _attack_cooldown: float = 0.0
 
 func _ready() -> void:
 	target_position = global_position
+	_combatant.displaced.connect(_on_displaced)
+
+## Depois de um deslocamento — dash, empurrão, puxão — o personagem para onde
+## parou.
+##
+## Sem isto, a ordem de movimento anterior sobrevive ao dash e ele volta
+## andando sozinho para onde o jogador tinha clicado antes. O alvo de ataque
+## também é solto: perseguir de volta teria o mesmo efeito visível.
+func _on_displaced(_offset: Vector3) -> void:
+	target_position = global_position
+	_target = null
+	velocity = Vector3.ZERO
 
 func _unhandled_input(event: InputEvent) -> void:
 	# O clique isolado é tratado aqui, e não só pelo estado do botão em
