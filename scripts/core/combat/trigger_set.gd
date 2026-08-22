@@ -4,8 +4,8 @@ extends RefCounted
 ## Efeitos armados que esperam um evento — o `TRIGGER` que
 ## `03-sistemas-de-jogo.md` listava no vocabulário e que ainda não existia.
 ##
-## A tradução do original tornou obrigatório: `TriggerTiming` aparece em todos
-## os 1602 impactos, com 18 valores distintos, e `BuffReleaseCondition` diz
+## A tradução do original tornou obrigatório: `TriggerTiming` aparece em todo
+## impacto, com **22 valores atômicos distintos**, e `BuffReleaseCondition` diz
 ## quando um buff se desfaz (`ShieldExhaust`, `SkillFinish`, `MaxStack`).
 ## Passiva de campeão é quase toda feita disto — "ao acertar três vezes, ganha
 ## escudo" é literalmente um gatilho com carga.
@@ -14,8 +14,8 @@ extends RefCounted
 ## entra como `WeakRef`, e o dono é passado em `fire()`.
 
 ## O que pode disparar. Nem todo `TriggerTiming` do original tem equivalente
-## aqui — a tabela completa dos 18 valores, com o que cada um virou e por que
-## sete deles ficaram de fora, está na seção "TriggerTiming" de
+## aqui — a tabela completa dos 22, com o que cada um virou e por que doze
+## deles ficaram de fora, está na seção "TriggerTiming" de
 ## `docs/10-traducao-do-original.md`. O critério: só entra evento que a camada
 ## `core/` consegue emitir sozinha, sem depender de cena.
 ##

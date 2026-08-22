@@ -365,7 +365,7 @@ e efeitos moram no pulso.
 
 **Por quê:** uma `Skill` do original referencia até doze `Impact`, cada um com
 `StartTime`, `StartPosition`, raio e alvos próprios — e cada impacto ainda pode
-encadear outro, com geometria própria. 422 das habilidades traduzidas usam mais
+encadear outro, com geometria própria. 416 das habilidades traduzidas usam mais
 de um pulso. Com uma forma só, traduzir obrigaria a descartar
 golpes ou a fundi-los — e fundir muda a habilidade.
 

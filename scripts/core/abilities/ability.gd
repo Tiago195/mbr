@@ -58,6 +58,22 @@ enum Aim {
 ## Os golpes, em ordem. Cada um com sua forma, seu tempo e seus efeitos.
 @export var pulses: Array[AbilityPulse] = []
 
+@export_group("Passiva do ranque")
+## Efeitos aplicados ao APRENDER esta habilidade neste ranque, e removidos ao
+## esquecê-la ou ao trocar de ranque.
+##
+## Vem de `skill_xml`, que tem `StatType1`/`StatValue1` em 8 grupos de
+## habilidade — 40 linhas ao todo. Não é o que a habilidade FAZ ao ser
+## conjurada: é o que ela dá por existir. O Q do Rody, por exemplo, dá
+## 2%/4%/6%/8%/10% de redução de recarga conforme o ranque.
+##
+## É o mesmo vocabulário de `Item.passive_effects`, e pela mesma razão de
+## sempre: passiva de habilidade e passiva de item não são dois sistemas.
+##
+## Convenção idêntica à do item: a `source_tag` de cada efeito é o `id` desta
+## habilidade, porque é por ela que esquecer encontra o que remover.
+@export var passive_effects: Array[AbilityEffect] = []
+
 @export_group("Progressão")
 ## Nível da habilidade, 1 a 5. O original guarda cada ranque como uma linha
 ## separada de `skill_xml` compartilhando o mesmo `SkillGroupID` — quer dizer,
@@ -98,6 +114,31 @@ func single_pulse() -> AbilityPulse:
 	if pulses.is_empty():
 		pulses = [AbilityPulse.new()]
 	return pulses[0]
+
+## Aplica a passiva do ranque a quem aprendeu. Chamado por `AbilityBook.learn`.
+func apply_passives(owner: Unit) -> void:
+	if owner == null or passive_effects.is_empty():
+		return
+	var cast: AbilityCast = AbilityCast.on_self(owner)
+	for effect: AbilityEffect in passive_effects:
+		if effect != null:
+			effect.apply(cast, owner)
+
+## Desfaz a passiva do ranque. Chamado ao esquecer ou ao trocar de ranque.
+func remove_passives(owner: Unit) -> void:
+	if owner == null or passive_effects.is_empty():
+		return
+	owner.stats.remove_source(&"buff:%s" % id)
+	owner.periodic.remove_source(&"periodico:%s" % id)
+	owner.triggers.remove_source(&"gatilho:%s" % id)
+
+## Carimba a etiqueta de toda passiva com o id da habilidade. Mesmo contrato de
+## `Item.stamp_passives()`, e pelo mesmo motivo: sem a etiqueta certa, esquecer
+## a habilidade não acha o bônus e ele fica para sempre.
+func stamp_passives() -> void:
+	for effect: AbilityEffect in passive_effects:
+		if effect != null and &"source_tag" in effect:
+			effect.set(&"source_tag", id)
 
 func has_pulses() -> bool:
 	for pulse: AbilityPulse in pulses:

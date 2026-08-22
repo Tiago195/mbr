@@ -133,6 +133,10 @@ static func build(data: Dictionary) -> Ability:
 				pulsos.append(pulse)
 	ability.pulses = pulsos
 
+	ability.passive_effects = EffectFactory.build_all(data.get("passive_effects", []))
+	# Carimba com o id: é o que faz esquecer a habilidade achar o bônus.
+	ability.stamp_passives()
+
 	# Dono e tabela de origem viajam como metadado, e não como campo exportado:
 	# são procedência da tradução, não vocabulário de habilidade. Um campo
 	# `owner` em `Ability` obrigaria toda habilidade nossa a responder de que

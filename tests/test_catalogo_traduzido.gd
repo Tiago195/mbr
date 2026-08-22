@@ -192,6 +192,90 @@ func test_impacto_encadeado_virou_pulso_proprio() -> void:
 			% com_ancora_anterior
 	)
 
+func test_o_corpus_traz_passiva_de_ranque() -> void:
+	# 40 linhas de `skill.StatType1` no original: o bônus que a habilidade dá
+	# por existir naquele ranque. Ficaram invisíveis por duas rodadas — o censo
+	# as listava e o doc dizia que o censo estava vazio.
+	var com_passiva: int = 0
+	for id: StringName in _abilities().by_id:
+		if not (_abilities().by_id[id] as Ability).passive_effects.is_empty():
+			com_passiva += 1
+	assert_eq(com_passiva, 40, "esperava as 40 linhas de StatType1 de skill_xml")
+
+func test_a_passiva_do_corpus_sobe_com_o_ranque() -> void:
+	var catalogo: AbilityCatalog = _abilities()
+	var achou: bool = false
+	for grupo: StringName in catalogo.by_group:
+		var ranques: Array = catalogo.by_group[grupo]
+		if ranques.size() < 3:
+			continue
+		# `ranques[0]` é o ranque 0 — a linha-modelo, que não tem passiva por
+		# definição. Quem carrega a passiva são os ranques 1 a 5.
+		var com_passiva: Array[Ability] = []
+		for ability: Ability in (ranques as Array):
+			if not ability.passive_effects.is_empty():
+				com_passiva.append(ability)
+		if com_passiva.size() < 2:
+			continue
+		achou = true
+		var primeiro := com_passiva[0].passive_effects[0] as StatModEffect
+		var ultimo := com_passiva[-1].passive_effects[0] as StatModEffect
+		assert_not_null(primeiro)
+		assert_true(
+			ultimo.value > primeiro.value,
+			"o ranque alto tinha bônus %f contra %f do baixo" % [
+				ultimo.value, primeiro.value
+			]
+		)
+		break
+	assert_true(achou, "nenhum grupo com passiva de ranque em vários ranques")
+
+func test_nenhum_impacto_sai_duas_vezes_na_mesma_habilidade() -> void:
+	# 16 habilidades citam um impacto em `ImpactN` **e** o encadeiam a partir de
+	# outro. Sem guarda, o golpe sai duas vezes e o dano dobra sem que nada no
+	# dado diga isso.
+	#
+	# A prova é DIRETA, pela procedência que o tradutor grava em cada pulso.
+	# A primeira versão deste teste tentava adivinhar por assinatura — forma,
+	# raio, efeito e atraso parecidos — e acusava falso em três golpes
+	# legítimos a 0,2s / 0,3s / 0,4s, que é exatamente como um combo rápido se
+	# parece. Heurística não distingue combo de duplicata; procedência sim.
+	var bruto: Dictionary = JSON.parse_string(
+		FileAccess.get_file_as_string(AbilityCatalog.CAMINHO_PADRAO)
+	)
+	var repetidos: PackedStringArray = []
+	for entry: Dictionary in bruto["habilidades"]:
+		var vistos: Dictionary = {}
+		for pulse: Dictionary in entry["pulses"]:
+			var origem: int = int(pulse.get("source_impact", 0))
+			if origem == 0:
+				continue
+			if vistos.has(origem):
+				repetidos.append("%s(%d)" % [entry["id"], origem])
+				break
+			vistos[origem] = true
+	assert_eq(
+		repetidos.size(), 0,
+		"o mesmo impacto virou dois pulsos em: %s" % ", ".join(repetidos.slice(0, 5))
+	)
+
+func test_a_procedencia_do_pulso_esta_registrada() -> void:
+	# Sem ela, o teste acima não teria como ser direto — e um número que não
+	# bate não teria por onde ser puxado.
+	var bruto: Dictionary = JSON.parse_string(
+		FileAccess.get_file_as_string(AbilityCatalog.CAMINHO_PADRAO)
+	)
+	var sem_origem: int = 0
+	var total: int = 0
+	for entry: Dictionary in bruto["habilidades"]:
+		for pulse: Dictionary in entry["pulses"]:
+			total += 1
+			# O pulso de purificação vem de `RemoveCC`, que não é impacto.
+			if not pulse.has("source_impact"):
+				sem_origem += 1
+	assert_true(total > 1600, "só %d pulsos no corpus" % total)
+	assert_true(sem_origem <= 10, "%d pulsos sem procedência" % sem_origem)
+
 func test_o_corpus_usa_deslocamento_de_ancora() -> void:
 	var deslocados: int = 0
 	for id: StringName in _abilities().by_id:

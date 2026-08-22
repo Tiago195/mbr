@@ -50,6 +50,10 @@ class Tabelas:
     `buff` e `crowd_control` — e o `_2` de cada uma é continuação, não versão
     alternativa. Juntar tudo aqui, uma vez, evita que cada tradutor tenha que
     lembrar disso.
+
+    Só entra tabela que é REALMENTE lida. `actor_xml` já esteve aqui, indexada
+    e nunca usada — código morto que dava a impressão de cobertura que não
+    existia. Ela volta quando alguém for traduzir campeão e mob, e não antes.
     """
 
     def __init__(self, raiz: Path) -> None:
@@ -59,7 +63,6 @@ class Tabelas:
         self.buffs = self._indexar("buff_xml", "buff_2_xml", "buff_3_xml", "buff_4_xml")
         self.ccs = self._indexar("crowd_control_xml")
         self.equipment = self._indexar("equipment_xml")
-        self.actors = self._indexar("actor_xml", "actor_2_xml", "actor_3_xml", "actor_4_xml")
         self.recipes = self._indexar("craft_recipe_xml")
 
     def _linhas(self, nome: str) -> list[ET.Element]:
@@ -368,6 +371,7 @@ class Relatorio:
             "buff": tabelas.buffs,
             "crowd_control": tabelas.ccs,
             "equipment": tabelas.equipment,
+            "craft_recipe": tabelas.recipes,
         }
         for nome, tabela in fontes.items():
             presentes: collections.Counter = collections.Counter()
@@ -400,7 +404,9 @@ CONSULTADAS = {
         "UI_Type", "UI_Params", "AI_SkillRange", "MovingOnSkill",
         "SkillCancelableTime", "AtlasName", "ButtonIconPath", "CastingTime",
         "RemoveCC", "RemoveDebuff", "UseChainBreak", "__tabela",
-    } | {f"Impact{n}" for n in range(1, 13)},
+    } | {f"Impact{n}" for n in range(1, 13)}
+      | {f"StatType{n}" for n in range(1, 5)}
+      | {f"StatValue{n}" for n in range(1, 5)},
     "impact": {
         "Id", "TriggerTiming", "TargetType", "StartPosition", "StartTime",
         "ColliderActiveDelay", "ActiveDuration", "Radius", "LoopInterval",
@@ -429,6 +435,10 @@ CONSULTADAS = {
         "IconPath", "Enable", "__tabela",
     } | {f"StatType_{n}" for n in range(1, 9)}
       | {f"StatValue_{n}" for n in range(1, 9)},
+    "craft_recipe": {
+        "Id", "ResultId", "__tabela",
+    } | {f"RawMaterialId_{n}" for n in range(1, 9)}
+      | {f"RawMaterialCount_{n}" for n in range(1, 9)},
 }
 
 ## Colunas que o tradutor NÃO lê **de propósito**, com o motivo. Estar aqui é
@@ -438,7 +448,13 @@ IGNORADAS = {
     "Sound": "som", "SoundOnHit1": "som", "SoundOnHit2": "som",
     "InteractionSound": "som",
     "Animation": "animação", "UseLoopAni": "animação",
-    "SkillSpeed": "animação", "Duration": "animação (duração do clipe)",
+    "SkillSpeed": "animação",
+    # Medido, não presumido: `Duration` é MAIOR que o `StartTime` do último
+    # impacto em 892 das 966 habilidades comparáveis, igual em 71 e menor em 3.
+    # É comprimento de clipe de animação, não canalização — canalização seria
+    # `CastingTime`, que é coluna própria e agora é lida.
+    "Duration": "comprimento do clipe de animação (medido: maior que o último "
+                "impacto em 892 de 966 habilidades)",
     "UseEquipModel": "modelo", "HideAttachmentSlots": "modelo",
     "ShowAttachmentSlots": "modelo", "UsePolymorphSkin": "modelo",
     "PolymorphActorId": "modelo",
@@ -476,7 +492,11 @@ IGNORADAS = {
     # --- infraestrutura do motor do original ----------------------------
     "CoolTimeLine": "agrupamento de recarga do original",
     "ComboLine": "agrupamento de combo do original",
-    "IsSeedSkill": "marcador interno", "Socket": "encaixe (lido em equipment)",
+    "IsSeedSkill": "marcador interno",     # Em `equipment` é encaixe de gema e é lido. Em `skill` é outra coisa com
+    # o mesmo nome, e vale `1` nas 844 linhas — constante, portanto sem
+    # informação.
+    "Socket": "em equipment é encaixe e é lido; em skill é homônimo com valor "
+              "constante 1 nas 844 linhas",
     "PersistRankOnCC": "marcador interno", "PersistStartTime": "marcador interno",
     "PersistEndTime": "marcador interno", "Persistence": "marcador interno",
     "ImpactTargetLayer": "camada de física do original",
@@ -484,8 +504,8 @@ IGNORADAS = {
     "ForceUltimateCharge": "carga de suprema (lacuna registrada)",
     "UltimateCharge": "carga de suprema (lacuna registrada)",
     "ApplyOnKnockOut": "regra de nocaute", "ReleaseOnKnockout": "regra de nocaute",
-    "ReleaseOnDie": "regra de morte", "ReleaseAutoAttack": "cadência de ataque",
-    "ResetAttackCoolTime": "cadência de ataque",
+    "ReleaseOnDie": "regra de morte", 
+    
     "AttackCancelableTime": "janela de cancelamento (lacuna registrada)",
     "MoveCancelableTime": "janela de cancelamento (lacuna registrada)",
     "TrackCancelableTime": "janela de cancelamento (lacuna registrada)",
@@ -508,23 +528,39 @@ IGNORADAS = {
     "AimDuration": "tempo de mira, ligado à interface",
     "FixedDirection": "trava de direção durante a animação",
     "LookAtTargetDirection": "trava de direção durante a animação",
-    "TrackingMode": "perseguição de alvo pelo projétil",
-    "StopCondition": "condição de parada do dash",
+    
+    
     "SkillType": "rótulo Moving/Haste do original",
     "SightRange": "lido como atributo em actor",
-    "LimitSourceDistance": "limite de distância do controle",
+    
     "IgnoreEnableSkillOnCC": "exceção de controle",
     "IgnoreMiss": "acerto garantido — sem consumidor ainda",
     "ArriveTime": "tempo de voo, aproximado por MoveSpeedZ",
     "StartPositionY": "altura, ignorada como o resto da altura",
     "MaxHeight": "altura do arremesso, visual",
     "MoveSpeed": "velocidade do arremesso, visual",
-    "FollowTarget": "impacto que segue o alvo — sem consumidor ainda",
+    
     "FollowSpawnerDirection": "orientação ao nascer",
-    "SourceType": "origem do controle, redundante com StartPosition",
-    "BeAbleToAttackBush": "arbusto — sem sistema de arbusto ainda",
+        # NÃO é redundante com `StartPosition`: `crowd_control_xml` não tem essa
+    # coluna. Diz de onde o empurrão irradia — do ponto de impacto (157) ou do
+    # conjurador (113). Nós sempre empurramos para longe do conjurador, o que é
+    # simplificação, e está registrado como assunção em docs/10.
+    "SourceType": "de onde o empurrão irradia; simplificamos sempre para longe "
+                  "do conjurador — assunção registrada em docs/10",
+    
     "SkillCancelableTime": "lido em skill",
     "MaxSlot": "interface de inventário",
+    # --- receita de fabricação -----------------------------------------
+    # Conferidas inertes no dado real, não presumidas: `CraftTime` é 0 nas 383
+    # linhas, `SuccessRate` só existe nas 84 sem material (as não-fabricáveis)
+    # e `ResultItemCount` é 1 nas 299 reais.
+    "CraftTime": "0 em todas as 383 linhas",
+    "SuccessRate": "só nas 84 linhas sem material, que são as não-fabricáveis",
+    "ResultItemCount": "1 nas 299 receitas reais",
+    "RecipeType": "valor único `Normal`",
+    "Category": "`Equipment` ou `NonCraftable`; a segunda já se identifica por "
+                "não ter material nenhum",
+    "DisableGameModes": "modo de jogo (fora do escopo)",
     # --- fechadas depois do primeiro censo -----------------------------
     # Cada uma abaixo apareceu como órfã na primeira varredura. Estar aqui é
     # uma decisão registrada; não estar em lugar nenhum era perda silenciosa.
@@ -558,8 +594,8 @@ IGNORADAS = {
     "ChainType": "corrente de combo (lacuna registrada)",
     "ChainCondition": "corrente de combo (lacuna registrada)",
     "IgnoreActivateTrigger": "corrente de combo (lacuna registrada)",
-    "TrackDistanceForMovingSkill": "perseguição de alvo pelo dash",
-    "TrackPersistTime": "perseguição de alvo pelo dash",
+    
+    
     "MoveType": "rótulo de tipo de movimento do original",
     "EnableSkillOnVehicle": "veículo (lacuna registrada)",
 }
@@ -568,6 +604,21 @@ IGNORADAS = {
 ## ali e nós não. Diferente de `IGNORADAS`, que são coisas que decidimos não
 ## precisar. `{coluna: descrição}`.
 ORFAS_QUE_SAO_LACUNA = {
+    # As nove abaixo já estiveram em `IGNORADAS`, filadas como decisão. Uma
+    # revalidação apontou que são sistemas de verdade escondidos atrás de um
+    # rótulo curto — "cadência de ataque" para o reset de auto-ataque, que é
+    # mecânica central de MOBA; "condição de parada do dash" para a investida
+    # que trava ao acertar. Rótulo curto não é justificativa; virou lacuna.
+    "StopCondition": "a investida que PARA ao acertar (OnImpactEnemy / "
+                     "OnDamage / OnLostTarget) — nosso dash sempre completa",
+    "ResetAttackCoolTime": "habilidade que zera a cadência do ataque básico",
+    "ReleaseAutoAttack": "habilidade que dispara um ataque básico ao terminar",
+    "TrackingMode": "projétil teleguiado",
+    "TrackDistanceForMovingSkill": "dash que persegue o alvo",
+    "TrackPersistTime": "por quanto tempo o dash persegue",
+    "FollowTarget": "área que acompanha o alvo em vez de ficar no chão",
+    "BeAbleToAttackBush": "arbusto que se pode atacar (não há arbusto)",
+    "LimitSourceDistance": "o gancho que arrebenta quando estica demais",
     "ThroughObstacle": "atravessar parede (não há sistema de obstáculo em core/)",
     "EnableSkillOnCC": "conjurar mesmo sob controle",
     "TargetCondition": "ricochete para outro inimigo",
@@ -1276,6 +1327,7 @@ class Tradutor:
         visitados: frozenset = frozenset(),
         atraso_herdado: float = 0.0,
         ancora_pai: str | None = None,
+        emitidos: set | None = None,
     ) -> list[dict]:
         """Um impacto e seus encadeados, cada um como pulso próprio.
 
@@ -1294,6 +1346,15 @@ class Tradutor:
         if marca in visitados:
             return []
         visitados = visitados | {marca}
+
+        # `emitidos` atravessa toda a habilidade; `visitados` só a cadeia atual.
+        # Os dois existem porque protegem de coisas diferentes: um de repetir o
+        # mesmo golpe, o outro de laço infinito.
+        if emitidos is not None:
+            if impact_id in emitidos:
+                self.r.usou("impacto repetido na habilidade, emitido uma vez")
+                return []
+            emitidos.add(impact_id)
 
         impacto = self.t.impacts.get(impact_id)
         if impacto is None:
@@ -1322,7 +1383,7 @@ class Tradutor:
         for filho in encadeados:
             saida.extend(self.pulsos(
                 filho, skill, onde, visitados, atraso_proprio,
-                None if efeitos else ancora,
+                None if efeitos else ancora, emitidos,
             ))
         return saida
 
@@ -1334,11 +1395,22 @@ class Tradutor:
         atraso: float,
         ancora: str,
     ) -> dict:
+        # `TriggerTiming` no caminho de pulso: a coluna estava declarada como
+        # consultada e só era lida no caminho de buff. 212 impactos alcançáveis
+        # por habilidade têm timing diferente de `Start` e viravam pulso
+        # imediato — o censo calava porque a coluna constava como lida.
+        self._timing_do_pulso(impacto)
+
         forma, geometria = self._forma(impacto, skill)
         alvos = self._filtro(impacto.get("TargetType", ""))
         laco = num(impacto.get("LoopInterval"))
 
         pulso = {
+            # Procedência: de qual `Impact` do original este pulso veio.
+            # Não é vocabulário de habilidade — o carregador ignora — mas é o
+            # que permite provar por teste que nenhum impacto virou dois
+            # pulsos, e é o primeiro lugar a olhar quando um número não bate.
+            "source_impact": int(impacto.get("Id", 0)),
             "form": forma,
             "origin": ancora,
             "delay": round(atraso, 3),
@@ -1355,6 +1427,24 @@ class Tradutor:
         pulso.update(geometria)
         pulso.update(alvos)
         return pulso
+
+    ## Registra o que o timing do impacto diz e o pulso não expressa.
+    ##
+    ## `Arrived` e `ImpactFinish` são aproximados pelo `delay` do pulso e pela
+    ## velocidade do projétil — dá para viver com isso, mas é aproximação e
+    ## precisa estar escrito. O resto não tem aproximação nenhuma.
+    def _timing_do_pulso(self, impacto: dict[str, str]) -> None:
+        bruto = impacto.get("TriggerTiming", "Start")
+        for parte in [t.strip() for t in bruto.split(",") if t.strip()]:
+            if parte == "Start":
+                continue
+            if parte in ("Arrived", "ImpactFinish"):
+                self.r.lacuna(
+                    f"TriggerTiming={parte} no pulso "
+                    "(aproximado pelo atraso e pela velocidade do projétil)"
+                )
+                continue
+            self.r.lacuna(f"TriggerTiming={parte} no pulso (sem aproximação)")
 
     def _forma(
         self, impacto: dict[str, str], skill: dict[str, str]
@@ -1450,12 +1540,27 @@ class Tradutor:
         # `Impact1` a `Impact12`. Parava em 8 e perdia 13 impactos inteiros de
         # 8 habilidades, com dano e cura de verdade — e sem virar lacuna,
         # porque o laço nem chegava a olhar a coluna.
+        # `vistos` é da HABILIDADE inteira, não de uma cadeia.
+        #
+        # 16 habilidades listam um impacto em `ImpactN` **e** o encadeiam a
+        # partir de outro. Sem esta guarda o mesmo golpe sai duas vezes, com
+        # atrasos ligeiramente diferentes — e o dano dobra sem que nada no dado
+        # diga isso. A leitura adotada é que a repetição é redundância da
+        # tabela, não intenção; vale a primeira ocorrência, e a contagem entra
+        # no relatório para a suposição ficar auditável.
         pulsos: list[dict] = []
+        vistos: set[str] = set()
         for indice in range(1, 13):
             impact_id = skill.get(f"Impact{indice}")
             if not impact_id:
                 continue
-            pulsos.extend(self.pulsos(impact_id, skill, onde))
+            if impact_id in vistos:
+                self.r.usou("impacto repetido na habilidade, emitido uma vez")
+                continue
+            antes = len(vistos)
+            pulsos.extend(self.pulsos(impact_id, skill, onde, emitidos=vistos))
+            if len(vistos) == antes:
+                vistos.add(impact_id)
 
         # `RemoveCC` é purificação, e `CleanseEffect` já existia. Sai como um
         # pulso no próprio conjurador, antes dos outros: purificar depois de
@@ -1475,6 +1580,23 @@ class Tradutor:
         tempo_de_conjuracao = num(skill.get("CastingTime"), 0.0)
         if tempo_de_conjuracao > 0.0:
             self.r.usou("cast_time")
+
+        # `StatType1`/`StatValue1` da SKILL é o bônus que a habilidade dá por
+        # existir naquele ranque — o Q que concede 2%/4%/6%/8%/10% de redução
+        # de recarga conforme sobe. Não é o que ela faz ao ser conjurada, e por
+        # isso não vira pulso: vira `Ability.passive_effects`.
+        passivas: list[dict] = []
+        for indice in range(1, 5):
+            nome = skill.get(f"StatType{indice}")
+            if not nome:
+                continue
+            mod = self._modificador(
+                nome, num(skill.get(f"StatValue{indice}")),
+                -1.0, "CASTER", f"rc_{skill_id}", onde,
+            )
+            if mod is not None:
+                self.r.usou("passiva de ranque")
+                passivas.append(mod)
 
         if skill.get("ComboSkillInfo_SkillID"):
             self.r.lacuna("ComboSkillInfo (corrente de combo)", onde)
@@ -1517,6 +1639,7 @@ class Tradutor:
             "aim": mira,
             "cast_range": num(skill.get("AI_SkillRange"), 0.0),
             "pulses": pulsos,
+            "passive_effects": passivas,
         }
 
     def _purificacao(self, skill: dict[str, str], onde: str) -> dict | None:
@@ -1525,30 +1648,37 @@ class Tradutor:
         limpa_buff = booleano(skill.get("RemoveDebuff"))
         if not bruto and not limpa_buff:
             return None
-        if not bruto:
-            # Só `RemoveDebuff`: tira efeito negativo, não controle.
+        efeitos: list[dict] = []
+
+        if limpa_buff:
+            # `RemoveDebuff` tira efeito negativo; `RemoveCC` tira controle.
+            # A única habilidade que tem os dois tinha o segundo descartado
+            # porque a função devolvia no primeiro ramo que casasse.
             self.r.usou("cleanse (RemoveDebuff)")
-            return {
-                "form": "SINGLE", "origin": "CASTER", "delay": 0.0,
-                "duration": 0.0, "loop_interval": 0.0, "radius": 0.0,
-                "max_targets": 0, "hits_enemies": False, "hits_allies": False,
-                "hits_self": True,
-                "effects": [{
-                    "type": "cleanse", "recipient": "CASTER",
-                    "scope": "BUFFS", "only_source": "",
-                    "strips_shield": False,
-                }],
-            }
-        tipos = [t.strip() for t in bruto.split(",") if t.strip()]
+            efeitos.append({
+                "type": "cleanse", "recipient": "CASTER",
+                "scope": "BUFFS", "only_source": "", "strips_shield": False,
+            })
+
+        tipos = [t.strip() for t in (bruto or "").split(",") if t.strip()]
         # Lista com Stun e companhia é purificação ampla; só `Slow` é a
         # estreita. Nosso `CleanseEffect` de escopo CROWD_CONTROL cobre as
         # duas — ele tira controle e lentidão juntos, e separar exigiria um
         # escopo por tipo que nenhuma outra habilidade usaria.
-        self.r.usou("cleanse (RemoveCC)")
-        if len(tipos) == 1 and tipos[0] == "Slow":
-            self.r.lacuna(
-                "RemoveCC só de Slow traduzido como purificação ampla", onde
-            )
+        if tipos:
+            self.r.usou("cleanse (RemoveCC)")
+            if len(tipos) == 1 and tipos[0] == "Slow":
+                self.r.lacuna(
+                    "RemoveCC só de Slow traduzido como purificação ampla", onde
+                )
+            efeitos.append({
+                "type": "cleanse",
+                "recipient": "CASTER",
+                "scope": "CROWD_CONTROL",
+                "only_source": "",
+                "strips_shield": False,
+            })
+
         return {
             "form": "SINGLE",
             "origin": "CASTER",
@@ -1560,13 +1690,7 @@ class Tradutor:
             "hits_enemies": False,
             "hits_allies": False,
             "hits_self": True,
-            "effects": [{
-                "type": "cleanse",
-                "recipient": "CASTER",
-                "scope": "CROWD_CONTROL",
-                "only_source": "",
-                "strips_shield": False,
-            }],
+            "effects": efeitos,
         }
 
     # ---------------------------------------------------------- item
@@ -1771,14 +1895,20 @@ def escrever_relatorio(
         "mapear. Uma coluna que o código nunca menciona não gera lacuna "
         "nenhuma — ela some, e a ausência fica indistinguível de uma decisão. "
         "Este censo varre as colunas presentes no XML e lista as que não estão "
-        "nem em `CONSULTADAS` nem em `IGNORADAS`."
+        "nem em `CONSULTADAS` nem em `IGNORADAS`. Ele cobre **todas** as "
+        "tabelas que o tradutor abre — inclusive a de receitas, que ficou de "
+        "fora na primeira versão."
     )
     linhas.append("")
     total_orfas = sum(len(c) for c in r.nao_consultadas.values())
     if total_orfas == 0:
         linhas.append(
-            "**Nenhuma.** Toda coluna das cinco tabelas ou é lida, ou está "
-            "declarada em `IGNORADAS` com o motivo."
+            "**Nenhuma.** Toda coluna das %d tabelas que o tradutor lê (%s) "
+            "ou é consultada, ou está declarada em `IGNORADAS` com o motivo."
+            % (
+                len(r.nao_consultadas),
+                ", ".join(f"`{n}`" for n in sorted(r.nao_consultadas)),
+            )
         )
     else:
         linhas.append("| Tabela | Coluna | Linhas que a têm |")

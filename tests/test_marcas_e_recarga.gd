@@ -224,6 +224,60 @@ func test_a_fila_de_recarga_esvazia() -> void:
 	assert_eq(heroi.consume_cooldown_adjustments().size(), 1)
 	assert_eq(heroi.pending_cooldown_adjustments.size(), 0)
 
+# ---------------------------------------------------------------- passiva de ranque
+
+func _com_passiva(id: StringName, valor: float) -> Ability:
+	var ability := Ability.new()
+	ability.id = id
+	ability.group_id = &"g"
+	var bonus := StatModEffect.new()
+	bonus.stat = Stat.Id.COOLDOWN_REDUCTION
+	bonus.value = valor
+	bonus.duration = -1.0
+	bonus.recipient = AbilityEffect.Recipient.CASTER
+	ability.passive_effects = [bonus]
+	ability.stamp_passives()
+	ability.single_pulse().effects = [DamageEffect.new()]
+	return ability
+
+func test_aprender_aplica_a_passiva_do_ranque() -> void:
+	var heroi: Unit = _unit()
+	var book := AbilityBook.new()
+	book.learn(AbilityBook.Slot.Q, _com_passiva(&"q_r1", 0.02), heroi)
+	assert_almost_eq(heroi.stats.get_value(Stat.Id.COOLDOWN_REDUCTION), 0.02)
+
+func test_esquecer_tira_a_passiva() -> void:
+	var heroi: Unit = _unit()
+	var book := AbilityBook.new()
+	book.learn(AbilityBook.Slot.Q, _com_passiva(&"q_r1", 0.02), heroi)
+	book.forget(AbilityBook.Slot.Q, heroi)
+	assert_almost_eq(heroi.stats.get_value(Stat.Id.COOLDOWN_REDUCTION), 0.0)
+	assert_eq(heroi.stats.modifier_count(), 0)
+
+func test_subir_de_ranque_nao_empilha_o_bonus() -> void:
+	# O Q do original dá 2%/4%/6%/8%/10% conforme o ranque — e são valores
+	# ABSOLUTOS por ranque, não incrementos. Aprender por cima sem esquecer o
+	# anterior daria 6% no ranque 2.
+	var heroi: Unit = _unit()
+	var book := AbilityBook.new()
+	book.learn(AbilityBook.Slot.Q, _com_passiva(&"q_r1", 0.02), heroi)
+	book.learn(AbilityBook.Slot.Q, _com_passiva(&"q_r2", 0.04), heroi)
+	assert_almost_eq(
+		heroi.stats.get_value(Stat.Id.COOLDOWN_REDUCTION), 0.04,
+		"o ranque novo substitui, não soma"
+	)
+
+func test_aprender_sem_dono_nao_estoura() -> void:
+	var book := AbilityBook.new()
+	book.learn(AbilityBook.Slot.Q, _com_passiva(&"q_r1", 0.02))
+	assert_not_null(book.ability_in(AbilityBook.Slot.Q))
+
+func test_habilidade_sem_passiva_nao_deixa_nada() -> void:
+	var heroi: Unit = _unit()
+	var book := AbilityBook.new()
+	book.learn(AbilityBook.Slot.Q, _habilidade(&"simples", &"g", 5.0), heroi)
+	assert_eq(heroi.stats.modifier_count(), 0)
+
 # ---------------------------------------------------------------- teleporte
 
 func test_teleporte_leva_ao_ponto_mirado() -> void:

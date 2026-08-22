@@ -9,7 +9,7 @@ extends Resource
 ## original faz de interessante: uma `Skill` de lá referencia até 12 `Impact`,
 ## e cada impacto tem tempo, posição, raio e alvos próprios. Um impacto ainda
 ## pode encadear outro, com geometria e tempo próprios. Depois de traduzido,
-## **422 das habilidades do original têm mais de um pulso**.
+## **416 das habilidades do original têm mais de um pulso**.
 ##
 ## Sem esta peça, traduzir uma habilidade de vários golpes obrigaria a
 ## escolher entre descartar impactos ou fundi-los num só — e fundir está

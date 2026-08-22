@@ -142,7 +142,7 @@ existiam:
 | `ResourceEffect` | `Mana` | Devolve e queima recurso |
 | `CleanseEffect` | `Release_Effects_Id` | Purificação e dissipação hostil |
 | `MarkEffect` | Buff só com `Line` e `Rank` | **Marcador**: estado sem efeito próprio. 30 buffs do original são só isso |
-| `CooldownEffect` | `AdjustCDSkillIds` | Acertar X reduz a recarga de Y. **21 buffs** o declaram, e o tradutor o emite 100 vezes porque esses buffs são referenciados por várias habilidades |
+| `CooldownEffect` | `AdjustCDSkillIds` | Acertar X reduz a recarga de Y. **21 buffs** o declaram, e o efeito sai mais vezes que isso porque esses buffs são referenciados por várias habilidades — a contagem exata está no `RELATORIO.md`, que é gerado |
 
 Mais um valor de controle que faltava: **`INVULNERABLE`**. Ele existia em
 `StatusSet` e **não** em `CrowdControlEffect`, então o corpus o emitia, a
@@ -170,7 +170,7 @@ frente dos pés, e o golpe que sai da mão direita.
 
 **A mudança estrutural.** Até aqui `Ability` tinha **uma** forma, **um** filtro
 e **uma** lista de efeitos. Uma `Skill` do original referencia até doze
-`Impact`, cada um podendo encadear outros, e 422 das traduzidas viram mais de
+`Impact`, cada um podendo encadear outros, e 416 das traduzidas viram mais de
 um pulso.
 
 Traduzir sem isso obrigaria a escolher entre descartar impactos ou fundi-los —
@@ -224,9 +224,9 @@ Números da última execução (o `RELATORIO.md` gerado tem o detalhe):
 |---|---|
 | Habilidades traduzidas | **1126** — as 948 de `skill_xml` + 178 das tabelas de continuação |
 | ...com pelo menos um pulso | 964 |
-| ...com mais de um pulso | 422 |
-| Pulsos | 1703 |
-| Efeitos | 3244 |
+| ...com mais de um pulso | 416 |
+| Pulsos | 1687 |
+| Efeitos | 3229 |
 | Itens | **421**, em 257 linhas de melhoria |
 
 Das 162 sem pulso:
@@ -255,32 +255,46 @@ O conserto foi estrutural: o tradutor mantém duas listas explícitas —
 motivo**) — e o relatório varre as cinco tabelas do original atrás de colunas
 que não estejam em nenhuma das duas.
 
-**Hoje o censo sai vazio.** Toda coluna de `skill`, `impact`, `buff`,
-`crowd_control` e `equipment` ou é lida, ou está declarada com uma justificativa
-como "som", "efeito visual", "texto localizado" ou "lacuna registrada".
+**Hoje o censo sai vazio** — e essa frase já foi falsa uma vez. A primeira
+versão a escreveu enquanto o relatório do mesmo commit listava 40 linhas de
+`skill.StatType1`, que eram bônus passivos por ranque de verdade. A segunda
+revalidação pegou, e agora elas são lidas: viraram `Ability.passive_effects`.
+
+O censo cobre as **seis** tabelas que o tradutor abre — `skill`, `impact`,
+`buff`, `crowd_control`, `equipment` e `craft_recipe`. A de receitas ficou de
+fora na primeira versão, e ficar de fora do censo é exatamente o buraco que o
+censo existe para tapar.
+
+Toda coluna dessas seis ou é lida, ou está declarada com uma justificativa
+verificável — "valor único `Release`", "0 em todas as 383 linhas", "som",
+"texto localizado", "lacuna registrada".
 
 Isso é o que transforma "traduzimos tudo" de afirmação em medição — e é o que
 faz a próxima coluna que aparecer numa tabela nova gritar em vez de sumir.
 
 ### `TriggerTiming` — a tabela que faltava
 
-`trigger_set.gd` prometia esta tabela e ela não existia. Os 18 valores de
-`TriggerTiming` que o original usa, e o que cada um virou:
+`trigger_set.gd` prometia esta tabela e ela não existia. São **22 valores
+atômicos** nas quatro tabelas de impacto — a primeira versão desta seção dizia
+18, contando errado, e a revalidação pegou. A contagem entre parênteses é de
+impactos que usam cada um:
 
 | Original | Nosso `TriggerSet.Event` | Observação |
 |---|---|---|
-| `Start` | *(nenhum)* | Ausência de gatilho: sai junto com a habilidade |
-| `MaxStack` | `MARK_MAXED` | O que fez `MarkSet` existir |
-| `DoAttackDamage` | `BASIC_ATTACK_HIT` | |
-| `DoSkillDamage`, `DoSkillDamageOnce` | `ABILITY_HIT` | |
-| `OnHitDamage` | `DAMAGE_TAKEN` | |
-| `Expire` | `EXPIRED` | |
-| `ActivateActiveSkill` | `ABILITY_CAST` | |
-| `Arrived`, `ImpactFinish` | *(lacuna)* | Momento de voo do projétil; nosso `delay` aproxima |
-| `OnEvasion`, `DoCriticalDamage`, `OnCrowdControl` | *(lacuna)* | Eventos de combate que `core/` não emite |
-| `InCombat`, `OutCombat` | *(lacuna)* | Não há estado de combate |
-| `OnHitWall`, `OnHitActorObject` | *(lacuna)* | Não há colisão com cenário em `core/` |
-| `DoDropOut`, `ActivateActiveSkillByMoving`, `ActivateActiveSkillByHaste` | *(lacuna)* | |
+| `Start` (1600) | *(nenhum)* | Ausência de gatilho: sai junto com a habilidade |
+| `MaxStack` (27) | `MARK_MAXED` | O que fez `MarkSet` existir |
+| `DoAttackDamage` (78) | `BASIC_ATTACK_HIT` | |
+| `DoSkillDamage` (36), `DoSkillDamageOnce` (1) | `ABILITY_HIT` | A variante "uma vez só" ainda não distingue |
+| `OnHitDamage` (5) | `DAMAGE_TAKEN` | |
+| `Expire` (6) | `EXPIRED` | |
+| `ActivateActiveSkill` (11) | `ABILITY_CAST` | |
+| `Arrived` (141), `ImpactFinish` (67) | *(aproximado)* | Momento de voo do projétil. No caminho de buff é lacuna; no caminho de pulso, o `delay` e a velocidade do projétil aproximam — e **está registrado como aproximação**, não como equivalência |
+| `OnEvasion` (6), `DoCriticalDamage` (4), `OnCrowdControl` (3) | *(lacuna)* | Eventos de combate que `core/` não emite |
+| `InCombat` (5), `OutCombat` (6) | *(lacuna)* | Não há estado de combate |
+| `OnHitWall` (7), `OnHitActorObject` (7) | *(lacuna)* | Não há colisão com cenário em `core/` |
+| `DoDropOut` (3), `DoKillMonster` (1) | *(lacuna)* | |
+| `ActivateActiveSkillByMoving` (6), `ActivateActiveSkillByHaste` (6) | *(lacuna)* | Conjurar em movimento ou acelerado |
+| `InteractionComplete(3000400)` (1) | *(lacuna)* | Interação com objeto específico do cenário |
 
 ## Lacunas — o que o original diz e nós ainda não
 
@@ -297,6 +311,21 @@ original tem e nós não, achado por medição em vez de por memória.
 | **Corrente entre dois alvos** | `Link`, 47 | Amarra dois combatentes e rompe na distância |
 | **Troca de habilidade no espaço** | `UseSkillSlot`, 27 | Postura que reescreve o que Q e W fazem |
 | **Amplificação por habilidade** | `PhysicalDamageAmp_SkillE`, 21 | "+20% no dano do seu E". Exige modificador por habilidade, e hoje só temos por atributo |
+
+### Achadas na segunda revalidação
+
+Estas estavam em `IGNORADAS` do tradutor com um rótulo curto — "cadência de
+ataque", "condição de parada do dash" — que soava a decisão e escondia sistema.
+Rótulo curto não é justificativa.
+
+| Lacuna | Onde | O que é |
+|---|---|---|
+| **Área que acompanha o alvo** | `FollowTarget`, 1967 | Nossa área fica onde caiu, sempre. A do original pode grudar em quem foi atingido |
+| **Arbusto atacável** | `BeAbleToAttackBush`, 1523 | Não há sistema de arbusto |
+| **Reset de auto-ataque** | `ResetAttackCoolTime`, 521 | A habilidade que zera a cadência do ataque básico. É mecânica central de MOBA, e ela sozinha muda a ordem de botões de um kit inteiro |
+| **Projétil teleguiado** | `TrackingMode`, 118 | O nosso vai reto |
+| **Investida que para ao acertar** | `StopCondition`, 100 | O nosso dash sempre completa a distância. `OnImpactEnemy` faz ele travar no primeiro alvo, que é outra habilidade |
+| **Gancho que arrebenta na distância** | `LimitSourceDistance`, 17 | Parente do `Link` |
 
 ### Precisam de sistema que não é de combate
 
@@ -325,6 +354,15 @@ Onde o original não documenta e a escolha foi nossa:
   de cada impacto, que virou o `delay` do pulso.
 - **`ActiveDuration` só vira duração de área quando há laço.** Sem laço ela é o
   tempo que o colisor fica ligado, que para nós é instantâneo.
+- **Impacto listado duas vezes sai uma vez.** 16 habilidades citam um impacto
+  em `ImpactN` **e** o encadeiam a partir de outro. A leitura adotada é que
+  isso é redundância da tabela, não intenção de bater duas vezes — vale a
+  primeira ocorrência. Se estiver errado, o dano dessas 16 está pela metade, e
+  a contagem no `RELATORIO.md` é o fio para puxar.
+- **`SourceType` do controle é simplificado.** A coluna diz se o empurrão
+  irradia do ponto de impacto (157 linhas) ou do conjurador (113). Nós sempre
+  empurramos para longe do conjurador. Para arremesso e empurrão de área a
+  diferença é pequena; para um impacto que explode longe do conjurador, não é.
 
 ---
 

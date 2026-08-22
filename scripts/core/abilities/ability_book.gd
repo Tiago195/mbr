@@ -43,10 +43,24 @@ var _scheduled: Array[Scheduled] = []
 
 # ---------------------------------------------------------------- slots
 
-func learn(slot: Slot, ability: Ability) -> void:
+## Aprende uma habilidade num espaço.
+##
+## `owner` é opcional só por compatibilidade com quem não tem passiva de
+## ranque; passá-lo é o certo, porque é o que aplica `passive_effects` — o
+## bônus que a habilidade dá **por existir**, e que sobe junto com o ranque.
+##
+## Aprender por cima esquece a anterior primeiro: sem isso, subir de ranque
+## empilharia o bônus dos dois.
+func learn(slot: Slot, ability: Ability, owner: Unit = null) -> void:
+	forget(slot, owner)
 	_slots[slot] = ability
+	if ability != null and owner != null:
+		ability.apply_passives(owner)
 
-func forget(slot: Slot) -> void:
+func forget(slot: Slot, owner: Unit = null) -> void:
+	var anterior := _slots.get(slot, null) as Ability
+	if anterior != null and owner != null:
+		anterior.remove_passives(owner)
 	_slots.erase(slot)
 
 func ability_in(slot: Slot) -> Ability:

@@ -14,3 +14,8 @@ export_presets.cfg
 # Windows
 Thumbs.db
 desktop.ini
+
+# Artefato de build do Python. `import traduzir` a partir de um teste ou de
+# uma sonda gera isto e sujava a árvore — foi apontado numa revalidação.
+__pycache__/
+*.pyc

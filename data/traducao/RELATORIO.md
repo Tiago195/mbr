@@ -12,9 +12,9 @@
 | ...de `skill_4_xml` | 2 |
 | ...de `skill_xml` | 948 |
 | ...com pelo menos um pulso | 964 |
-| ...com mais de um pulso | 422 |
-| Pulsos gerados | 1703 |
-| Efeitos gerados | 3244 |
+| ...com mais de um pulso | 416 |
+| Pulsos gerados | 1687 |
+| Efeitos gerados | 3229 |
 | Itens traduzidos | **421** |
 
 ### As que saíram sem pulso
@@ -33,10 +33,10 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 
 | Peça | Vezes |
 |---|---|
-| `drain_factor` | 1988 |
-| `acerto garantido (já é a nossa convenção)` | 1118 |
-| `habilidade não critica (já é a nossa convenção)` | 954 |
-| `damage:physical` | 916 |
+| `drain_factor` | 1972 |
+| `acerto garantido (já é a nossa convenção)` | 1113 |
+| `habilidade não critica (já é a nossa convenção)` | 949 |
+| `damage:physical` | 906 |
 | `damage:magic` | 821 |
 | `stat:move_speed` | 498 |
 | `tenacidade inferida (sem ApplyToughness)` | 329 |
@@ -46,7 +46,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `cc:SLOW` | 185 |
 | `stat:armor` | 181 |
 | `stat:magic_resist` | 173 |
-| `summon` | 171 |
+| `summon` | 160 |
 | `gatilho MARK_MAXED` | 146 |
 | `heal` | 139 |
 | `cc:STUN` | 136 |
@@ -55,33 +55,36 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `cc:AIRBORNE` | 121 |
 | `cooldown` | 104 |
 | `periodic` | 98 |
-| `stat:attack_damage` | 74 |
+| `stat:attack_speed` | 79 |
+| `stat:attack_damage` | 79 |
 | `stat:magic_damage_amp` | 73 |
 | `stat:physical_damage_amp` | 71 |
 | `stat:ability_power` | 71 |
 | `gatilho BASIC_ATTACK_HIT` | 70 |
-| `stat:attack_speed` | 69 |
 | `cast_time` | 61 |
 | `damage:percent_hp` | 56 |
 | `damage:monster_cap` | 55 |
 | `aura como buff simples` | 55 |
 | `resource` | 53 |
+| `stat:cooldown_reduction` | 51 |
 | `stat:max_health` | 45 |
-| `stat:cooldown_reduction` | 41 |
+| `passiva de ranque` | 40 |
 | `impacto de buff, imediato` | 39 |
 | `execute` | 37 |
 | `heal:percent_hp` | 34 |
 | `damage:siege` | 33 |
 | `stat:out_of_combat_health_regen` | 28 |
 | `stat:dodge` | 26 |
+| `stat:crit_chance` | 26 |
 | `stat:heal_received_amp` | 26 |
 | `stat:mana_regen` | 23 |
 | `stat:armor_pen_flat` | 22 |
 | `cc:CHARM` | 21 |
-| `stat:crit_chance` | 21 |
+| `stat:armor_pen_percent` | 19 |
 | `stat:health_regen_amp` | 19 |
 | `stat:magic_pen_flat` | 19 |
 | `displacement:cc` | 18 |
+| `impacto repetido na habilidade, emitido uma vez` | 16 |
 | `dissipa em ABILITY_CAST` | 15 |
 | `displacement:teleporte` | 15 |
 | `stat:lifesteal` | 15 |
@@ -95,7 +98,6 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `stat:health_regen` | 9 |
 | `damage:hibrido` | 9 |
 | `stat:spell_vamp` | 9 |
-| `stat:armor_pen_percent` | 9 |
 | `stat:magic_pen_percent` | 9 |
 | `gatilho ABILITY_CAST` | 9 |
 | `impacto dentro de controle` | 7 |
@@ -116,16 +118,14 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `gatilho DAMAGE_TAKEN` | 2 |
 | `cc:SILENCE` | 1 |
 | `cc:POLYMORPH` | 1 |
+| `cleanse (RemoveDebuff)` | 1 |
 | `gatilho ABILITY_HIT` | 1 |
 
 ## Censo de colunas — o que nunca foi olhado
 
-A tabela de lacunas abaixo só sabe do que o tradutor **tentou** mapear. Uma coluna que o código nunca menciona não gera lacuna nenhuma — ela some, e a ausência fica indistinguível de uma decisão. Este censo varre as colunas presentes no XML e lista as que não estão nem em `CONSULTADAS` nem em `IGNORADAS`.
+A tabela de lacunas abaixo só sabe do que o tradutor **tentou** mapear. Uma coluna que o código nunca menciona não gera lacuna nenhuma — ela some, e a ausência fica indistinguível de uma decisão. Este censo varre as colunas presentes no XML e lista as que não estão nem em `CONSULTADAS` nem em `IGNORADAS`. Ele cobre **todas** as tabelas que o tradutor abre — inclusive a de receitas, que ficou de fora na primeira versão.
 
-| Tabela | Coluna | Linhas que a têm |
-|---|---|---|
-| `skill` | `StatType1` | 40 |
-| `skill` | `StatValue1` | 40 |
+**Nenhuma.** Toda coluna das 6 tabelas que o tradutor lê (`buff`, `craft_recipe`, `crowd_control`, `equipment`, `impact`, `skill`) ou é consultada, ou está declarada em `IGNORADAS` com o motivo.
 
 ## Lacunas — o que o original diz e nós ainda não
 
@@ -133,14 +133,22 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 
 | Lacuna | Ocorrências | Exemplo |
 |---|---|---|
+| área que acompanha o alvo em vez de ficar no chão (`FollowTarget` em impact) | 1967 |  |
+| arbusto que se pode atacar (não há arbusto) (`BeAbleToAttackBush` em impact) | 1523 |  |
 | UltimateCharge (carga de suprema) | 534 | skill 1000000 |
+| habilidade que zera a cadência do ataque básico (`ResetAttackCoolTime` em skill) | 521 |  |
 | atravessar parede (não há sistema de obstáculo em core/) (`ThroughObstacle` em crowd_control) | 263 |  |
 | ricochete para outro inimigo (`TargetCondition` em impact) | 181 |  |
 | atravessar parede (não há sistema de obstáculo em core/) (`ThroughObstacle` em skill) | 167 |  |
 | curva de deslocamento (MoveCurve) | 154 | skill 1000200 |
+| TriggerTiming=Arrived no pulso (aproximado pelo atraso e pela velocidade do projétil) | 143 |  |
 | ComboSkillInfo (corrente de combo) | 125 | skill 1000000 |
+| projétil teleguiado (`TrackingMode` em skill) | 118 |  |
+| a investida que PARA ao acertar (OnImpactEnemy / OnDamage / OnLostTarget) — nosso dash sempre completa (`StopCondition` em skill) | 100 |  |
 | janela de cancelamento por tempo | 72 | skill 1000000 |
+| TriggerTiming=ImpactFinish no pulso (aproximado pelo atraso e pela velocidade do projétil) | 71 |  |
 | atravessar parede (não há sistema de obstáculo em core/) (`ThroughObstacle` em impact) | 56 |  |
+| dash que persegue o alvo (`TrackDistanceForMovingSkill` em skill) | 53 |  |
 | Link (corrente que liga dois alvos e rompe na distância) | 47 | skill 1003201 |
 | BuffReleaseCondition=SkillFinish | 41 | skill 1001301 |
 | UseSkillSlot (troca a habilidade de um espaço) | 27 | skill 1007351 |
@@ -152,12 +160,18 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | RecoverDataType=RegenHealth sem valor legível (os números vivem no texto localizado) | 19 | equipment 5000000 |
 | RecoverDataType=RegenAll sem valor legível (os números vivem no texto localizado) | 19 | equipment 7308001 |
 | alcance do ricochete (`TargetRange` em impact) | 19 |  |
+| o gancho que arrebenta quando estica demais (`LimitSourceDistance` em crowd_control) | 17 |  |
 | BuffReleaseCondition=InteractionStart | 16 | skill 1003401 |
+| habilidade que dispara um ataque básico ao terminar (`ReleaseAutoAttack` em skill) | 15 |  |
+| TriggerTiming=OnHitWall no pulso (sem aproximação) | 10 |  |
+| TriggerTiming=OnHitActorObject no pulso (sem aproximação) | 10 |  |
 | TriggerTiming=OnEvasion | 8 | skill 1014301 |
 | RemoveCC só de Slow traduzido como purificação ampla | 6 | skill 1012200 |
 | ReleaseImpact (cancela impacto em curso) | 6 | skill 1016250 |
+| TriggerTiming=OnEvasion no pulso (sem aproximação) | 5 |  |
 | modificador só deste golpe: PhysicalDrain (temos modificador por personagem, não por golpe) | 5 | skill 1025301 |
 | RecoverDataType=RegenMana sem valor legível (os números vivem no texto localizado) | 5 | equipment 5000001 |
+| por quanto tempo o dash persegue (`TrackPersistTime` em skill) | 5 |  |
 | BuffReleaseCondition=OnStartSkill | 4 | skill 3301030 |
 | TriggerTiming=DoCriticalDamage | 4 | equipment 1000507 |
 | modificador só deste golpe: MagicalPenetrationRatio (temos modificador por personagem, não por golpe) | 3 | skill 3400400 |
@@ -170,6 +184,8 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | modificador só deste golpe: MagicalDrain (temos modificador por personagem, não por golpe) | 2 | skill 1002800 |
 | modificador só deste golpe: PhysicalDamagePerPhysicalDefense (temos modificador por personagem, não por golpe) | 2 | skill 1026000 |
 | crowd_control ausente | 2 | skill 9101100 -> 1010101 |
+| TriggerTiming=DoAttackDamage no pulso (sem aproximação) | 1 |  |
+| TriggerTiming=DoSkillDamage no pulso (sem aproximação) | 1 |  |
 | BuffReleaseCondition=OnCCMoved | 1 | skill 3400600 |
 | SummonRedzone (modo de jogo específico) | 1 | skill 3401601 |
 | StatType=VehicleHasteRatio | 1 | skill 3401700 |
