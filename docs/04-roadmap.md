@@ -286,9 +286,31 @@ Atingido isso, a ideia está validada. Tudo daqui em diante é melhoria.
 
 ---
 
+## Sobre a Fase 4 ter sido adiada
+
+Decisão do usuário em 22/08/2026: *"pode pular o multiplayer, pra q
+multiplayer no estágio q o game se encontra?"*.
+
+A objeção foi levantada antes, com o argumento deste próprio documento — a
+fase existe cedo porque *"se o netcode não funcionar, o projeto não existe"*.
+O usuário reafirmou, e a decisão é dele.
+
+**O contrapeso honesto, que pesou na conversa:** boa parte do risco que
+justificava a ordem já foi paga. Todo o `core/` — atributos, dano, vida,
+habilidades, zona, itens, partida — não conhece nó da engine e roda headless.
+O medo do documento é lógica embolada com render, e isso não aconteceu.
+
+O risco que sobra é menor e específico: *"o netcode da Godot dá conta?"*. Isso
+se responde com a **4.1 sozinha** — duas cápsulas se vendo por IP direto, uma
+sessão curta — sem fazer a fase inteira. Vale guardar como sonda para quando o
+jogo estiver perto de valer a pena jogar acompanhado.
+
 ## Registro de progresso
 
 Atualizar ao fim de cada sessão. Manter também o "Estado atual" no `CLAUDE.md`.
+
+Legenda: ✅ concluída e validada · 🟨 lógica pronta, falta camada visual ou
+integração · 🟡 aguardando validação humana · ⏭️ adiada
 
 | Fase | Status | Data | Notas |
 |---|---|---|---|
@@ -302,5 +324,9 @@ Atualizar ao fim de cada sessão. Manter também o "Estado atual" no `CLAUDE.md`
 | 2.4 | ✅ Concluída | 21/08/2026 | Validado após corrigir a barra, que deslizava em vez de encolher (billboard descarta escala do nó) |
 | 3.1 | ✅ Concluída | 21/08/2026 | Vocabulário de efeitos: DAMAGE, HEAL, SHIELD, STAT_MOD, CROWD_CONTROL, DISPLACEMENT. `Unit` reúne atributos, vida e estados fora da árvore de cena. 71 testes |
 | 3.2 | ✅ Concluída | 21/08/2026 | `Ability` como Resource, `AbilityShape`, `AbilityBook`, `AbilityEngine`. 99 testes. Critério da 3.3 já verificado por teste — ver nota abaixo |
-| 3.3 | 🟡 Aguardando validação | 21/08/2026 | Três habilidades em Q/W/E, declaradas em `data/abilities/*.tres`. Critério objetivo passa em teste; falta sentir se são divertidas |
-| 3.4 | 🟡 Aguardando validação | 21/08/2026 | Telegrafia primitiva: disco no chão, faixa, esfera viajando. Recusas vão para o console |
+| 3.3 | ✅ Concluída | 22/08/2026 | Três habilidades em Q/W/E, declaradas em `data/abilities/*.tres`. Validado em jogo. Veredito do usuário: funciona, mas ainda não é divertido — falta oposição e conteúdo |
+| 3.4 | ✅ Concluída | 22/08/2026 | Telegrafia primitiva: disco no chão, faixa, esfera viajando. Recusas vão para o console |
+| **4** | ⏭️ **Adiada por decisão do usuário** | 22/08/2026 | Multiplayer. Ver a nota abaixo da tabela — a objeção foi levantada e a decisão é dele |
+| 5.2 | 🟨 Lógica pronta | 22/08/2026 | `Item` e `Inventory` em `core/items/`, 16 testes. Falta loot no chão, coleta e UI |
+| 5.3 | 🟨 Lógica pronta | 22/08/2026 | `Zone` em `core/match/`, 18 testes. Falta o círculo desenhado e trocar `damage_per_second` por buff |
+| 5.4 | 🟨 Lógica pronta | 22/08/2026 | `MatchState` em `core/match/`, 15 testes. Governa a zona e decide o vencedor. Falta spawn, respawn de lobby e ligação com a cena |

@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 > Este arquivo é lido automaticamente pelo Claude Code ao abrir o projeto.
 > Ele define o contexto permanente. Leia-o inteiro antes de qualquer tarefa.
@@ -188,62 +188,100 @@ Classificação honesta do conteúdo:
 
 **Não verificado — tratar como plausível, não como fato:**
 - Passo a passo de navegação do editor (nomes de menu podem diferir na 4.7)
-- Todo o processo de extração do APK — depende de o build ser Mono ou IL2CPP,
-  o que ninguém checou ainda
-- Nenhum código deste repositório foi executado
+
+**Corrigido pela prática (22/08/2026):**
+- ~~"o processo de extração depende de o build ser Mono ou IL2CPP"~~ — o build
+  é IL2CPP, e não importou: os dados saíram sem tocar em código. Ver
+  `docs/05-extracao-dados-apk.md`
+- ~~"nenhum código deste repositório foi executado"~~ — tudo roda, com 154
+  testes automatizados
 
 **Opinião de engenharia, não fato:** arquitetura, roadmap, ordem das fases,
 design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 
 ## Estado atual
 
-**Fase 1.1 — concluída (21/08/2026).** Cena `scenes/main.tscn` com chão,
-cápsula, câmera isométrica e luz. Movimento por botão direito, verificado em
-execução. Repositório em `github.com:Tiago195/mbr`, branch `master`.
+> Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
+> branch `master`. **154 testes, 439 asserções**, todos verdes.
 
-**Fases 1.2 e 1.3 — implementadas, aguardando validação humana.** Obstáculos
-em `Walls`, câmera seguindo o jogador (`camera_rig.gd`), botão direito
-segurado movendo continuamente. Rodam sem erro; os critérios são visuais.
+### Onde parar de ler e começar a trabalhar
 
-**Fase 1.4 (NavMesh) adiada** — o roadmap já a marcava como opcional; só vira
-necessária para a IA dos mobs na Fase 6.
+O próximo passo combinado é o **Passo 4 de `docs/05-extracao-dados-apk.md`**:
+traduzir as habilidades e itens do jogo original — já extraídos e legíveis —
+para o vocabulário de efeitos de `docs/03-sistemas-de-jogo.md`.
 
-**Fases 2.1, 2.2 e 2.3 — implementadas (21/08/2026).** Motor de combate em
-`scripts/core/combat/` (atributos, modificadores, dano, vida) e a integração
-com o personagem via `Combatant`, um componente Node que se pendura tanto no
-`CharacterBody3D` do jogador quanto no `StaticBody3D` do boneco de treino.
-52 testes passando. Convenções fechadas na decisão 8 de
-`docs/02-decisoes-tecnicas.md`.
+### Os dados do original estão extraídos
 
-**Fase 2.4 — acrescentada ao roadmap, implementada e validada (21/08/2026).**
-Barra de vida e número de dano. Não estava no roadmap original; entrou porque
-é instrumentação para balancear, não polimento.
+**113 tabelas XML em `C:\Godot\rc-referencia\xml\`** — fora deste repositório,
+de propósito. São referência de design, não asset do projeto: números e
+estrutura entram, arte e código não (`docs/01-visao-e-escopo.md`).
 
-**Fase 3.1 — concluída (21/08/2026).** Vocabulário de efeitos em
-`scripts/core/abilities/`. `Unit` (em `core/combat/`) reúne atributos, vida,
-estados e posição fora da árvore de cena; `Combatant` virou ponte. 71 testes.
-Formato de dado fechado na decisão 9: `Resource` em `.tres`.
+Cifra resolvida: **DES-CBC**, chave `5d0b249faa9fd875`, IV `e950d93408855ed3`.
+Detalhes, inventário das tabelas e o que elas revelaram estão no
+`docs/05-extracao-dados-apk.md`.
 
-**Fase 3.2 — concluída (21/08/2026).** `Ability` (Resource), `AbilityShape`,
-`AbilityBook`, `AbilityEngine`. 99 testes, 255 asserções.
+Destaques: `skill_xml` (948 habilidades com timing completo), `actor_xml` +
+`actor_2_xml` (116 personagens), `equipment_xml` (421 itens),
+`magnetic_field_xml` (a zona, 9 fases), `drop_table_xml` (696 entradas),
+`actorattribute_xml` (66 atributos contra os nossos 18).
 
-Regras de estado definidas **uma vez no sistema**, em `ability_engine.gd`:
-stun e silêncio impedem conjurar; stun no meio corta a conjuração; habilidade
-nova NÃO cancela a anterior (recusa com BUSY); recarga começa ao **iniciar** a
-conjuração, então cortar a conjuração de alguém não devolve a habilidade.
+### O que está pronto e jogável
 
-**Fases 3.3 e 3.4 — implementadas (21/08/2026), aguardando validação.**
-Três habilidades em `data/abilities/*.tres`, ligadas a Q/W/E por
-`AbilityCaster`. Telegrafia primitiva em `AbilityTelegraph`. 103 testes.
+Fases 1.1 a 1.3, 2.1 a 2.4, e 3.1 a 3.4 — todas validadas em execução.
 
-Habilidade nova é um `.tres` novo — **não** se escreve classe. Se precisar de
-classe, o vocabulário está incompleto: generalize `AbilityEffect` antes.
+Dá para: andar clicando com o botão direito, contornar obstáculos, atacar
+bonecos de treino, e usar três habilidades em Q/W/E (área no chão, projétil
+que para no primeiro, dash com escudo). Barra de vida com escudo e números de
+dano flutuantes.
 
-Os `.tres` foram gerados por script headless em vez de escritos à mão: índice
-de enum e id de sub-recurso são fáceis de errar em texto. Para criar mais,
-repetir o padrão — script descartável usando `ResourceSaver.save()`.
+**Veredito do usuário sobre a diversão:** *"pro que nós temos agora é
+impossível isso ser divertido, ainda falta muito"*. Justo — não há oposição
+que revide, nem mapa, nem loot, nem progressão.
 
-**Próximo: Fase 4** — multiplayer, o maior risco técnico do projeto.
+### O que está pronto só como lógica
+
+Existem em `core/`, com teste, mas **não estão ligados à cena nem têm camada
+visual**:
+
+| Sistema | Arquivo | Testes | O que falta |
+|---|---|---|---|
+| Zona que fecha | `core/match/zone.gd` | 18 | Círculo desenhado; trocar `damage_per_second` por buff, como o original faz |
+| Itens e inventário | `core/items/` | 16 | Loot no chão, coleta, UI |
+| Fluxo de partida | `core/match/match_state.gd` | 15 | Spawn, lobby, ligação com a cena |
+
+### O que foi adiado, e por decisão de quem
+
+- **Fase 4 (multiplayer) — adiada pelo usuário** em 22/08/2026. A objeção foi
+  levantada com o argumento do próprio roadmap e ele reafirmou. Ver a nota
+  em `docs/04-roadmap.md`. Guardar a **4.1 sozinha** como sonda barata de
+  risco quando o jogo valer a pena jogar acompanhado.
+- **Fase 1.4 (NavMesh)** — o roadmap já a marcava opcional; só é necessária
+  para a IA dos mobs.
+
+### O que o usuário disse que falta
+
+Palavras dele: *"nós precisamos de todos — itens, loot, inventário, mapa de
+verdade, personagens e kits, e isso é só o começo; falta a mecânica do battle
+royale inteira"*.
+
+Na leitura desta sessão, o que mais falta para deixar de ser sandbox não é
+conteúdo, é **oposição**: um boneco parado não é adversário, e nenhuma
+quantidade de habilidade nova conserta isso. Mobs com IA simples usam o mesmo
+`Combatant` e `AbilityBook` que o jogador — inclusive conjuram.
+
+### Como este projeto trabalha
+
+O usuário conduz por validação, não por micro-decisão: *"vc sempre vai tomar a
+frente, eu vou apenas validar e testar o q vc n consegue, pode ir seguindo
+para as próximas fases, só pare quando precisar q eu teste ou valide algo"*.
+
+Ou seja: avançar sem pedir autorização a cada etapa, commitar e fazer push ao
+fim de cada uma, e **parar só quando o critério exigir olho humano** — coisa
+visual, sensação de jogabilidade, teste multi-máquina. Erro de console, teste
+unitário e lógica pura eu fecho sozinho.
+
+Ao tomar uma decisão que a documentação marcava como "em aberto", registrá-la
+em `docs/02-decisoes-tecnicas.md` e dizer que tomou — ele reverte se discordar.
 
 ## Testes
 

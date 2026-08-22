@@ -1,10 +1,17 @@
 # 05 — Extração dos dados de design do jogo original
 
-> **Sondagem realizada em 22/08/2026** sobre o build Steam instalado em
-> `C:\Program Files (x86)\Steam\steamapps\common\Royal Crown`.
-> O resultado está na seção "Passo 0 — o que a sondagem encontrou", no fim
-> deste documento. Leia-a antes do resto: várias suposições daqui foram
-> confirmadas, e uma foi superada.
+> **EXTRAÇÃO CONCLUÍDA em 22/08/2026.** As 113 tabelas de design do original
+> estão decifradas em `C:\Godot\rc-referencia\xml\` — **fora deste
+> repositório**, de propósito.
+>
+> Pule para a seção **"Passo 0 — o que a sondagem encontrou"**, no fim deste
+> documento: ela tem a chave da cifra, o inventário das tabelas e o que os
+> dados revelaram. O texto antes dela é o plano original, mantido por
+> contexto — várias suposições dele foram confirmadas e uma estava errada.
+>
+> **O que falta é o Passo 4:** traduzir as habilidades e itens do original
+> para o vocabulário de efeitos de `03-sistemas-de-jogo.md`. Onde não couber,
+> o vocabulário cresce — e isso é informação sobre o sistema, não problema.
 
 ## Por que isso existe
 
@@ -191,7 +198,41 @@ chegou a shipar:
 **Mesmo sem decifrar, essa lista tem valor:** ela diz quais sistemas
 existiram e como o time original os separou.
 
-### As tabelas estão cifradas — o que já se sabe da cifra
+### A cifra — RESOLVIDA
+
+```
+algoritmo : DES-CBC      (bloco de 8 bytes)
+chave     : 5d0b249faa9fd875
+IV        : e950d93408855ed3
+```
+
+A chave estava como bloco de bytes crus no `global-metadata.dat`, offset
+10231585 — não como string, por isso a varredura de strings não a achou.
+
+O IV se recupera de texto conhecido: o primeiro bloco claro é BOM de UTF-8
+seguido de `<?xml`, então `IV = D(cifra₁) XOR texto₁`.
+
+**113 das 115 tabelas extraídas** para `C:\Godot\rc-referencia\xml\`.
+Não decifraram: `metafile_keeper` (2 bytes, não cifrado) e `chat_abuse`
+(outro formato).
+
+Para reextrair: venv com `UnityPy` e `pycryptodome`; abrir `_xml.pak` com
+UnityPy, pegar os `TextAsset`, decifrar com DES-CBC, remover enchimento PKCS7.
+
+> **O erro que custou uma hora, registrado para não se repetir.**
+>
+> A conclusão inicial foi "AES", tirada do prefixo comum de 48 bytes lido como
+> 3 blocos de 16. Mas 48 também é 6 blocos de 8 — e o dado que decidia estava
+> à vista desde a primeira medição: os tamanhos das tabelas são todos
+> múltiplos de 8 e **metade não é múltipla de 16**, o que é impossível com
+> bloco de 16.
+>
+> O nome da classe no metadata é `AESEncryptor`, e é pista falsa. Custou 177
+> milhões de posições varridas procurando chave de 16, 24 e 32 bytes.
+>
+> Lição: medição que contradiz a hipótese não vira nota de rodapé.
+
+### O que se sabia da cifra antes de resolver
 
 | Observação | Medição | O que elimina |
 |---|---|---|
@@ -203,23 +244,83 @@ existiram e como o time original os separou.
 O metadata IL2CPP tem uma classe própria chamada **`AESEncryptor`**. Todo o
 resto de material criptográfico ali é BouncyCastle, vindo do BestHTTP — ruído.
 
-**Chave: ainda não encontrada.** Descartadas por teste direto:
+O teste que achou a chave dispensa conhecer o IV: em CBC,
+`texto₂ = D(cifra₂) XOR cifra₁`, e `cifra₁` está no arquivo. Com bloco de 8
+bytes, verificar um bloco só dá 1 falso positivo a cada ~2.500 — inútil. Mas
+o prefixo comum de 48 bytes dá **cinco** blocos conhecidos, e exigir os 40
+bytes imprimíveis derruba o falso positivo para ~10⁻¹⁷: zero ruído.
 
-- Todas as 160 mil strings do metadata, mais MD5 e SHA-256 de cada uma
-  (297 mil candidatas, AES-ECB e AES-CBC)
-- As candidatas de aparência óbvia: `9B65E372FCD68EF20FA7111F9E4AFF73`,
-  `175c951fec709c44fa2f26b8ab78b8dd`, `499A234DCF76E3FED135F9BB`,
-  `9FC61D2FC0EB06E3`
+---
 
-Em andamento: varredura de **bytes crus** do metadata e do `GameAssembly.dll`,
-porque chave em C# se declara como `byte[] { ... }` e nesse caso não vira
-string nenhuma.
+## O que as tabelas revelaram
 
-O teste usado dispensa conhecer o IV: em CBC,
-`texto₂ = AES_decifra(cifra₂) XOR cifra₁`, e `cifra₁` está no arquivo.
+### A zona (`magnetic_field_xml`) — 9 fases
 
-Se a varredura falhar, sobra ler o `AESEncryptor` no Ghidra — outra ordem de
-esforço.
+| Fase | Raio | Espera | Encolhe |
+|---|---|---|---|
+| 1 | 380 → 290 | 190s | 60s |
+| 2 | 290 → 215 | 140s | 50s |
+| 3 | 215 → 160 | 100s | 40s |
+| 4 | 160 → 120 | 70s | 50s |
+| 5 | 120 → 80 | 50s | 35s |
+| 6 | 80 → 55 | 40s | 20s |
+| 7 | 55 → 35 | 40s | 20s |
+| 8 | 35 → 22 | 40s | 15s |
+
+A estrutura bate com `scripts/core/match/zone.gd`: `DurationTime` é o tempo de
+aviso, `DecreaseTime` é o de encolhimento. **Duas coisas o original faz
+melhor:**
+
+- **`Buffid` em vez de dano solto.** O dano da zona é um buff, reusando o
+  vocabulário de efeitos. É o princípio que `03-sistemas-de-jogo.md` prega e
+  que a nossa `Zone` ainda não segue — ela tem `damage_per_second` direto.
+- **`CenterPointLogic: RandomInside`.** O próximo centro é sorteado dentro do
+  círculo atual, não predefinido. É o que faz cada partida ser diferente.
+
+Campos extras: `BonusExp` por fase (XP escala conforme a partida avança),
+`AISurvivalRate`, `StatueInteractionTime`.
+
+### Atributos (`actorattribute_xml`) — 66 contra os nossos 18
+
+Vários apontam sistemas inteiros que não estavam no radar:
+
+| Atributo | Sistema que implica |
+|---|---|
+| `MP`, `MaxMP`, `MPRegen` | Recurso de conjuração — o roadmap dizia "custo, se houver" |
+| `GroggyHp`, `MaxGroggyHp` | Atordoamento por acúmulo |
+| `SightRange` | Névoa de guerra (há um `_fogofwar.pak`) |
+| `Accuracy`, `Agility`, `Flexibility` | Acerto e esquiva |
+| `QSkillLevel`, `WSkillLevel`, `ESkillLevel` | Nível por habilidade |
+| `WoodWorkSkillCDReduction`, `AlchemySkillCDReduction` | Profissões |
+| `Toughness`, `SlowResist`, `HasteRatio` | Resistência a controle |
+| `MaxShieldPerPhysicalDamage`, `DamageAmpPerDistance` | Atributos derivados |
+
+### Habilidades (`skill_xml`) — 948
+
+Campos de timing que o próprio doc dizia não se descrever de memória:
+`CoolTime`, `Duration`, `AimDuration`, `MoveCancelableTime`,
+`SkillCancelableTime`, `CancelForbidStartTime/EndTime`,
+`ComboSkillInfo_SkillID/StartTime/LimitTime`.
+
+`TargetType` vem no formato `TargetAlly(11), TargetEnemy(1,2,3,5,10,11)` — um
+sistema de camadas de alvo mais fino que o nosso filtro de três booleanos.
+
+### Personagens (`actor_xml` + `actor_2_xml`) — 116 registros
+
+`DefaultSkillId_1..4`, `UltimateSkill`, `PassiveBuffs`, e pares
+`StatType_N`/`StatValue_N`. É exatamente o modelo "personagem = kit +
+atributos" que já adotamos.
+
+### Itens (`equipment_xml`) — 421
+
+`StatType_N`/`StatValue_N`, `MaxStackCount`, `Socket`, `Rarity`,
+`DropCount` — valida o modelo de `scripts/core/items/item.gd`.
+
+### Outras de interesse imediato
+
+`impact_xml` (2 MB) e `effect_xml` são o vocabulário de efeitos deles.
+`drop_table_xml` (696) e `lootpreset_xml` são o loot. `ai_preset_xml` é a IA
+dos mobs. `ingamelevel_xml` é a progressão dentro da partida.
 
 ### Correção ao que este documento supunha
 
