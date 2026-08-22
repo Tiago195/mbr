@@ -108,14 +108,18 @@ func _refresh_bar() -> void:
 	_set_segment(_fill, _fill_mesh, 0.0, fraction)
 	_fill_material.albedo_color = color_empty.lerp(color_full, fraction)
 
-	# Escudo ocupa o trecho logo depois da vida, medido na mesma escala de vida
-	# máxima. Escudo maior que o espaço restante é cortado na borda — a barra
-	# não cresce, senão barras de tamanhos diferentes ficariam incomparáveis.
+	# Escudo é desenhado SOBRE a vida, terminando na borda dela e crescendo
+	# para a esquerda. Lê-se como "esta parte do que você tem é escudo".
+	#
+	# A primeira tentativa foi desenhá-lo no espaço depois da vida, e ela
+	# falhava exatamente no caso mais comum: com vida cheia não sobra espaço
+	# nenhum, o segmento nascia com largura zero e o escudo ficava invisível.
+	# E vida cheia é quando se usa habilidade defensiva — antes de apanhar.
 	var maximum: float = health.maximum()
 	var shield_span: float = 0.0
 	if maximum > 0.0:
 		shield_span = clampf(health.shield / maximum, 0.0, 1.0)
-	_set_segment(_shield, _shield_mesh, fraction, minf(1.0, fraction + shield_span))
+	_set_segment(_shield, _shield_mesh, maxf(0.0, fraction - shield_span), fraction)
 
 ## Posiciona um trecho da barra entre duas frações, de 0 a 1.
 ##
