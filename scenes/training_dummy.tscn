@@ -1,7 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/training_dummy.gd" id="1_dummy"]
 [ext_resource type="Script" path="res://scripts/gameplay/combatant.gd" id="2_combatant"]
+[ext_resource type="Script" path="res://scripts/gameplay/combat_feedback.gd" id="3_feedback"]
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_dummy"]
 
@@ -28,3 +29,7 @@ team = 1
 max_health = 300.0
 attack_damage = 0.0
 armor = 20.0
+
+[node name="CombatFeedback" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
+script = ExtResource("3_feedback")

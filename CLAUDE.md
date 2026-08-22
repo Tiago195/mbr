@@ -198,8 +198,10 @@ com o personagem via `Combatant`, um componente Node que se pendura tanto no
 52 testes passando. Convenções fechadas na decisão 8 de
 `docs/02-decisoes-tecnicas.md`.
 
-A 2.3 aguarda validação humana: "consigo matar um boneco de treino clicando
-nele?".
+**Fase 2.4 — acrescentada ao roadmap e implementada (21/08/2026).** Barra de
+vida e número de dano (`CombatFeedback`, `FloatingText`). Não estava no
+roadmap original; entrou porque é instrumentação para balancear, não
+polimento. Aguarda validação humana.
 
 **Próximo: Fase 3** — vocabulário de efeitos e motor de habilidades.
 

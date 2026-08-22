@@ -1,9 +1,10 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scripts/gameplay/camera_rig.gd" id="2_camera"]
 [ext_resource type="Script" path="res://scripts/gameplay/combatant.gd" id="3_combatant"]
 [ext_resource type="PackedScene" path="res://scenes/training_dummy.tscn" id="4_dummy"]
+[ext_resource type="Script" path="res://scripts/gameplay/combat_feedback.gd" id="5_feedback"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(20, 20)
@@ -109,6 +110,10 @@ armor = 30.0
 attack_speed = 1.5
 attack_range = 2.5
 crit_chance = 0.25
+
+[node name="CombatFeedback" type="Node3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
+script = ExtResource("5_feedback")
 
 [node name="DummyNear" parent="." instance=ExtResource("4_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1, -2)

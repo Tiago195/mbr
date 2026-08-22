@@ -32,6 +32,17 @@ var stats: Stats
 var health: Health
 
 func _ready() -> void:
+	ensure_ready()
+
+## Constrói atributos e vida se ainda não existirem.
+##
+## Existe como método público porque outros nós — o de feedback visual, por
+## exemplo — precisam de `health` no `_ready()` deles, e a ordem em que a Godot
+## chama `_ready()` entre irmãos depende da ordem na cena. Depender disso é
+## receita para um bug que só aparece quando alguém arrasta um nó no editor.
+func ensure_ready() -> void:
+	if stats != null:
+		return
 	stats = Stats.new()
 	stats.set_bases({
 		Stat.Id.MAX_HEALTH: max_health,

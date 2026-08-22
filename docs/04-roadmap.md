@@ -89,6 +89,31 @@ ataque. Um segundo alvo (boneco parado) que toma dano e morre.
 
 **Critério:** consigo matar um boneco de treino clicando nele?
 
+### 2.4 — Leitura de combate
+
+> **Fase acrescentada em 21/08/2026.** Não estava no roadmap original, e a
+> ausência era um vão: a 3.4 cobre telegrafia de habilidade (área no chão,
+> projétil, indicador de mira) e a Fase 6 cobre "UI de verdade". Barra de vida
+> e número de dano não estavam em nenhuma das duas.
+
+Barra de vida sobre cada combatente e número de dano subindo no impacto.
+
+O argumento para trazer isto para cá, e não deixar no polimento, está no
+próprio `03-sistemas-de-jogo.md`:
+
+> O que consome tempo aqui **não é escrever, é balancear** — descobrir que 200
+> de armadura deixa o jogo chato, que roubo de vida está quebrado.
+
+Não se balanceia o que não se enxerga. Isto é **instrumentação**, não
+polimento — e instrumentação chega antes de fazer falta, não depois. Enquanto
+a única leitura de combate for `print` no console, todo ajuste de número é às
+cegas.
+
+Continua feio de propósito: dois quads e um `Label3D`, sem animação de UI,
+sem ícone, sem moldura.
+
+**Critério:** consigo ver a vida caindo e o dano saindo sem olhar o console?
+
 ---
 
 ## FASE 3 — Habilidades
@@ -264,4 +289,5 @@ Atualizar ao fim de cada sessão. Manter também o "Estado atual" no `CLAUDE.md`
 | 1.4 | ⏭️ Adiada | | NavMesh. O doc já a marcava como opcional aqui; só vira necessária para a IA dos mobs na Fase 6 |
 | 2.1 | ✅ Concluída | 21/08/2026 | `Stat`, `StatModifier`, `Stats`. Critério verificado por `test_equipar_e_desequipar_devolve_ao_estado_anterior` |
 | 2.2 | ✅ Concluída | 21/08/2026 | `Damage` como função pura. 42 testes, 115 asserções, todos os casos de borda do doc de design. Convenções em aberto fechadas na decisão 8 |
-| 2.3 | 🟡 Aguardando validação | 21/08/2026 | `Health`, `Combatant`, boneco de treino. Ataque com alcance e cadência. 10 testes cobrem a vida; o clique em si precisa de olho humano |
+| 2.3 | ✅ Concluída | 21/08/2026 | Validado: mata o boneco clicando. Fórmula conferida no log — 50 normal, 87.5 crítico, contra 20 de armadura |
+| 2.4 | 🟡 Aguardando validação | 21/08/2026 | Fase acrescentada. Barra de vida e número de dano. `CombatFeedback` só observa sinais de `Health` |
