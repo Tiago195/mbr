@@ -64,8 +64,6 @@ static func _is_inside_any(
 		pulse: AbilityPulse, cast: AbilityCast, anchor: Vector3, unit: Unit
 ) -> bool:
 	var direcoes: Array[Vector3] = pulse.spread_directions(cast.direction)
-	if direcoes.size() == 1:
-		return _is_inside(pulse, cast, anchor, unit, cast.direction)
 	for direcao: Vector3 in direcoes:
 		if _is_inside(pulse, cast, anchor, unit, direcao):
 			return true

@@ -284,6 +284,27 @@ func test_arremesso_trava_tudo() -> void:
 	assert_false(airborne.can_attack())
 	assert_false(airborne.can_cast())
 
+func test_arremesso_tira_a_agencia() -> void:
+	# `AIRBORNE` está em `StatusSet.LOSES_CONTROL`, e tinha que estar: quem foi
+	# arremessado não obedece a clique. Tirá-lo da lista passava despercebido —
+	# `has_agency()` só era testado para encanto, provocação e transformação.
+	var airborne: Unit = _unit()
+	airborne.status.apply(StatusSet.Kind.AIRBORNE, 1.0)
+	assert_false(airborne.has_agency(), "arremessado não obedece a ordem")
+
+func test_atordoado_tira_a_agencia() -> void:
+	var stunned: Unit = _unit()
+	stunned.status.apply(StatusSet.Kind.STUN, 1.0)
+	assert_false(stunned.has_agency())
+
+func test_prender_nao_tira_a_agencia() -> void:
+	# Preso não anda, mas continua escolhendo para onde mira e o que conjura.
+	# É a diferença entre perder o corpo e perder o controle.
+	var rooted: Unit = _unit()
+	rooted.status.apply(StatusSet.Kind.ROOT, 1.0)
+	assert_false(rooted.can_move())
+	assert_true(rooted.has_agency())
+
 func test_transformacao_deixa_andar() -> void:
 	var frog: Unit = _unit()
 	frog.status.apply(StatusSet.Kind.POLYMORPH, 2.0)

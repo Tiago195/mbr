@@ -341,6 +341,99 @@ func test_leque_nao_soma_dano_em_quem_esta_no_meio() -> void:
 	)
 	assert_almost_eq(reto.health.current, 960.0, "um dano, não três")
 
+func test_cone_respeita_o_proprio_alcance() -> void:
+	# A propriedade que o bug do cone violava: `length` É o alcance, e quem
+	# está além dele não é atingido, por mais alinhado que esteja.
+	#
+	# Não havia teste disso — o único teste de cone usava alcance 6 com alvos a
+	# 4m, e uma mutação que ignorasse `length` passava despercebida.
+	var caster: Unit = _unit()
+	var dentro: Unit = _unit(Vector3(0, 0, -3), 1)
+	var fora: Unit = _unit(Vector3(0, 0, -9), 1)
+
+	var ability := Ability.new()
+	ability.id = &"cone"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var cone: AbilityPulse = _pulso(AbilityPulse.Form.CONE, 40.0)
+	cone.origin = AbilityPulse.Origin.CASTER
+	cone.length = 5.0
+	cone.cone_angle = 90.0
+	ability.pulses = [cone]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)),
+		[dentro, fora]
+	)
+	assert_almost_eq(dentro.health.current, 960.0, "3m num cone de 5m")
+	assert_almost_eq(fora.health.current, 1000.0, "9m num cone de 5m — fora")
+
+func test_cone_estreito_ignora_quem_esta_de_lado() -> void:
+	var caster: Unit = _unit()
+	var na_frente: Unit = _unit(Vector3(0, 0, -3), 1)
+	var de_lado: Unit = _unit(Vector3(3, 0, 0), 1)
+	var ability := Ability.new()
+	ability.id = &"cone"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var cone: AbilityPulse = _pulso(AbilityPulse.Form.CONE, 40.0)
+	cone.origin = AbilityPulse.Origin.CASTER
+	cone.length = 5.0
+	cone.cone_angle = 40.0
+	ability.pulses = [cone]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)),
+		[na_frente, de_lado]
+	)
+	assert_almost_eq(na_frente.health.current, 960.0)
+	assert_almost_eq(de_lado.health.current, 1000.0, "90 graus fora de um cone de 40")
+
+func test_desvio_de_direcao_gira_o_pulso() -> void:
+	# É o `Angle` do impacto: o leque da Violet é feito assim, com três pulsos
+	# a -18, 0 e +18 graus, e não com uma forma que abre em três.
+	var caster: Unit = _unit()
+	# 40 graus à direita de -Z, a 5m: (3.21, 0, -3.83)
+	var na_diagonal: Unit = _unit(Vector3(3.21, 0, -3.83), 1)
+
+	var ability := Ability.new()
+	ability.id = &"angulado"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var pulse: AbilityPulse = _pulso(AbilityPulse.Form.LINE, 40.0)
+	pulse.origin = AbilityPulse.Origin.CASTER
+	pulse.length = 8.0
+	pulse.width = 1.0
+	pulse.direction_offset = 40.0
+	ability.pulses = [pulse]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)), [na_diagonal]
+	)
+	assert_almost_eq(na_diagonal.health.current, 960.0, "o pulso girou 40 graus")
+
+func test_sem_desvio_a_diagonal_escapa() -> void:
+	var caster: Unit = _unit()
+	var na_diagonal: Unit = _unit(Vector3(3.21, 0, -3.83), 1)
+	var ability := Ability.new()
+	ability.id = &"reto"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var pulse: AbilityPulse = _pulso(AbilityPulse.Form.LINE, 40.0)
+	pulse.origin = AbilityPulse.Origin.CASTER
+	pulse.length = 8.0
+	pulse.width = 1.0
+	ability.pulses = [pulse]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)), [na_diagonal]
+	)
+	assert_almost_eq(na_diagonal.health.current, 1000.0)
+
 func test_direcoes_do_leque_sao_simetricas() -> void:
 	var pulse := AbilityPulse.new()
 	pulse.spread_count = 3

@@ -81,6 +81,24 @@ enum Origin {
 ## PROJECTILE. Se falso, para no primeiro atingido.
 @export var pierces: bool = false
 
+@export_group("Direção")
+## Graus de desvio da mira, só para este pulso. **Positivo à direita**, igual a
+## `side_offset` — dentro do nosso modelo os dois têm que concordar, senão
+## "positivo" quer dizer coisas diferentes em dois campos da mesma classe.
+##
+## Girar em torno de `Vector3.UP` pela regra da mão direita leva positivo para
+## a ESQUERDA, então a rotação aplicada é a negativa do valor declarado.
+##
+## É o `Angle` do impacto no original, e é o outro jeito de fazer leque: em vez
+## de uma forma que abre em N, são N pulsos com desvios diferentes. A Violet
+## faz assim — três impactos a -18, 0 e +18 graus.
+##
+## Os dois convivem, mas raramente devem ser usados juntos: aplicar leque em
+## cima de pulsos que já vêm angulados multiplica as direções. Foi o que
+## aconteceu na primeira tradução do leque, e virou nove direções onde havia
+## três.
+@export var direction_offset: float = 0.0
+
 @export_group("Leque")
 ## Quantas cópias da forma saem de uma vez, abertas em leque. 1 = uma só.
 ##
@@ -160,13 +178,16 @@ func _offset(cast: AbilityCast) -> Vector3:
 ## O eixo é o Y, porque o leque abre no plano do chão. Abrir em qualquer outro
 ## eixo faria a flecha de cima passar por cima da cabeça de todo mundo.
 func spread_directions(aim: Vector3) -> Array[Vector3]:
+	var base: Vector3 = aim
+	if not is_zero_approx(direction_offset):
+		base = aim.rotated(Vector3.UP, -deg_to_rad(direction_offset))
 	if spread_count <= 1 or is_zero_approx(spread_angle):
-		return [aim]
+		return [base]
 	var direcoes: Array[Vector3] = []
 	var passo: float = spread_angle / float(spread_count - 1)
 	var inicio: float = -spread_angle * 0.5
 	for i: int in range(spread_count):
-		direcoes.append(aim.rotated(Vector3.UP, deg_to_rad(inicio + passo * i)))
+		direcoes.append(base.rotated(Vector3.UP, -deg_to_rad(inicio + passo * i)))
 	return direcoes
 
 ## Se um projétil que não atravessa, o teto de alvos é 1 por construção.

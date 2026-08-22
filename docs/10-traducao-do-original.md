@@ -226,6 +226,29 @@ está no meio.
 com vários pares `chave=valor` dentro. O censo de colunas a dava por consultada
 e ficava cego para o conteúdo. Agora há um censo das **chaves** também.
 
+**E a primeira tradução dele estava errada.** O leque da Violet já vinha nos
+impactos: três deles com `Angle` −18, 0 e +18. Aplicar `spread_count` por cima
+dava **nove** direções onde havia três. Hoje o `Angle` vira
+`AbilityPulse.direction_offset` — o outro jeito de fazer leque, com N pulsos
+angulados em vez de uma forma que abre em N — e o `spread` só entra quando os
+impactos NÃO trazem ângulo. Das sete habilidades, seis são anguladas e uma
+(cinco projéteis a 7 graus) usa mesmo o `Count`.
+
+### Geometria inventada, e por que ela é contada
+
+O colisor de verdade do original vive em `ColliderPath`, um prefab que **não
+está no XML**. Então há casos em que o número tem que ser inventado — largura
+de projétil sem `Radius`, alcance de linha sem `AI_SkillRange`.
+
+Inventar é aceitável; inventar calado não é. O relatório conta cada um por
+categoria, e hoje são 178 — 139 larguras de projétil, 25 larguras de linha, 9
+alcances e 5 velocidades.
+
+Foi assim que se descobriu que 195 pulsos saíam com largura **contradizendo** o
+XML: o ramo do projétil calculava `Radius × 2` e caía num 2,0 fabricado, quando
+`CastDirection_Width` — a mesma chave que o ramo da linha já lia — dizia 1,0 ou
+1,4 ali do lado.
+
 ### Forma nova: `TRAPEZOID`
 
 `CastTrapezoid`: um retângulo que começa a uma distância mínima e alarga com o

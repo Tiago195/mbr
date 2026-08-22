@@ -427,10 +427,17 @@ CHAVES_DE_UI = {
     "CastTrapezoid_End_Width": "lido",
     "CastTrapezoid_Start_Distance": "lido",
     "CastTrapezoid_End_Distance": "lido",
-    # `CastArea_Bound` é o RETÍCULO de mira, não o raio do golpe. Conferido:
-    # vale 2 em todas as 186, enquanto os impactos das mesmas habilidades têm
-    # raios de 0,8 a 2,8. Quem acerta é o impacto.
-    "CastArea_Bound": "retículo de mira; o raio que acerta vem do impacto",
+    # `CastArea_Bound` é o retículo de mira. Medido: 258 habilidades o
+    # declaram, com 15 valores distintos entre 0,5 e 6 — a primeira versão
+    # deste comentário dizia "2 em todas as 186", e estava errada nos dois
+    # números.
+    #
+    # Quando o impacto declara `Radius`, é ele que acerta. Quando NÃO declara —
+    # 139 dos 410 impactos dessas habilidades —, o retículo passa a ser a
+    # melhor estimativa disponível, e é lido. Sem isso a habilidade de área
+    # virava alvo único.
+    "CastArea_Bound": "retículo de mira; lido como raio quando o impacto não "
+                      "declara o dele",
 }
 
 ## Colunas que o tradutor CONSULTA, por tabela. Mantida à mão e conferida pelo
@@ -451,7 +458,8 @@ CONSULTADAS = {
         "ColliderActiveDelay", "ActiveDuration", "Radius", "LoopInterval",
         "ImpactCount", "ProjectileEffectId", "MoveDistance", "MoveSpeedZ",
         "SummonActorId", "SummonPersistTime", "DrainFactor",
-        "IgnoreInvincibility", "StartPositionX", "StartPositionZ", "__tabela",
+        "IgnoreInvincibility", "StartPositionX", "StartPositionZ", "Angle",
+        "__tabela",
     } | {f"StatType{n}" for n in range(1, 5)}
       | {f"StatValue{n}" for n in range(1, 5)}
       | {f"ImpactStatType{n}" for n in range(1, 9)}
@@ -507,7 +515,7 @@ IGNORADAS = {
     "InheritanceParentScale": "escala visual",
     "StartScaleX": "escala visual", "EndScaleX": "escala visual",
     "StartScaleZ": "escala visual", "EndScaleZ": "escala visual",
-    "Angle": "orientação visual", "FollowDirection": "orientação visual",
+    "FollowDirection": "orientação visual",
     "Desc": "texto localizado", "DescParam": "texto localizado",
     "Name": "texto localizado",
     "ConditionMessageID": "texto localizado",
@@ -1448,6 +1456,7 @@ class Tradutor:
             # instantâneo — quem entrar depois não é atingido de novo.
             "duration": num(impacto.get("ActiveDuration")) if laco > 0 else 0.0,
             "loop_interval": laco,
+            "direction_offset": num(impacto.get("Angle")),
             "forward_offset": num(impacto.get("StartPositionZ")),
             "side_offset": num(impacto.get("StartPositionX")),
             "max_targets": inteiro(impacto.get("ImpactCount"), 0),
@@ -1494,6 +1503,19 @@ class Tradutor:
                 continue
             self.r.lacuna(f"TriggerTiming={parte} no pulso (sem aproximação)")
 
+    ## Registra um número de geometria que NÃO veio do original.
+    ##
+    ## Inventar é às vezes inevitável — o colisor de verdade do original vive
+    ## em `ColliderPath`, um prefab que não está no XML. O que não é aceitável
+    ## é inventar calado: uma largura fabricada é indistinguível de uma
+    ## traduzida quando ninguém conta.
+    def _inventado(self, campo: str, skill: dict[str, str]) -> None:
+        self.r.lacuna(
+            "geometria inventada: %s (o original guarda o colisor fora do XML)"
+            % campo,
+            "skill %s" % skill.get("Id", "?"),
+        )
+
     def _forma(
         self, impacto: dict[str, str], skill: dict[str, str]
     ) -> tuple[str, dict]:
@@ -1504,16 +1526,33 @@ class Tradutor:
         # Projétil primeiro: a coluna de voo é a evidência mais forte, e ela
         # convive com qualquer `UI_Type`.
         if impacto.get("ProjectileEffectId") or num(impacto.get("MoveDistance")) > 0:
+            if not impacto.get("MoveDistance"):
+                self._inventado("alcance do projétil", skill)
+            if not impacto.get("MoveSpeedZ"):
+                self._inventado("velocidade do projétil", skill)
             distancia = num(impacto.get("MoveDistance"), 8.0)
+
+            # A largura vem de `CastDirection_Width`, a MESMA chave que o ramo
+            # `LINE` usa — o `UI_Type` das duas é `CastDirection`. Antes vinha
+            # de `Radius * 2`, que falta em 323 dos 359 impactos de projétil e
+            # caía num 2.0 fabricado; 195 pulsos saíam com largura
+            # CONTRADIZENDO o XML, que declarava 1,0 ou 1,4.
+            largura = num(parametros.get("CastDirection_Width"), 0.0)
+            if largura <= 0.0:
+                largura = raio * 2.0 if impacto.get("Radius") else 0.0
+            if largura <= 0.0:
+                self._inventado("largura do projétil", skill)
+                largura = 1.0
+
             return "PROJECTILE", {
                 "radius": raio,
                 "length": distancia,
-                "width": max(raio * 2.0, 0.5),
+                "width": largura,
                 "projectile_speed": num(impacto.get("MoveSpeedZ"), 15.0),
                 # `ImpactCount` 0 quer dizer "sem teto", e um projétil sem teto
                 # é um que atravessa.
                 "pierces": inteiro(impacto.get("ImpactCount"), 0) != 1,
-            } | self._leque(self._ui_params(skill))
+            } | self._leque(parametros, skill)
 
         if ui == "CastCircularSector":
             # O alcance do cone vem de `AI_SkillRange`, como no ramo `LINE`.
@@ -1544,14 +1583,28 @@ class Tradutor:
             }
 
         if ui in ("CastDirection", "CastDirectionalSquareArea", "CastDirectionAfterCircle"):
+            if not skill.get("AI_SkillRange"):
+                self._inventado("alcance da linha", skill)
+            if not parametros.get("CastDirection_Width"):
+                self._inventado("largura da linha", skill)
             return "LINE", {
                 "length": num(skill.get("AI_SkillRange"), 8.0),
                 "width": num(parametros.get("CastDirection_Width"), max(raio, 1.0)),
                 "radius": raio,
-            } | self._leque(parametros)
+            } | self._leque(parametros, skill)
 
         if impacto.get("Radius"):
             return "CIRCLE", {"radius": raio}
+
+        # Habilidade de área cujo impacto não declara raio: o raio é o do
+        # retículo, `CastArea_Bound`. Sem isto, 139 impactos de habilidade de
+        # ÁREA viravam alvo único — que é outra habilidade.
+        if ui in ("CastArea", "CastTargetArea", "CastAreaSummon",
+                  "CastAreaCurveDirection", "CastSquare"):
+            limite = num(parametros.get("CastArea_Bound"), 0.0)
+            if limite > 0.0:
+                self.r.usou("raio de área vindo do retículo")
+                return "CIRCLE", {"radius": limite}
 
         # Sem raio e sem direção: acerta quem foi apontado, e mais ninguém.
         return "SINGLE", {"radius": raio}
@@ -1564,15 +1617,35 @@ class Tradutor:
     ## e o censo de colunas só enxerga a coluna inteira.
     ##
     ## Foi o que motivou o censo de CHAVES de `UI_Params`, logo abaixo.
-    def _leque(self, parametros: dict[str, str]) -> dict:
+    def _leque(self, parametros: dict[str, str], skill: dict[str, str]) -> dict:
         quantos = inteiro(parametros.get("CastDirection_Count"), 1)
         if quantos <= 1:
             return {}
+
+        # **O leque pode já estar nos impactos.** A Violet tem três impactos com
+        # `Angle` -18, 0 e +18: o leque dela é feito de pulsos angulados, e o
+        # `CastDirection_Count` é só o retículo que a interface desenha.
+        # Aplicar os dois dava NOVE direções onde havia três — bug introduzido
+        # quando o leque foi traduzido pela primeira vez.
+        if self._impactos_ja_angulados(skill):
+            self.r.usou("leque já vem angulado nos impactos")
+            return {}
+
         self.r.usou("leque de projéteis")
         return {
             "spread_count": quantos,
             "spread_angle": num(parametros.get("CastDirection_Angle"), 0.0),
         }
+
+    def _impactos_ja_angulados(self, skill: dict[str, str]) -> bool:
+        for indice in range(1, 13):
+            impact_id = skill.get(f"Impact{indice}")
+            if not impact_id:
+                continue
+            impacto = self.t.impacts.get(impact_id)
+            if impacto is not None and num(impacto.get("Angle")) != 0.0:
+                return True
+        return False
 
     @staticmethod
     def _ui_params(skill: dict[str, str]) -> dict[str, str]:

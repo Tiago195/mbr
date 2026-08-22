@@ -71,15 +71,16 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `passiva de ranque` | 40 |
 | `impacto de buff, imediato` | 39 |
 | `execute` | 37 |
-| `leque de projéteis` | 36 |
 | `heal:percent_hp` | 34 |
 | `damage:siege` | 33 |
+| `leque já vem angulado nos impactos` | 30 |
 | `stat:out_of_combat_health_regen` | 28 |
 | `stat:dodge` | 26 |
 | `stat:crit_chance` | 26 |
 | `stat:heal_received_amp` | 26 |
 | `stat:mana_regen` | 23 |
 | `stat:armor_pen_flat` | 22 |
+| `raio de área vindo do retículo` | 21 |
 | `cc:CHARM` | 21 |
 | `stat:armor_pen_percent` | 19 |
 | `stat:health_regen_amp` | 19 |
@@ -104,6 +105,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `impacto dentro de controle` | 7 |
 | `cleanse (RemoveCC)` | 7 |
 | `stat:damage_taken_reduction` | 7 |
+| `leque de projéteis` | 6 |
 | `cc:ROOT` | 6 |
 | `cc:INVULNERABLE` | 5 |
 | `cc:BLIND` | 5 |
@@ -155,6 +157,7 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | atravessar parede (não há sistema de obstáculo em core/) (`ThroughObstacle` em skill) | 167 |  |
 | curva de deslocamento (MoveCurve) | 154 | skill 1000200 |
 | TriggerTiming=Arrived no pulso (aproximado pelo atraso e pela velocidade do projétil) | 143 |  |
+| geometria inventada: largura do projétil (o original guarda o colisor fora do XML) | 139 | skill 1000800 |
 | ComboSkillInfo (corrente de combo) | 125 | skill 1000000 |
 | projétil teleguiado (`TrackingMode` em skill) | 118 |  |
 | a investida que PARA ao acertar (OnImpactEnemy / OnDamage / OnLostTarget) — nosso dash sempre completa (`StopCondition` em skill) | 100 |  |
@@ -165,6 +168,7 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | Link (corrente que liga dois alvos e rompe na distância) | 47 | skill 1003201 |
 | BuffReleaseCondition=SkillFinish | 41 | skill 1001301 |
 | UseSkillSlot (troca a habilidade de um espaço) | 27 | skill 1007351 |
+| geometria inventada: largura da linha (o original guarda o colisor fora do XML) | 25 | skill 1001301 |
 | modificador só deste golpe: DamageAmpPerDistance (temos modificador por personagem, não por golpe) | 25 | skill 1005101 |
 | conjurar mesmo sob controle (`EnableSkillOnCC` em skill) | 24 |  |
 | PingList (aviso na interface, não é combate) | 22 | skill 3001000 |
@@ -178,9 +182,11 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | habilidade que dispara um ataque básico ao terminar (`ReleaseAutoAttack` em skill) | 15 |  |
 | TriggerTiming=OnHitWall no pulso (sem aproximação) | 10 |  |
 | TriggerTiming=OnHitActorObject no pulso (sem aproximação) | 10 |  |
+| geometria inventada: alcance do projétil (o original guarda o colisor fora do XML) | 9 | skill 1001201 |
 | TriggerTiming=OnEvasion | 8 | skill 1014301 |
 | RemoveCC só de Slow traduzido como purificação ampla | 6 | skill 1012200 |
 | ReleaseImpact (cancela impacto em curso) | 6 | skill 1016250 |
+| geometria inventada: velocidade do projétil (o original guarda o colisor fora do XML) | 5 | skill 1001201 |
 | TriggerTiming=OnEvasion no pulso (sem aproximação) | 5 |  |
 | modificador só deste golpe: PhysicalDrain (temos modificador por personagem, não por golpe) | 5 | skill 1025301 |
 | RecoverDataType=RegenMana sem valor legível (os números vivem no texto localizado) | 5 | equipment 5000001 |

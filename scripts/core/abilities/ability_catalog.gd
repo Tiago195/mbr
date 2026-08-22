@@ -162,6 +162,7 @@ static func build_pulse(data: Dictionary) -> AbilityPulse:
 	pulse.cone_angle = float(data.get("cone_angle", 60.0))
 	pulse.projectile_speed = float(data.get("projectile_speed", 18.0))
 	pulse.pierces = bool(data.get("pierces", false))
+	pulse.direction_offset = float(data.get("direction_offset", 0.0))
 	pulse.spread_count = maxi(int(data.get("spread_count", 1)), 1)
 	pulse.spread_angle = float(data.get("spread_angle", 0.0))
 	pulse.forward_offset = float(data.get("forward_offset", 0.0))
