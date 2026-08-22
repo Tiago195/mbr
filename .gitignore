@@ -1,0 +1,16 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Exports — podem conter caminhos locais e credenciais de assinatura
+export_presets.cfg
+*.exe
+*.pck
+*.zip
+
+# Configuração local do Claude Code (permissões desta máquina)
+.claude/settings.local.json
+
+# Windows
+Thumbs.db
+desktop.ini
