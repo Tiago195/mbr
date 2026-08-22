@@ -197,9 +197,11 @@ clique**: é tecla + posição do cursor. O raycast tela → mundo do
 
 ### O que ainda não está decidido
 
-- **Botão direito segurado**: no LoL, manter pressionado faz o personagem
-  perseguir o cursor continuamente. A Fase 1.1 implementa só o clique único.
-  Fica para quando o movimento for testado em combate — é barato de adicionar
+- ~~**Botão direito segurado**~~ — **decidido na Fase 1.2:** implementado. Manter
+  pressionado faz o personagem perseguir o cursor a cada tick de física. O
+  clique isolado continua tratado por evento, para que um clique mais curto que
+  um tick não se perca. Contornar obstáculo é justamente onde esse gesto
+  aparece, então não fazia sentido adiar
 - **Smart cast** (habilidade dispara na posição do cursor sem confirmação) vs.
   cast com indicador e clique de confirmação. No LoL é configurável; aqui,
   decidir na Fase 3
@@ -211,7 +213,8 @@ clique**: é tecla + posição do cursor. O raycast tela → mundo do
 | Questão | Quando decidir |
 |---|---|
 | ~~Renderer: Forward+ ou Compatibility~~ | **Resolvido: Forward+** (GPU dedicada, RX 7600 XT) |
-| Botão direito segurado = movimento contínuo? | Quando o movimento for testado em combate |
+| ~~Botão direito segurado = movimento contínuo?~~ | **Resolvido: sim** (Fase 1.2) |
+| Ângulo e distância da câmera | Ajustar por sensação; `offset` e `smoothing` são `@export` |
 | Smart cast vs. indicador + confirmação | Fase 3 |
 | Formato de persistência dos dados de habilidade/item | Fase 3 |
 | Onde hospedar o servidor dedicado | Fase 5 |

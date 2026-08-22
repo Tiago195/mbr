@@ -259,4 +259,6 @@ Atualizar ao fim de cada sessão. Manter também o "Estado atual" no `CLAUDE.md`
 | Fase | Status | Data | Notas |
 |---|---|---|---|
 | 1.1 | ✅ Concluída | 21/08/2026 | Critério verificado: anda até o clique, `FrontMarker` na direção certa. Feita **com** IA, contra a recomendação do doc — decisão consciente. Movimento no **botão direito** (decisão 7) |
-| 1.2 | ⬜ Não iniciada | | |
+| 1.2 | 🟡 Aguardando validação | 21/08/2026 | Três obstáculos em `Walls`. Botão direito segurado passa a mover continuamente (era decisão em aberto — tomada) |
+| 1.3 | 🟡 Aguardando validação | 21/08/2026 | `camera_rig.gd`: segue o Player com suavização exponencial, vista travada |
+| 1.4 | ⏭️ Adiada | | NavMesh. O doc já a marcava como opcional aqui; só vira necessária para a IA dos mobs na Fase 6 |

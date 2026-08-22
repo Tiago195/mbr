@@ -184,8 +184,12 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 cápsula, câmera isométrica e luz. Movimento por botão direito, verificado em
 execução. Repositório em `github.com:Tiago195/mbr`, branch `master`.
 
-**Próximo: Fase 1.2** — paredes que bloqueiam a passagem, com a cápsula
-deslizando ao encostar.
+**Fases 1.2 e 1.3 — implementadas, aguardando validação humana.** Obstáculos
+em `Walls`, câmera seguindo o jogador (`camera_rig.gd`), botão direito
+segurado movendo continuamente. Rodam sem erro; os critérios são visuais.
+
+**Fase 1.4 (NavMesh) adiada** — o roadmap já a marcava como opcional; só vira
+necessária para a IA dos mobs na Fase 6.
 
 Particularidade do ambiente: a chave SSH do GitHub está **só no WSL2**.
 Commit funciona no Windows; o push precisa passar pelo WSL:
