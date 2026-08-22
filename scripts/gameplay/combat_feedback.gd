@@ -25,6 +25,7 @@ extends Node3D
 
 var _combatant: Combatant
 var _fill: MeshInstance3D
+var _fill_mesh: QuadMesh
 var _fill_material: StandardMaterial3D
 
 func _ready() -> void:
@@ -44,17 +45,19 @@ func _ready() -> void:
 # ---------------------------------------------------------------- barra
 
 func _build_bar() -> void:
+	# Prioridade menor: o fundo desenha antes. Com `no_depth_test` nos dois,
+	# deslocar em Z não decide ordem — quem decide é `render_priority`.
 	var backdrop: MeshInstance3D = _make_quad(
-		bar_size + Vector2(0.06, 0.06), color_backdrop
+		bar_size + Vector2(0.06, 0.06), color_backdrop, 4
 	)
-	backdrop.position.z = -0.001
 	add_child(backdrop)
 
-	_fill = _make_quad(bar_size, color_full)
+	_fill = _make_quad(bar_size, color_full, 6)
+	_fill_mesh = _fill.mesh as QuadMesh
 	_fill_material = _fill.material_override as StandardMaterial3D
 	add_child(_fill)
 
-func _make_quad(size: Vector2, color: Color) -> MeshInstance3D:
+func _make_quad(size: Vector2, color: Color, priority: int) -> MeshInstance3D:
 	var quad := QuadMesh.new()
 	quad.size = size
 
@@ -65,22 +68,39 @@ func _make_quad(size: Vector2, color: Color) -> MeshInstance3D:
 	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.no_depth_test = true
-	material.render_priority = 5
+	material.render_priority = priority
 
 	var instance := MeshInstance3D.new()
 	instance.mesh = quad
 	instance.material_override = material
 	return instance
 
+## Encolhe a barra pela direita, ancorada na borda esquerda.
+##
+## O encolhimento é feito na GEOMETRIA — largura do quad mais `center_offset` —
+## e não com `scale`/`position` do nó. Motivo: com `billboard_mode` ligado, o
+## shader troca a base da matriz de modelo pela orientação da câmera e
+## DESCARTA a escala do nó, a menos que `billboard_keep_scale` esteja ativo.
+## O resultado era a barra andar para o lado sem encolher.
+##
+## Ligar `billboard_keep_scale` resolveria o sintoma, mas deixaria o
+## deslocamento no X do mundo e a escala no X do billboard. Hoje coincidem
+## porque a câmera não gira; quando girar, a barra deslizaria na diagonal.
+## `center_offset` vive no espaço local da malha, que gira junto com o
+## billboard — fica correto sob qualquer câmera.
 func _refresh_bar() -> void:
 	if _fill == null or _combatant == null:
 		return
-	var fraction: float = _combatant.health.fraction()
-	# Encolher pela esquerda: o quad é centrado, então além de escalar é
-	# preciso deslocar metade do que se perdeu, senão a barra encolheria pelos
-	# dois lados ao mesmo tempo.
-	_fill.scale.x = maxf(fraction, 0.0001)
-	_fill.position.x = -(1.0 - fraction) * bar_size.x * 0.5
+	var fraction: float = clampf(_combatant.health.fraction(), 0.0, 1.0)
+
+	# Quad de largura zero é malha degenerada; some com ele em vez disso.
+	_fill.visible = fraction > 0.0
+	if not _fill.visible:
+		return
+
+	var width: float = bar_size.x * fraction
+	_fill_mesh.size = Vector2(width, bar_size.y)
+	_fill_mesh.center_offset = Vector3(-(bar_size.x - width) * 0.5, 0.0, 0.0)
 	_fill_material.albedo_color = color_empty.lerp(color_full, fraction)
 
 # ---------------------------------------------------------------- sinais

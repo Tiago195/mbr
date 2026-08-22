@@ -135,6 +135,23 @@ Corolário geral: o MCP pega erro de sintaxe, referência nula e recurso
 faltando. **Não pega "está correto mas aponta para o lugar errado".** Coisa
 visual precisa de olho humano na tela.
 
+### Billboard descarta a escala do nó
+
+`billboard_mode` faz o shader trocar a base da matriz de modelo pela
+orientação da câmera — e nisso **a escala do nó é descartada**, a menos que
+`billboard_keep_scale` esteja ligada. A translação continua valendo.
+
+Sintoma: o objeto anda para o lado em vez de mudar de tamanho. Sem erro no
+console. Já aconteceu com a barra de vida da Fase 2.4.
+
+Para redimensionar algo com billboard, mexer na **geometria** (`size` +
+`center_offset` da malha), não em `scale`/`position` do nó. `center_offset`
+vive no espaço local da malha, que gira junto com o billboard, então continua
+correto se a câmera um dia girar — `position` do nó, que é mundo, não.
+
+Ordem de desenho entre materiais com `no_depth_test` é decidida por
+`render_priority`, não por deslocamento em Z.
+
 ### Ao propor mudanças
 
 - Explique **por que**, não só o quê
