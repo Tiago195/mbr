@@ -189,6 +189,47 @@ def _medir_no_original() -> dict | None:
     }
 
 
+def _rodar_suite() -> tuple[int, int] | None:
+    """(testes, asserções) rodando a suíte de verdade. `None` se não der.
+
+    A contagem de testes dá para tirar estaticamente contando `func test_`; a
+    de ASSERÇÕES não — ela é dinâmica. Ficava sem conferência, e uma
+    revalidação mostrou que dava para trocar 936 por 9936 sem ninguém notar.
+    """
+    import os
+    import shutil
+    import subprocess
+
+    godot = os.environ.get("GODOT_PATH") or shutil.which("godot")
+    if godot is None:
+        for candidato in (
+            r"C:\Godot\Godot_v4.7.2-stable_win64.exe",
+            r"C:\Godot\Godot.exe",
+        ):
+            if Path(candidato).exists():
+                godot = candidato
+                break
+    if godot is None:
+        return None
+
+    try:
+        saida = subprocess.run(
+            [godot, "--headless", "--path", str(RAIZ),
+             "--script", "res://tests/run_tests.gd"],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=300,
+        ).stdout
+    except Exception:
+        return None
+
+    # A ÚLTIMA ocorrência é o total; as anteriores são uma por suíte. Pegar a
+    # primeira dava "17 testes, 120 asserções" — o `test_stats` sozinho.
+    achados = re.findall(r"(\d+) testes, (\d+) asserções", saida or "")
+    if not achados:
+        return None
+    return int(achados[-1][0]), int(achados[-1][1])
+
+
 def main() -> int:
     c = Conferencia()
 
@@ -441,6 +482,37 @@ def main() -> int:
     # ------------------------------------------------- contagem de testes
     c.afirma("CLAUDE.md testes", claude,
              r"\*\*(\d+) testes, \d+ asserções\*\*", _contar_testes())
+
+    suite = _rodar_suite()
+    if suite is None:
+        print(
+            "[números] AVISO: Godot não encontrada; a contagem de ASSERÇÕES "
+            "ficou sem conferir (defina GODOT_PATH para fechar)"
+        )
+    else:
+        c.afirma("CLAUDE.md testes (suíte real)", claude,
+                 r"\*\*(\d+) testes, \d+ asserções\*\*", suite[0])
+        c.afirma("CLAUDE.md asserções", claude,
+                 r"\*\*\d+ testes, (\d+) asserções\*\*", suite[1])
+
+    # ------------------------- a tabela de cobertura do relatório
+    #
+    # Só a tabela de COBERTURA, que é computada a partir do corpus. A tabela
+    # "o que o vocabulário cobriu" conta EMISSÕES do tradutor — uma habilidade
+    # com `MagicalHeal` e `MagicalConstHeal` emite dois `usou("heal")` e um
+    # efeito só. Comparar as duas produziria alarme falso, e alarme falso
+    # ensina a ignorar o alarme.
+    #
+    # O que protege aquela outra tabela é ela ser gerada: regenerar e olhar o
+    # `git status` acusa qualquer edição à mão.
+    c.afirma("RELATORIO vários pulsos", relatorio,
+             r"\| \.\.\.com mais de um pulso \| (\d+) \|", len(varios))
+    c.afirma("RELATORIO pulsos", relatorio,
+             r"\| Pulsos gerados \| (\d+) \|", total_pulsos)
+    c.afirma("RELATORIO efeitos", relatorio,
+             r"\| Efeitos gerados \| (\d+) \|", total_efeitos)
+    c.afirma("RELATORIO itens", relatorio,
+             r"\| Itens traduzidos \| \*\*(\d+)\*\*", itens["total"])
 
     # ------------------------------------------------- cabeçalho x lista
     #

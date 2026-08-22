@@ -631,6 +631,101 @@ func test_linhas_de_item_saem_da_menor_raridade_para_a_maior() -> void:
 				return
 	assert_true(linhas_conferidas > 50, "esperava muitas linhas de melhoria")
 
+func test_nenhum_controle_do_corpus_e_inerte() -> void:
+	# `StatusSet.apply` descarta duração <= 0, então um controle com duração
+	# zero é um efeito que existe no dado e não faz nada. Já foram 121: TODO
+	# arremesso do jogo, porque o original guarda o tempo de ar fora da coluna
+	# `Duration` e o tradutor copiava o zero literalmente.
+	#
+	# Pior que a perda: o relatório contava os 121 como cobertura.
+	var inertes: PackedStringArray = []
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			for effect: AbilityEffect in pulse.effects:
+				var cc := effect as CrowdControlEffect
+				if cc == null or cc.control == CrowdControlEffect.Kind.SLOW:
+					continue
+				if cc.duration <= 0.0:
+					inertes.append("%s(%s)" % [
+						id, CrowdControlEffect.Kind.keys()[cc.control]
+					])
+	assert_eq(
+		inertes.size(), 0,
+		"controle que o motor descarta: %s" % ", ".join(inertes.slice(0, 5))
+	)
+
+func test_o_arremesso_do_corpus_dura_um_tempo_plausivel() -> void:
+	var arremessos: int = 0
+	var soma: float = 0.0
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			for effect: AbilityEffect in pulse.effects:
+				var cc := effect as CrowdControlEffect
+				if cc != null and cc.control == CrowdControlEffect.Kind.AIRBORNE:
+					arremessos += 1
+					soma += cc.duration
+	assert_true(arremessos > 100, "só %d arremessos no corpus" % arremessos)
+	var media: float = soma / float(arremessos)
+	assert_true(
+		media > 0.5 and media < 3.0,
+		"tempo de ar médio de %.2fs — fora do que um arremesso significa" % media
+	)
+
+func test_ataque_basico_do_corpus_nao_fere_aliado() -> void:
+	# `TargetAlly(11)` não é campeão: a espécie 11 aparece dos dois lados, e
+	# cura de verdade usa `Ally(1,2)`. Ler só o nome do lado fazia 76 pulsos de
+	# ataque básico saírem acertando o próprio time.
+	var basico: Ability = _abilities().get_ability(&"rc_1000000")
+	assert_not_null(basico, "o ataque básico do primeiro campeão sumiu")
+	if basico == null:
+		return
+	for pulse: AbilityPulse in basico.pulses:
+		assert_false(pulse.hits_allies, "ataque básico não acerta aliado")
+
+func test_quem_machuca_aliado_declara_isso_no_original() -> void:
+	# Restam habilidades que pegam os dois lados — e são reais: declaram
+	# `Ally(1,2,...)` junto de `Enemy(...)`. O que não pode é o número explodir.
+	var ferem: int = 0
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			if not pulse.hits_allies:
+				continue
+			for effect: AbilityEffect in pulse.effects:
+				if effect is DamageEffect or effect is ExecuteEffect:
+					ferem += 1
+					break
+	assert_true(ferem < 40, "%d pulsos ferem aliado — o filtro voltou a ser cego" % ferem)
+
+func test_melhoria_devolve_o_degrau_imediato() -> void:
+	# 79 linhas têm três degraus ou mais. Devolver o TOPO em vez do próximo
+	# transformaria "melhorar o item" em "pular para o melhor".
+	var testadas: int = 0
+	for linha: StringName in _items().by_line:
+		var itens: Array = _items().by_line[linha]
+		if itens.size() < 3:
+			continue
+		var base: Item = itens[0]
+		var proximo: Item = _items().upgrade_of(base)
+		assert_not_null(proximo)
+		if proximo == null:
+			return
+		var topo: Item = itens[-1]
+		assert_true(
+			proximo.rarity < topo.rarity,
+			"linha %s com %d degraus devolveu o topo" % [linha, itens.size()]
+		)
+		# E não há nada entre a base e o que veio.
+		for candidato: Item in itens:
+			if candidato.rarity > base.rarity:
+				assert_true(
+					candidato.rarity >= proximo.rarity,
+					"havia degrau mais baixo que o devolvido"
+				)
+		testadas += 1
+		if testadas >= 3:
+			break
+	assert_true(testadas > 0, "nenhuma linha com três degraus")
+
 func test_melhoria_sobe_de_raridade() -> void:
 	var testados: int = 0
 	for linha: StringName in _items().by_line:

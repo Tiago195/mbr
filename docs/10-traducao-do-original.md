@@ -234,6 +234,40 @@ angulados em vez de uma forma que abre em N — e o `spread` só entra quando os
 impactos NÃO trazem ângulo. Das sete habilidades, seis são anguladas e uma
 (cinco projéteis a 7 graus) usa mesmo o `Count`.
 
+### O arremesso que não arremessava
+
+`ThrowUp` e `Airborne` são os **únicos** dos 13 tipos de controle do original
+com `Duration = 0` — nas 58 linhas, sem exceção. O tempo de ar não mora ali:
+mora em `MaxHeight` (20 linhas) e numa curva de subida (`YMoveCurvePath`, 38)
+que não está no XML.
+
+O tradutor copiava o zero literalmente. E `StatusSet.apply` descarta duração
+não positiva, então **121 arremessos do corpus não faziam nada** — 39 famílias
+de habilidade, incluindo o kit inteiro de vários campeões. O relatório contava
+os 121 como cobertura, e este documento afirmava o contrário.
+
+Hoje: onde há `MaxHeight`, o tempo sai da balística — subir e cair de uma
+altura `h` leva `2·√(2h/g)`, o que dá 0,90 s para altura 1 e 2,02 s para altura
+5. Onde não há, entra um padrão de 0,9 s, **registrado como número inventado**.
+
+E entrou uma guarda contra a classe: controle que sairia com duração não
+positiva não é emitido, vira lacuna. Emitir um efeito que o motor descarta é
+pior que não emitir — anuncia cobertura que não existe.
+
+### `TargetAlly(11)` não é aliado
+
+O ataque básico do original declara `TargetAlly(11), TargetEnemy(1,2,3,5,10,11)`.
+Lendo só o nome do lado, isso vira "acerta aliado" — e 76 pulsos de ataque
+básico saíam ferindo o próprio time.
+
+A espécie 11 aparece dos **dois** lados, e cura de verdade usa `Ally(1,2)`. Ou
+seja: 11 não é campeão. O filtro passou a olhar a lista de espécies, e só
+considera aliado quando ela inclui 1 ou 2.
+
+Sobraram 20 pulsos que ferem aliado — e esses são reais: declaram
+`Ally(1,2,...)` junto de `Enemy(...)`, habilidades que pegam os dois lados de
+propósito.
+
 ### Geometria inventada, e por que ela é contada
 
 O colisor de verdade do original vive em `ColliderPath`, um prefab que **não

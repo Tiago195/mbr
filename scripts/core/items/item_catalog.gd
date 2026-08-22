@@ -72,17 +72,28 @@ func load_from(
 func get_item(id: StringName) -> Item:
 	return by_id.get(id, null) as Item
 
-## O próximo degrau da mesma linha, ou nulo se já é o topo.
+## O degrau IMEDIATAMENTE acima na mesma linha, ou nulo se já é o topo.
+##
+## "Imediatamente" importa: 79 linhas do corpus têm três degraus ou mais, e uma
+## tem nove. Devolver o topo em vez do próximo transformaria "melhorar o item"
+## em "pular direto para o melhor", que é outro jogo.
+##
+## A lista vem ordenada por raridade de `load_from`, então o primeiro que
+## superar já é o próximo — mas dois itens podem dividir raridade, e por isso a
+## busca é pelo MENOR acima, não pelo primeiro encontrado.
 func upgrade_of(item: Item) -> Item:
 	if item == null:
 		return null
 	var linha: Variant = by_line.get(item.line_id)
 	if not linha is Array:
 		return null
+	var melhor: Item = null
 	for candidato: Item in (linha as Array):
-		if candidato.rarity > item.rarity:
-			return candidato
-	return null
+		if candidato.rarity <= item.rarity:
+			continue
+		if melhor == null or candidato.rarity < melhor.rarity:
+			melhor = candidato
+	return melhor
 
 # ---------------------------------------------------------------- construção
 

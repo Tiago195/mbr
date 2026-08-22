@@ -85,6 +85,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `stat:armor_pen_percent` | 19 |
 | `stat:health_regen_amp` | 19 |
 | `stat:magic_pen_flat` | 19 |
+| `tempo de ar derivado da altura` | 18 |
 | `displacement:cc` | 18 |
 | `impacto repetido na habilidade, emitido uma vez` | 16 |
 | `dissipa em ABILITY_CAST` | 15 |
@@ -160,6 +161,7 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | geometria inventada: largura do projétil (o original guarda o colisor fora do XML) | 139 | skill 1000800 |
 | ComboSkillInfo (corrente de combo) | 125 | skill 1000000 |
 | projétil teleguiado (`TrackingMode` em skill) | 118 |  |
+| tempo de ar do arremesso (o original guarda a subida numa curva fora do XML; usamos 0.9s) | 103 | skill 1000800 |
 | a investida que PARA ao acertar (OnImpactEnemy / OnDamage / OnLostTarget) — nosso dash sempre completa (`StopCondition` em skill) | 100 |  |
 | janela de cancelamento por tempo | 72 | skill 1000000 |
 | TriggerTiming=ImpactFinish no pulso (aproximado pelo atraso e pela velocidade do projétil) | 71 |  |

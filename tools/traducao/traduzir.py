@@ -285,6 +285,24 @@ CONTROLE = {
 ## Controles que a tenacidade não encurta.
 CONTROLE_DURO = {"HardStun", "ThrowUp", "Airborne", "KnockBack"}
 
+## Controles cujo `Duration` no original é sempre 0 — o tempo mora noutro
+## lugar. São `ThrowUp` (48 linhas) e `Airborne` (10), e apenas eles: os outros
+## 11 tipos trazem duração de verdade.
+CONTROLE_SEM_DURACAO = {"ThrowUp", "Airborne"}
+
+## Gravidade usada para derivar tempo de ar a partir de `MaxHeight`.
+##
+## Não é a gravidade do nosso jogo (que ainda não existe) nem a da Godot: é a
+## constante que faz a conta de balística fechar em números plausíveis de
+## arremesso. Altura 1 dá 0,90 s; altura 5 dá 2,02 s.
+GRAVIDADE_DO_ARREMESSO = 9.8
+
+## Tempo de ar quando nem `MaxHeight` existe — 38 das 58 linhas de arremesso,
+## que guardam a trajetória numa curva (`YMoveCurvePath`) que não está no XML.
+##
+## É a mediana dos 20 casos deriváveis. Inventado, e contado como tal.
+TEMPO_DE_AR_PADRAO = 0.9
+
 ## `TriggerTiming` de `impact_xml` -> evento do nosso `TriggerSet`.
 ##
 ## Só entram os que a camada `core/` sabe emitir sozinha. `Start` é ausência de
@@ -718,15 +736,24 @@ class Tradutor:
                 else:
                     duro = tipo in CONTROLE_DURO
                     self.r.usou("tenacidade inferida (sem ApplyToughness)")
+                duracao = self._duracao_do_controle(cc, tipo, onde)
                 efeito = {
                     "type": "crowd_control",
                     "recipient": alvo,
                     "control": nosso,
-                    "duration": num(cc.get("Duration")),
+                    "duration": duracao,
                     "ignores_tenacity": duro,
                     "source_tag": f"rc_cc_{cc_id}",
                 }
-                if nosso == "SLOW":
+                if duracao <= 0.0:
+                    # Controle com duração zero é descartado pelo `StatusSet`.
+                    # Emiti-lo seria anunciar cobertura que não existe — foi
+                    # exatamente o que aconteceu com o arremesso.
+                    self.r.lacuna(
+                        f"controle {tipo} sem duração aproveitável", onde
+                    )
+                    efeitos.pop()
+                elif nosso == "SLOW":
                     # A intensidade da lentidão está em `StatType_1/StatValue_1`,
                     # não em `Duration`. Sem isso toda lentidão sairia com o
                     # nosso padrão de 30%, e o balanceamento do original se
@@ -760,6 +787,39 @@ class Tradutor:
             if mod:
                 efeitos.append(mod)
         return efeitos
+
+    ## Duração do controle, com o arremesso tratado à parte.
+    ##
+    ## `ThrowUp` e `Airborne` têm `Duration = 0` nas 58 linhas do original: o
+    ## tempo de ar não mora ali, mora na altura e na curva de subida. Copiar o
+    ## zero literalmente produzia 121 efeitos que o motor descarta — todo
+    ## arremesso do jogo era inerte, e o relatório contava isso como cobertura.
+    ##
+    ## Onde há `MaxHeight`, o tempo sai da balística: subir e cair de uma
+    ## altura h leva `2·sqrt(2h/g)`. Onde não há, entra um padrão declarado, e
+    ## ele é contado como número inventado.
+    def _duracao_do_controle(
+        self, cc: dict[str, str], tipo: str, onde: str
+    ) -> float:
+        declarada = num(cc.get("Duration"))
+        if tipo not in CONTROLE_SEM_DURACAO:
+            return declarada
+        if declarada > 0.0:
+            return declarada
+
+        altura = num(cc.get("MaxHeight"))
+        if altura > 0.0:
+            self.r.usou("tempo de ar derivado da altura")
+            return round(
+                2.0 * (2.0 * altura / GRAVIDADE_DO_ARREMESSO) ** 0.5, 2
+            )
+
+        self.r.lacuna(
+            "tempo de ar do arremesso (o original guarda a subida numa curva "
+            "fora do XML; usamos %.1fs)" % TEMPO_DE_AR_PADRAO,
+            onde,
+        )
+        return TEMPO_DE_AR_PADRAO
 
     def _intensidade_lentidao(self, cc: dict[str, str], onde: str) -> float:
         for indice in range(1, 5):
@@ -1657,18 +1717,26 @@ class Tradutor:
                 saida[chave.strip()] = valor.strip()
         return saida
 
-    @staticmethod
-    def _filtro(target_type: str) -> dict:
+    ## Espécies do original que são CAMPEÃO ou coisa que se joga.
+    ##
+    ## O ataque básico declara `TargetAlly(11), TargetEnemy(1,2,3,5,10,11)`: do
+    ## lado aliado só a espécie 11, que não é campeão — cura e escudo de
+    ## verdade usam `Ally(1,2)`. Ler só o nome do lado, ignorando a lista,
+    ## fazia 76 pulsos de ataque básico saírem acertando o próprio time.
+    ESPECIES_JOGAVEIS = {"1", "2"}
+
+    @classmethod
+    def _filtro(cls, target_type: str) -> dict:
         """`TargetType` -> quem a forma pega.
 
-        O original escreve `Enemy(1,2,3,5,20)` — o nome diz o lado e os números
-        dizem que espécies de ator. As espécies não entram: a nossa `Nature`
-        cobre o que importa (campeão, mob, estrutura, invocação) e a lista
-        numérica do original é uma taxonomia interna que não temos.
+        O original escreve `Enemy(1,2,3,5,20)`: o nome diz o LADO e os números
+        dizem as ESPÉCIES. A lista numérica inteira é uma taxonomia interna que
+        não temos — mas a distinção entre "espécie jogável" e "o resto"
+        importa, e é ela que separa um ataque básico de uma cura.
         """
         texto = target_type or ""
         inimigos = "Enemy" in texto
-        aliados = "Ally" in texto
+        aliados = cls._alcanca_jogavel(texto, "Ally")
         proprio = "Mine" in texto or "Self" in texto
         if not (inimigos or aliados or proprio):
             inimigos = True
@@ -1677,6 +1745,22 @@ class Tradutor:
             "hits_allies": aliados,
             "hits_self": proprio,
         }
+
+    ## Verdadeiro quando o lado citado inclui espécie jogável.
+    ##
+    ## `Ally(1,2)` sim; `TargetAlly(11)` não. Um lado citado sem lista nenhuma
+    ## conta como sim — é o caso genérico, e recusar seria perder alvo.
+    @classmethod
+    def _alcanca_jogavel(cls, texto: str, lado: str) -> bool:
+        achou = False
+        for trecho in re.finditer(r"(\w*%s)\s*\(([^)]*)\)" % lado, texto):
+            achou = True
+            especies = {e.strip() for e in trecho.group(2).split(",") if e.strip()}
+            if especies & cls.ESPECIES_JOGAVEIS:
+                return True
+        if achou:
+            return False
+        return lado in texto
 
     # ---------------------------------------------------------- habilidade
 
