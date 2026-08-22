@@ -463,3 +463,47 @@ intervalo entre ataques básicos do personagem — 2 m e 0,8 s no Leo, 6 m e
 terceira vez que essa espécie de defeito aparece neste projeto, e todas as três
 foram achadas conferindo se o RESULTADO faz sentido, nunca se a coluna foi
 lida.
+
+## 15. Projétil voa; o dano acontece no impacto
+
+**Decidido em 22/08/2026**, depois de o usuário testar: *"os projéteis estão
+causando dano assim que é clicado, e não se realmente acerta o alvo"*.
+
+Ele estava certo, e o código admitia em comentário: *"o dano já saiu quando a
+esfera parte. É mentira visual, e é consciente"*. A forma `PROJECTILE` era
+resolvida como uma linha, no instante do clique, e a esfera na tela fazia uma
+viagem paralela que não decidia nada.
+
+Agora `ProjectileSet` (em `core/`) guarda os projéteis no ar. A cada tique cada
+um avança `projectile_speed * delta`, e quem estiver no trecho percorrido é
+atingido. `AbilityEngine.advance_projectiles()` aplica os efeitos no impacto.
+
+**Por quê:** com dano no clique, mira não vale nada. Quem estava na linha
+naquele milissegundo levava dano mesmo saindo de lá, e quem entrasse na frente
+depois não levava nada — as duas coisas que o jogador tenta fazer num MOBA.
+São 359 pulsos de projétil no corpus traduzido, em 223 habilidades.
+
+**Cinco consequências que não são óbvias:**
+
+- **Varredura, não amostra.** Testar só a posição do fim do tique faz um
+  projétil rápido atravessar alvo estreito: a 60 m/s um tique de 60 Hz anda
+  1 metro, e um alvo de meio metro cabe inteiro no meio do salto. Não dá erro —
+  o tiro passa direto. Há teste, e ele fica vermelho se a varredura virar
+  amostra.
+- **Cada flecha do leque voa sozinha.** Antes, `spread_count = 3` era uma forma
+  que perguntava "está dentro de alguma das três direções?", e o teto de um
+  alvo valia para o leque inteiro: três flechas acertavam uma pessoa só.
+- **Efeito do CONJURADOR sai no lançamento; efeito de ALVO sai no impacto.** O
+  escudo de quem atira não depende de a flecha acertar — se dependesse, seria
+  um gatilho, e o vocabulário já tem `TriggerEffect` para isso. Sem separar, o
+  escudo saía de novo a cada inimigo perfurado.
+- **`CastResult.targets` vazio deixou de querer dizer "errou"**; quer dizer
+  "ainda não se sabe". Daí `CastResult.launched` e `in_flight()`.
+- **A esfera na tela segue o projétil de verdade**, e o raio dela sai de
+  `pulse.width`. Uma esfera menor que a colisão faz o jogador achar que errou
+  quando acertou.
+
+**O que ele NÃO faz, e é decisão:** parar em parede. `core/` não conhece
+colisor, e resolver isso exigiria a camada de gameplay responder a cada tique.
+`ThroughObstacle` já é lacuna registrada do original; o projétil entra nela em
+vez de inventar meia solução.

@@ -11,14 +11,29 @@ extends Node3D
 
 @export var lifetime: float = 0.45
 
+## Altura em que a esfera do projétil voa. Só aparência: a lógica é no plano.
+const ALTURA_DO_VOO: float = 1.0
+
+## Quanto tempo a esfera pisca depois de acertar, antes de sumir.
+const CLARAO: float = 0.12
+
 var _elapsed: float = 0.0
 var _material: StandardMaterial3D
 
-var _travels: bool = false
-var _travel_from: Vector3 = Vector3.ZERO
-var _travel_to: Vector3 = Vector3.ZERO
+## O projétil de verdade que esta esfera representa. Quando existe, a posição
+## vem DELE — não de uma interpolação paralela.
+##
+## Antes havia `_travel_from`/`_travel_to` e um `lerp`: a esfera fazia sua
+## própria viagem enquanto o dano já tinha saído no clique. Duas verdades sobre
+## a mesma coisa, e a que o jogador via era a falsa.
+var _shot: ProjectileSet.Projectile = null
+var _fade: float = 0.0
 
 func _process(delta: float) -> void:
+	if _shot != null:
+		_process_shot(delta)
+		return
+
 	_elapsed += delta
 	if _elapsed >= lifetime:
 		queue_free()
@@ -27,11 +42,25 @@ func _process(delta: float) -> void:
 	var progress: float = _elapsed / lifetime
 	if _material != null:
 		_material.albedo_color.a = (1.0 - progress) * 0.55
-	if _travels:
-		# Interpolação no `_process` e não no `_physics_process`: isto é
-		# puramente visual, e a convenção do projeto reserva o tick fixo para
-		# lógica de jogo.
-		global_position = _travel_from.lerp(_travel_to, progress)
+
+## Segue o projétil enquanto ele voa; pisca e some quando ele acaba.
+##
+## `lifetime` continua valendo como guarda: projétil que por algum motivo
+## ficasse preso não deixaria uma esfera imortal na cena.
+func _process_shot(delta: float) -> void:
+	global_position = Vector3(
+		_shot.position.x, ALTURA_DO_VOO, _shot.position.z
+	)
+	if not _shot.spent:
+		_elapsed += delta
+		if _elapsed < lifetime:
+			return
+
+	_fade += delta
+	if _material != null:
+		_material.albedo_color.a = maxf(0.55 * (1.0 - _fade / CLARAO), 0.0)
+	if _fade >= CLARAO:
+		queue_free()
 
 # ---------------------------------------------------------------- fábricas
 
@@ -74,20 +103,30 @@ static func line(
 ##
 ## O dano já foi aplicado quando ela sai — ver a nota sobre projétil
 ## instantâneo em `ability_caster.gd`.
-static func projectile(
-		parent: Node, origin: Vector3, destination: Vector3,
-		speed: float, color: Color
+## Uma esfera colada num projétil de verdade.
+##
+## O raio sai de `pulse.width`, e não de um número bonito: é a largura com que
+## o projétil realmente acerta. Uma esfera menor que a colisão faz o jogador
+## achar que errou quando acertou; maior, o contrário. Ver a esfera do tamanho
+## certo é metade de aprender a mirar.
+static func follow(
+		parent: Node, shot: ProjectileSet.Projectile, color: Color
 ) -> AbilityTelegraph:
+	if shot == null:
+		return null
+	var raio: float = clampf(shot.pulse.width * 0.5, 0.15, 1.5)
 	var mesh := SphereMesh.new()
-	mesh.radius = 0.28
-	mesh.height = 0.56
+	mesh.radius = raio
+	mesh.height = raio * 2.0
 
 	var node := _build(parent, mesh, color)
-	node._travels = true
-	node._travel_from = Vector3(origin.x, 1.0, origin.z)
-	node._travel_to = Vector3(destination.x, 1.0, destination.z)
-	node.global_position = node._travel_from
-	node.lifetime = maxf(node._travel_from.distance_to(node._travel_to) / maxf(speed, 0.1), 0.05)
+	node._shot = shot
+	# Margem sobre o tempo de voo: é guarda contra esfera órfã, não o relógio
+	# do projétil. Quem manda no fim é `shot.spent`.
+	node.lifetime = shot.flight_time() + 0.5
+	node.global_position = Vector3(
+		shot.position.x, ALTURA_DO_VOO, shot.position.z
+	)
 	return node
 
 # ---------------------------------------------------------------- interno

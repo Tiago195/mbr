@@ -35,6 +35,13 @@ var status: Status = Status.INVALID
 var ability: Ability = null
 var targets: Array[Unit] = []
 
+## Quantos projéteis esta conjuração pôs no ar.
+##
+## Existe porque, com projétil que voa de verdade, `targets` vazio deixou de
+## querer dizer "errou": quer dizer "ainda não se sabe". Sem separar os dois, o
+## console anunciava erro toda vez que alguém atirava.
+var launched: int = 0
+
 ## Segundos que faltam, quando recusada por recarga.
 var cooldown_remaining: float = 0.0
 
@@ -43,6 +50,11 @@ func succeeded() -> bool:
 
 func started() -> bool:
 	return status == Status.CASTING
+
+## Saiu alguma coisa que ainda vai acontecer. O resultado do tiro chega depois,
+## por `AbilityEngine.advance_projectiles()`.
+func in_flight() -> bool:
+	return launched > 0
 
 static func of(p_status: Status, p_ability: Ability = null) -> CastResult:
 	var made := CastResult.new()

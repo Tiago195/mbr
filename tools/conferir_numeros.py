@@ -271,6 +271,14 @@ def main() -> int:
     ]
     com_carga = [a for a in atores if a["ultimate_uses_charge"]]
 
+    pulsos_projetil = sum(
+        1 for h in habilidades for p in h["pulses"] if p["form"] == "PROJECTILE"
+    )
+    hab_projetil = [
+        h for h in habilidades
+        if any(p["form"] == "PROJECTILE" for p in h["pulses"])
+    ]
+
     relatorio = ler("data/traducao/RELATORIO.md")
     doc10 = ler("docs/10-traducao-do-original.md")
     claude = ler("CLAUDE.md")
@@ -324,6 +332,19 @@ def main() -> int:
              r"\| \.\.\.com as quatro conjuráveis \| (\d+) \|", len(completos))
     c.afirma("docs/10 supremas por carga", doc10,
              r"(\d+) supremas enchem batendo", len(com_carga))
+    # ---------------------------------------------------------- projéteis
+    c.afirma("CLAUDE.md pulsos de projétil", claude,
+             r"\*\*(\d+) pulsos de projétil\*\*", pulsos_projetil)
+    c.afirma("CLAUDE.md habilidades com projétil", claude,
+             r"\*\*(\d+) habilidades\*\*\.", len(hab_projetil))
+    c.afirma("docs/02 pulsos de projétil",
+             ler("docs/02-decisoes-tecnicas.md"),
+             r"São (\d+) pulsos de projétil no corpus", pulsos_projetil)
+    c.afirma("docs/02 habilidades com projétil",
+             ler("docs/02-decisoes-tecnicas.md"),
+             r"pulsos de projétil no corpus traduzido, em (\d+) habilidades",
+             len(hab_projetil))
+
     c.afirma("actor_profile.gd campeões completos",
              ler("scripts/gameplay/champion_selector.gd"),
              r"Cinco dos (\d+) têm um espaço", len(campeoes))

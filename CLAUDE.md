@@ -215,7 +215,7 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 ## Estado atual
 
 > Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **376 testes, 1073 asserções**, todos verdes, stderr limpo.
+> branch `master`. **394 testes, 1114 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
@@ -281,6 +281,13 @@ humano em três coisas, e nenhuma é automatizável:
 
 #### O que a próxima sessão precisa saber antes de mexer
 
+- **Projétil precisa de VARREDURA, não de amostra.** Testar só a posição do
+  fim do tique faz um tiro rápido atravessar alvo estreito, sem erro nenhum.
+  A 60 m/s, um tique de 60 Hz anda 1 metro. Há teste, e um teste de mutação
+  confirma que ele fica vermelho.
+- **Quem tica um `AbilityBook` tem que chamar `AbilityEngine.advance_projectiles()`**,
+  além de `resolve_scheduled()`. Sem isso o tiro sai e nunca chega — e nada
+  acusa, porque a conjuração devolve SUCCESS do mesmo jeito.
 - **`ActorProfile.apply_stats_to` SUBSTITUI o conjunto de atributos**, não soma.
   Foi um defeito real: 28 dos 33 campeões declaram
   `out_of_combat_health_regen` e cinco não, e com `set_bases` a regeneração do
@@ -346,7 +353,8 @@ Fases 1.1 a 1.3, 2.1 a 2.4, e 3.1 a 3.4 — todas validadas em execução.
 
 Dá para: andar clicando com o botão direito, contornar obstáculos, atacar
 bonecos de treino, e **ser um campeão do original com o kit dele em Q/W/E/R**,
-trocando de campeão com Page Down. Barra de vida com escudo e números de dano
+trocando de campeão com Page Down. **Projétil voa**: o dano sai no impacto, e
+sair da frente funciona. Barra de vida com escudo e números de dano
 flutuantes.
 
 As três habilidades feitas à mão (`meteoro`, `raio`, `investida`) continuam no
@@ -388,7 +396,13 @@ precisa ser chamado pela camada de gameplay).
 > *"achei vários problemas com as skills dos personagens, várias não estão
 > funcionando como deveria, mas acho q por hora tá tudo bem"*
 
-**Não é bug de tradução — são as lacunas registradas, medidas por campeão.**
+**Um deles já foi fechado, e era o pior:** o projétil causava dano no instante
+do clique — *"e não se realmente acerta o alvo"*. Hoje ele voa, e quem sai da
+frente não leva. Ver a decisão 15 em `docs/02-decisoes-tecnicas.md`. São
+**359 pulsos de projétil** no corpus, em **223 habilidades**.
+
+**O resto não é bug de tradução — são as lacunas registradas, medidas por
+campeão.**
 Das 124 habilidades dos 31 campeões com suprema:
 
 | Quantas | O que falta |

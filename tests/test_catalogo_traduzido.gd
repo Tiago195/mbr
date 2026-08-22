@@ -485,6 +485,7 @@ func test_toda_habilidade_do_corpus_conjura() -> void:
 		for passo: int in range(12):
 			book.advance_time(0.5, caster)
 			AbilityEngine.resolve_scheduled(book, candidatos)
+			AbilityEngine.advance_projectiles(book, 0.5, candidatos)
 			caster.advance_time(0.5)
 			for alvo: Unit in candidatos:
 				alvo.advance_time(0.5)
@@ -514,9 +515,14 @@ func test_conjurar_o_corpus_causa_efeito_de_verdade() -> void:
 		var candidatos: Array = [alvo, aliado]
 		var book := AbilityBook.new()
 		AbilityEngine.cast(book, ability, _mira(ability, caster, alvo), candidatos)
+		# `advance_projectiles` entrou aqui junto com o voo de verdade: sem
+		# ela, as ~200 habilidades de projétil do corpus lançam e nada nunca
+		# aterrissa — e a contagem de "causaram dano" despencava sem que nada
+		# estivesse errado com a tradução.
 		for passo: int in range(6):
 			book.advance_time(0.5, caster)
 			AbilityEngine.resolve_scheduled(book, candidatos)
+			AbilityEngine.advance_projectiles(book, 0.5, candidatos)
 
 		if alvo.health.current < 100000.0:
 			machucaram += 1

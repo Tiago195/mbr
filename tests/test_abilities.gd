@@ -113,12 +113,19 @@ func test_projetil_que_nao_atravessa_para_no_primeiro() -> void:
 	ability.single_pulse().pierces = false
 
 	var book := AbilityBook.new()
+	var candidatos: Array = [segundo, primeiro]
 	var result := AbilityEngine.cast(
-		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)),
-		[segundo, primeiro]
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)), candidatos
 	)
 
-	assert_eq(result.targets.size(), 1)
+	# O tiro SAIU e não acertou ninguém ainda. Antes, o dano saía no mesmo
+	# quadro do clique e a esfera na tela era enfeite.
+	assert_eq(result.launched, 1, "um projétil no ar")
+	assert_eq(result.targets.size(), 0, "ninguém foi atingido na conjuração")
+	assert_almost_eq(primeiro.health.current, 500.0, "ninguém levou dano ainda")
+
+	var impactos: Array[CastResult] = _voar(book, candidatos)
+	assert_eq(impactos.size(), 1, "um impacto")
 	assert_almost_eq(primeiro.health.current, 400.0, "o mais próximo")
 	assert_almost_eq(segundo.health.current, 500.0)
 
@@ -563,16 +570,33 @@ func test_raio_para_no_primeiro_e_deixa_lento() -> void:
 	var primeiro := _unit(Vector3(0, 0, -3), 1)
 	var segundo := _unit(Vector3(0, 0, -7), 1)
 
-	var result := AbilityEngine.cast(
-		AbilityBook.new(), ability,
-		AbilityCast.toward(caster, Vector3(0, 0, -1)), [segundo, primeiro]
+	var book := AbilityBook.new()
+	var candidatos: Array = [segundo, primeiro]
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)), candidatos
 	)
+	var impactos: Array[CastResult] = _voar(book, candidatos)
 
-	assert_eq(result.targets.size(), 1, "não atravessa")
+	assert_eq(impactos.size(), 1, "não atravessa")
 	assert_almost_eq(segundo.health.current, 500.0, "o de trás fica ileso")
 	assert_almost_eq(
 		primeiro.stats.get_value(Stat.Id.MOVE_SPEED), 3.25, "5 com 35% de lentidão"
 	)
+
+## Voa até não haver mais projétil no ar. Devolve os impactos, em ordem.
+##
+## Passo de 1/60 de propósito: é o tique do jogo, e um passo grande esconderia
+## erro de varredura — que é justamente o defeito que projétil rápido tem.
+func _voar(book: AbilityBook, candidatos: Array, limite: int = 1200) -> Array[CastResult]:
+	var impactos: Array[CastResult] = []
+	for _passo: int in limite:
+		if book.projectiles.is_empty():
+			break
+		for r: CastResult in AbilityEngine.advance_projectiles(
+				book, 1.0 / 60.0, candidatos
+		):
+			impactos.append(r)
+	return impactos
 
 # ------------------------------------------- CRITÉRIO ANTECIPADO DA FASE 3.3
 

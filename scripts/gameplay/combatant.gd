@@ -123,6 +123,20 @@ func adopt_profile(profile: ActorProfile, level: int) -> void:
 		return
 	profile.apply_stats_to(unit.stats, level, _bases_do_inspector)
 	unit.nature = profile.nature
+
+	# Trocar de campeão é renascer, não continuar. Sem esta limpeza o
+	# personagem herda o estado do anterior: uma sonda automática pegou um
+	# campeão recusando a suprema com CANNOT_CAST porque carregava um controle
+	# de grupo deixado pelo campeão de antes, três trocas atrás.
+	unit.status.clear_all()
+	unit.periodic.clear()
+	unit.triggers.clear()
+	unit.marks.clear_all()
+	unit.stats.remove_temporary()
+	unit.pending_displacement = Vector3.ZERO
+	unit.consume_summons()
+	unit.consume_cooldown_adjustments()
+
 	# Vida e mana são cheias a partir do máximo NOVO. Sem isto, trocar de um
 	# campeão de 2000 para um de 2600 deixaria o segundo nascer com 2000.
 	unit.health.current = unit.health.maximum()

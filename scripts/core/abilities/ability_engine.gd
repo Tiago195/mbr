@@ -20,7 +20,15 @@ extends RefCounted
 ## O que a tradução mudou: uma habilidade tem vários pulsos, com tempos
 ## próprios. Os de tempo zero saem na hora; os demais ficam marcados no livro,
 ## e `resolve_scheduled()` os solta quando vencem. Quem chama tem que chamá-la
-## a cada tique — é o único acréscimo ao contrato da camada de gameplay.
+## a cada tique.
+##
+## **Pulso de forma PROJECTILE não resolve na conjuração.** Ele põe um projétil
+## no ar (`ProjectileSet`) e o dano acontece quando a esfera encontra alguém.
+## Antes, o dano saía no instante do clique e a esfera era enfeite — o que
+## tornava mira irrelevante: quem estava na linha naquele milissegundo levava
+## dano mesmo saindo de lá. Isso obriga quem chama a ticar também
+## `advance_projectiles()`, e são os dois únicos acréscimos ao contrato da
+## camada de gameplay.
 
 ## Tenta conjurar.
 ##
@@ -82,7 +90,35 @@ static func resolve_scheduled(book: AbilityBook, candidates: Array) -> Array[Cas
 		# O conjurador morrer não desfaz o que já foi lançado, mas efeito que
 		# escala com atributo dele passa a ler um morto. É o mesmo critério do
 		# veneno em `PeriodicSet`: o golpe sai, o dono não importa mais.
-		results.append(_fire(entry.ability, entry.pulse, entry.cast, entry.anchor, candidates))
+		results.append(_fire(
+			book, entry.ability, entry.pulse, entry.cast, entry.anchor, candidates
+		))
+	return results
+
+## Avança os projéteis no ar e aplica o que eles acertaram.
+##
+## Chamar a cada tique, como `resolve_scheduled()`. Devolve um resultado por
+## impacto; lista vazia quando nada está voando — o custo de chamar sempre é
+## uma comparação.
+##
+## Os candidatos são pedidos a cada tique, e não guardados no lançamento: entre
+## o tiro e o impacto o mundo se mexeu, e é justamente isso que faz desviar de
+## um projétil querer dizer alguma coisa.
+static func advance_projectiles(
+		book: AbilityBook, delta: float, candidates: Array
+) -> Array[CastResult]:
+	var results: Array[CastResult] = []
+	if book == null or book.projectiles.is_empty():
+		return results
+
+	for impact: ProjectileSet.Impact in book.projectiles.advance_time(delta, candidates):
+		var shot: ProjectileSet.Projectile = impact.projectile
+		# Só os efeitos de alvo. Os do conjurador já saíram no lançamento —
+		# ver `_launch`.
+		_apply_effects(shot.pulse, shot.cast, impact.targets, false)
+		var result: CastResult = CastResult.of(CastResult.Status.SUCCESS, shot.ability)
+		result.targets = impact.targets
+		results.append(result)
 	return results
 
 # ---------------------------------------------------------------- checagens
@@ -187,9 +223,13 @@ static func _apply(
 		)
 
 	var all_targets: Array[Unit] = []
+	var lancados: int = 0
 	for index: int in range(immediate.size()):
 		var pulse: AbilityPulse = immediate[index]
-		var result: CastResult = _fire(ability, pulse, aim, anchors[index], candidates)
+		var result: CastResult = _fire(
+			book, ability, pulse, aim, anchors[index], candidates
+		)
+		lancados += result.launched
 		for hit: Unit in result.targets:
 			if not all_targets.has(hit):
 				all_targets.append(hit)
@@ -208,6 +248,7 @@ static func _apply(
 
 	var final: CastResult = CastResult.of(CastResult.Status.SUCCESS, ability)
 	final.targets = all_targets
+	final.launched = lancados
 	return final
 
 ## Verdadeiro quando nenhum pulso imediato pega ninguém. Só serve para a
@@ -224,26 +265,71 @@ static func _hits_nobody(
 	return true
 
 ## Um pulso saindo: acha quem pega e aplica os efeitos.
+##
+## Projétil é o caso à parte — ele não pega ninguém agora, ele decola.
 static func _fire(
+		book: AbilityBook,
 		ability: Ability,
 		pulse: AbilityPulse,
 		aim: AbilityCast,
 		anchor: Vector3,
 		candidates: Array
 ) -> CastResult:
-	var targets: Array[Unit] = AbilityShape.resolve(pulse, aim, candidates, anchor)
+	if pulse.form == AbilityPulse.Form.PROJECTILE and book != null:
+		return _launch(book, ability, pulse, aim, anchor)
 
+	var targets: Array[Unit] = AbilityShape.resolve(pulse, aim, candidates, anchor)
+	_apply_effects(pulse, aim, targets, true)
+
+	var result: CastResult = CastResult.of(CastResult.Status.SUCCESS, ability)
+	result.targets = targets
+	return result
+
+## Põe no ar um projétil por direção do leque.
+##
+## **Um por direção, e não uma forma que testa todas.** É a correção que o voo
+## de verdade trouxe de graça: antes, três flechas em leque eram uma única
+## checagem "está dentro de alguma das três", e quem estivesse entre duas delas
+## levava dano de um tiro que não passou por ele.
+##
+## Os efeitos do CONJURADOR saem agora, não no impacto. O escudo de quem atira
+## não depende de a flecha acertar; se dependesse, seria um gatilho, e o
+## vocabulário já tem `TriggerEffect` para isso.
+static func _launch(
+		book: AbilityBook,
+		ability: Ability,
+		pulse: AbilityPulse,
+		aim: AbilityCast,
+		anchor: Vector3
+) -> CastResult:
+	var result: CastResult = CastResult.of(CastResult.Status.SUCCESS, ability)
+	for direction: Vector3 in pulse.spread_directions(aim.direction):
+		if book.projectiles.launch(ability, pulse, aim, anchor, direction) != null:
+			result.launched += 1
+
+	if result.launched > 0:
+		_apply_effects(pulse, aim, [] as Array[Unit], true)
+	return result
+
+## Aplica os efeitos de um pulso. `include_caster` separa quem já foi servido.
+##
+## Existe porque o projétil aplica em dois momentos: o que é do conjurador sai
+## no lançamento, o que é do alvo sai no impacto. Sem separar, o escudo do
+## atirador saía de novo a cada inimigo acertado.
+static func _apply_effects(
+		pulse: AbilityPulse,
+		aim: AbilityCast,
+		targets: Array[Unit],
+		include_caster: bool
+) -> void:
 	for effect: AbilityEffect in pulse.effects:
 		if effect == null:
 			continue
 		if effect.recipient == AbilityEffect.Recipient.CASTER:
 			# Sai uma vez só, não uma por alvo: senão um dash com três
 			# inimigos na frente andaria o triplo.
-			effect.apply(aim, aim.caster)
+			if include_caster:
+				effect.apply(aim, aim.caster)
 			continue
 		for target: Unit in targets:
 			effect.apply(aim, target)
-
-	var result: CastResult = CastResult.of(CastResult.Status.SUCCESS, ability)
-	result.targets = targets
-	return result

@@ -123,11 +123,16 @@ func _sondar() -> Array[String]:
 					profile.id, AbilityBook.Slot.keys()[slot]
 				])
 
-		# Os pulsos atrasados também têm que sair sem estourar.
-		for _passo: int in 60:
-			caster.book.advance_time(0.1, unit)
-			unit.advance_time(0.1)
+		# Os pulsos atrasados e o voo dos projéteis também têm que sair sem
+		# estourar. 0,1 s por passo: passo grande esconderia erro de varredura,
+		# que é o defeito clássico de projétil rápido.
+		for _passo: int in 120:
+			caster.book.advance_time(1.0 / 60.0, unit)
+			unit.advance_time(1.0 / 60.0)
 			AbilityEngine.resolve_scheduled(caster.book, Combatant.all_units(self))
+			AbilityEngine.advance_projectiles(
+				caster.book, 1.0 / 60.0, Combatant.all_units(self)
+			)
 
 	if campeoes.is_empty():
 		return ["o catálogo não tem campeão nenhum"] as Array[String]

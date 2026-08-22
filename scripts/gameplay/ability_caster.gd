@@ -34,6 +34,13 @@ var _combatant: Combatant
 ## original quando o efeito sai, muitos frames depois da tecla.
 var _last_cast: AbilityCast
 
+## Maior id de projétil que já ganhou esfera na tela.
+##
+## É assim que a camada visual descobre o que é novo sem a engine avisar: todo
+## caminho que lança — conjuração direta, conjuração com tempo, pulso atrasado
+## — deixa o projétil na mesma lista, e um contador crescente basta.
+var _last_drawn_shot: int = 0
+
 func _ready() -> void:
 	ensure_ready()
 
@@ -111,6 +118,16 @@ func _physics_process(delta: float) -> void:
 				late.ability.display_name, late.targets.size()
 			])
 
+	# O voo dos projéteis. Sem esta chamada, o que sai do arco nunca chega.
+	for hit: CastResult in AbilityEngine.advance_projectiles(
+			book, delta, Combatant.all_units(get_tree())
+	):
+		if hit.ability != null:
+			print("[hab] %s ACERTOU %d alvo(s)" % [
+				hit.ability.display_name, hit.targets.size()
+			])
+	_draw_new_projectiles()
+
 # ---------------------------------------------------------------- conjuração
 
 func _try_cast(slot: AbilityBook.Slot) -> void:
@@ -185,14 +202,10 @@ func _draw(ability: Ability, cast: AbilityCast) -> void:
 		AbilityPulse.Form.CIRCLE:
 			AbilityTelegraph.circle(scene_root, anchor, pulse.radius, color_area)
 		AbilityPulse.Form.PROJECTILE:
-			# O dano já saiu quando a esfera parte. É mentira visual, e é
-			# consciente: projétil que viaja de verdade precisa resolver
-			# colisão ao longo do voo, o que muda o momento em que o servidor
-			# decide o acerto. Fica para a Fase 4, junto do netcode.
-			AbilityTelegraph.projectile(
-				scene_root, anchor, anchor + cast.direction * pulse.length,
-				pulse.projectile_speed, color_line
-			)
+			# Nada aqui: quem desenha projétil é `_draw_new_projectiles()`, que
+			# segue o objeto de verdade. Desenhar na conjuração era o que
+			# permitia a esfera e o dano discordarem.
+			pass
 		AbilityPulse.Form.CONE, AbilityPulse.Form.LINE, AbilityPulse.Form.TRAPEZOID:
 			AbilityTelegraph.line(
 				scene_root, anchor, cast.direction,
@@ -200,6 +213,24 @@ func _draw(ability: Ability, cast: AbilityCast) -> void:
 			)
 		_:
 			pass
+
+## Põe uma esfera em cada projétil que entrou no ar desde o último quadro.
+##
+## A esfera SEGUE o projétil de `core/` em vez de fazer o próprio caminho. É a
+## diferença entre mostrar o que aconteceu e mostrar algo parecido: enquanto
+## eram duas viagens independentes, dava para ver a esfera passar longe de um
+## alvo que tinha levado dano.
+func _draw_new_projectiles() -> void:
+	if book.projectiles.is_empty():
+		return
+	var scene_root: Node = get_tree().current_scene
+	if scene_root == null:
+		return
+	for shot: ProjectileSet.Projectile in book.projectiles.flying():
+		if shot.id <= _last_drawn_shot:
+			continue
+		_last_drawn_shot = shot.id
+		AbilityTelegraph.follow(scene_root, shot, color_line)
 
 ## Console em vez de HUD: a Fase 1 não tem UI, e a recusa precisa ser visível
 ## para dar para testar. Vira ícone acinzentado e aviso na tela na Fase 6.
@@ -211,7 +242,13 @@ func _report(ability: Ability, result: CastResult) -> void:
 			var mine: String = ""
 			if _combatant.health.shield > 0.0:
 				mine = "  escudo %.0f" % _combatant.health.shield
-			if result.targets.is_empty():
+			if result.in_flight():
+				# "Errou" seria mentira: o tiro ainda está no ar. O resultado
+				# dele sai por `advance_projectiles`, quando encontrar alguém.
+				print("[hab] %s lançou %d projétil(is)%s" % [
+					ability.display_name, result.launched, mine
+				])
+			elif result.targets.is_empty():
 				print("[hab] %s errou%s" % [ability.display_name, mine])
 			else:
 				print("[hab] %s acertou %d alvo(s)%s" % [

@@ -46,6 +46,12 @@ static func resolve(
 
 # ---------------------------------------------------------------- filtro
 
+## Quem esta forma aceita atingir. Público porque o voo do projétil
+## (`ProjectileSet`) precisa do MESMO filtro, e duplicar a regra de quem é
+## aliado seria a via mais curta para um projétil ferir o próprio time.
+static func accepts(pulse: AbilityPulse, caster: Unit, unit: Unit) -> bool:
+	return _passes_filter(pulse, caster, unit)
+
 static func _passes_filter(pulse: AbilityPulse, caster: Unit, unit: Unit) -> bool:
 	if unit == caster:
 		return pulse.hits_self

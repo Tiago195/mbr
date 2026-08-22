@@ -41,6 +41,13 @@ class Scheduled extends RefCounted:
 
 var _scheduled: Array[Scheduled] = []
 
+## Os projéteis que este combatente tem no ar.
+##
+## Fica aqui, junto dos pulsos marcados, porque é a mesma espécie de coisa: um
+## efeito que já foi disparado e ainda não aconteceu. O livro já é tickado a
+## cada quadro por quem o possui, então o voo não precisa de um dono novo.
+var projectiles := ProjectileSet.new()
+
 # ---------------------------------------------------------------- slots
 
 ## Aprende uma habilidade num espaço.
@@ -241,6 +248,9 @@ func advance_time(delta: float, caster: Unit = null) -> void:
 
 	for entry: Scheduled in _scheduled:
 		entry.remaining -= delta
+
+	# O voo NÃO é avançado aqui: ele precisa da lista de candidatos, e o livro
+	# não a conhece. Quem tica chama `AbilityEngine.advance_projectiles()`.
 
 	if not is_casting():
 		return
