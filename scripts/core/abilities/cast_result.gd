@@ -41,11 +41,11 @@ func succeeded() -> bool:
 func started() -> bool:
 	return status == Status.CASTING
 
-static func of(status: Status, ability: Ability = null) -> CastResult:
-	var result := CastResult.new()
-	result.status = status
-	result.ability = ability
-	return result
+static func of(p_status: Status, p_ability: Ability = null) -> CastResult:
+	var made := CastResult.new()
+	made.status = p_status
+	made.ability = p_ability
+	return made
 
 func _to_string() -> String:
 	return "CastResult(%s, %d alvo(s))" % [Status.keys()[status], targets.size()]

@@ -20,6 +20,7 @@ extends Node3D
 @export var color_full: Color = Color(0.25, 0.80, 0.35)
 @export var color_empty: Color = Color(0.85, 0.15, 0.15)
 @export var color_backdrop: Color = Color(0.05, 0.05, 0.06, 0.85)
+@export var color_shield: Color = Color(0.80, 0.88, 0.95)
 @export var color_damage: Color = Color(1.0, 0.95, 0.85)
 @export var color_crit: Color = Color(1.0, 0.65, 0.15)
 
@@ -27,6 +28,8 @@ var _combatant: Combatant
 var _fill: MeshInstance3D
 var _fill_mesh: QuadMesh
 var _fill_material: StandardMaterial3D
+var _shield: MeshInstance3D
+var _shield_mesh: QuadMesh
 
 func _ready() -> void:
 	_combatant = Combatant.of(get_parent())
@@ -56,6 +59,14 @@ func _build_bar() -> void:
 	_fill_mesh = _fill.mesh as QuadMesh
 	_fill_material = _fill.material_override as StandardMaterial3D
 	add_child(_fill)
+
+	# Escudo desenhado depois da vida, na mesma barra. Segmento separado e não
+	# uma cor diferente do mesmo quad: escudo e vida sobem e descem por regras
+	# distintas, e vê-los lado a lado é o que deixa claro quanto dano ainda
+	# está absorvido.
+	_shield = _make_quad(bar_size, color_shield, 7)
+	_shield_mesh = _shield.mesh as QuadMesh
+	add_child(_shield)
 
 func _make_quad(size: Vector2, color: Color, priority: int) -> MeshInstance3D:
 	var quad := QuadMesh.new()
@@ -91,17 +102,36 @@ func _make_quad(size: Vector2, color: Color, priority: int) -> MeshInstance3D:
 func _refresh_bar() -> void:
 	if _fill == null or _combatant == null:
 		return
-	var fraction: float = clampf(_combatant.health.fraction(), 0.0, 1.0)
+	var health: Health = _combatant.health
+	var fraction: float = clampf(health.fraction(), 0.0, 1.0)
 
-	# Quad de largura zero é malha degenerada; some com ele em vez disso.
-	_fill.visible = fraction > 0.0
-	if not _fill.visible:
-		return
-
-	var width: float = bar_size.x * fraction
-	_fill_mesh.size = Vector2(width, bar_size.y)
-	_fill_mesh.center_offset = Vector3(-(bar_size.x - width) * 0.5, 0.0, 0.0)
+	_set_segment(_fill, _fill_mesh, 0.0, fraction)
 	_fill_material.albedo_color = color_empty.lerp(color_full, fraction)
+
+	# Escudo ocupa o trecho logo depois da vida, medido na mesma escala de vida
+	# máxima. Escudo maior que o espaço restante é cortado na borda — a barra
+	# não cresce, senão barras de tamanhos diferentes ficariam incomparáveis.
+	var maximum: float = health.maximum()
+	var shield_span: float = 0.0
+	if maximum > 0.0:
+		shield_span = clampf(health.shield / maximum, 0.0, 1.0)
+	_set_segment(_shield, _shield_mesh, fraction, minf(1.0, fraction + shield_span))
+
+## Posiciona um trecho da barra entre duas frações, de 0 a 1.
+##
+## O quad é centrado, então além da largura é preciso deslocar o centro do
+## segmento. Tudo na geometria, nunca em `scale`/`position` do nó: com
+## billboard ligado a escala do nó é descartada (ver `CLAUDE.md`).
+func _set_segment(node: MeshInstance3D, mesh: QuadMesh, from: float, to: float) -> void:
+	var span: float = maxf(to - from, 0.0)
+	# Quad de largura zero é malha degenerada; some com ele em vez disso.
+	node.visible = span > 0.0
+	if not node.visible:
+		return
+	var width: float = bar_size.x * span
+	var center: float = (-0.5 + (from + to) * 0.5) * bar_size.x
+	mesh.size = Vector2(width, bar_size.y)
+	mesh.center_offset = Vector3(center, 0.0, 0.0)
 
 # ---------------------------------------------------------------- sinais
 

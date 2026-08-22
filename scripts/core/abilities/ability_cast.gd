@@ -18,35 +18,40 @@ var direction: Vector3 = Vector3.FORWARD
 ## Alvo escolhido a dedo. Vale para alvo UNIT.
 var unit_target: Unit = null
 
-static func at_point(caster: Unit, point: Vector3) -> AbilityCast:
-	var cast := AbilityCast.new()
-	cast.caster = caster
-	cast.point = point
-	cast.direction = _flat_direction(caster.position, point, caster.facing)
-	return cast
+## Prefixo `p_` nos parâmetros para não sombrear os membros de mesmo nome —
+## a Godot avisa, e sombreamento silencioso é como se escreve no campo errado
+## sem perceber.
+static func at_point(p_caster: Unit, p_point: Vector3) -> AbilityCast:
+	var made := AbilityCast.new()
+	made.caster = p_caster
+	made.point = p_point
+	made.direction = _flat_direction(p_caster.position, p_point, p_caster.facing)
+	return made
 
-static func toward(caster: Unit, direction: Vector3) -> AbilityCast:
-	var cast := AbilityCast.new()
-	cast.caster = caster
-	cast.direction = _normalize_flat(direction, caster.facing)
-	cast.point = caster.position
-	return cast
+static func toward(p_caster: Unit, p_direction: Vector3) -> AbilityCast:
+	var made := AbilityCast.new()
+	made.caster = p_caster
+	made.direction = _normalize_flat(p_direction, p_caster.facing)
+	made.point = p_caster.position
+	return made
 
-static func on_unit(caster: Unit, target: Unit) -> AbilityCast:
-	var cast := AbilityCast.new()
-	cast.caster = caster
-	cast.unit_target = target
-	cast.point = target.position
-	cast.direction = _flat_direction(caster.position, target.position, caster.facing)
-	return cast
+static func on_unit(p_caster: Unit, p_target: Unit) -> AbilityCast:
+	var made := AbilityCast.new()
+	made.caster = p_caster
+	made.unit_target = p_target
+	made.point = p_target.position
+	made.direction = _flat_direction(
+		p_caster.position, p_target.position, p_caster.facing
+	)
+	return made
 
-static func on_self(caster: Unit) -> AbilityCast:
-	var cast := AbilityCast.new()
-	cast.caster = caster
-	cast.unit_target = caster
-	cast.point = caster.position
-	cast.direction = _normalize_flat(caster.facing, Vector3.FORWARD)
-	return cast
+static func on_self(p_caster: Unit) -> AbilityCast:
+	var made := AbilityCast.new()
+	made.caster = p_caster
+	made.unit_target = p_caster
+	made.point = p_caster.position
+	made.direction = _normalize_flat(p_caster.facing, Vector3.FORWARD)
+	return made
 
 ## Direção de um ponto a outro, achatada no plano do chão.
 ## Cai no `fallback` quando os pontos coincidem — mirar nos próprios pés não
