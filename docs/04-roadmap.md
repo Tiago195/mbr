@@ -330,7 +330,7 @@ integração · 🟡 aguardando validação humana · ⏭️ adiada
 | 5.2 | 🟨 Lógica pronta | 22/08/2026 | `Item` e `Inventory` em `core/items/`, 16 testes. Falta loot no chão, coleta e UI |
 | 5.3 | 🟨 Lógica pronta | 22/08/2026 | `Zone` em `core/match/`, 18 testes. Falta o círculo desenhado e trocar `damage_per_second` por buff |
 | 5.4 | 🟨 Lógica pronta | 22/08/2026 | `MatchState` em `core/match/`, 15 testes. Governa a zona e decide o vencedor. Falta spawn, respawn de lobby e ligação com a cena |
-| **Passo 4** | ✅ Concluída | 22/08/2026 | **Tradução do original.** 948 habilidades + 421 itens no nosso vocabulário. Atributos 18→44, controles 4→10, efeitos 6→14, `Ability` virou lista de pulsos. Corpus carregável e conjurável em `data/traducao/`. Ver `docs/10-traducao-do-original.md` |
+| **Passo 4** | ✅ Concluída | 22/08/2026 | **Tradução do original.** 948 habilidades + 421 itens no nosso vocabulário. Atributos 18→44, estados de controle 4→10 (e opções de `CrowdControlEffect` 5→11), efeitos 6→14, `Ability` virou lista de pulsos. Corpus carregável e conjurável em `data/traducao/`. Ver `docs/10-traducao-do-original.md` |
 
 ### O que a tradução do original mudou no roadmap
 

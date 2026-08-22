@@ -391,7 +391,7 @@ carregadores (`AbilityCatalog`, `ItemCatalog`, `EffectFactory`) transformam em
 
 **Por quê:**
 - `.tres` é o formato de quem edita à mão, e corpus gerado não se edita à mão.
-- 1369 arquivos gerados afogariam o `git diff` de qualquer mudança futura no
+- 1547 arquivos gerados afogariam o `git diff` de qualquer mudança futura no
   vocabulário. Em JSON, uma mudança de vocabulário é um diff legível.
 - Carregar 2 MB e ~3200 efeitos a cada partida, para usar três habilidades,
   seria caro pelo motivo errado. Quem quer, chama.

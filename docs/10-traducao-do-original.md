@@ -50,7 +50,7 @@ abaixo explica cada uma.
 
 - `.tres` é o formato de quem edita à mão. Corpus gerado não se edita à mão —
   se editasse, a execução seguinte apagaria a edição.
-- 1369 arquivos gerados afogariam o `git diff` de qualquer mudança futura no
+- 1547 arquivos gerados afogariam o `git diff` de qualquer mudança futura no
   vocabulário. Em JSON, uma mudança de vocabulário é um diff legível.
 - O JSON nomeia as **nossas** peças. Não é um despejo do original.
 

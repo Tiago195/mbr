@@ -12,7 +12,7 @@ Por que JSON e não 948 arquivos `.tres`:
 - `.tres` é o formato de quem edita à mão. Um corpus gerado por ferramenta não
   se edita à mão — se editasse, a próxima execução do tradutor apagaria a
   edição.
-- 1369 arquivos gerados afogariam o `git diff` de qualquer mudança futura no
+- 1547 arquivos gerados afogariam o `git diff` de qualquer mudança futura no
   vocabulário. Em JSON, uma mudança de vocabulário é um diff legível.
 - O JSON nomeia as NOSSAS classes e os NOSSOS enums. Ele não é um despejo do
   original: é a tradução, e o que não coube está registrado como lacuna em vez

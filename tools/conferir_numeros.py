@@ -116,6 +116,14 @@ def _sem_offset_no_corpus(habilidades: list) -> int:
     )
 
 
+def _emissoes_lacuna(relatorio: str, lacuna: str) -> int:
+    """Quantas ocorrências o relatório registra para uma lacuna nomeada."""
+    achado = re.search(
+        r"\| %s \| (\d+) \|" % re.escape(lacuna), relatorio
+    )
+    return int(achado.group(1)) if achado else -1
+
+
 def _emissoes(relatorio: str, peca: str) -> int:
     achado = re.search(r"\| `%s` \| (\d+) \|" % re.escape(peca), relatorio)
     return int(achado.group(1)) if achado else -1
@@ -317,6 +325,38 @@ def main() -> int:
     c.afirma("ability_pulse.gd habilidades com vários pulsos", pulse,
              r"\*\*(\d+) das habilidades do original têm mais de um pulso\*\*",
              len(varios))
+
+    # ------------------------------- quantos .tres teriam sido, se fossem
+    #
+    # Já ficou defasado: dizia 1369 (o total de antes) em três arquivos.
+    # É um número hipotético, e por isso mesmo ninguém o revisita sozinho.
+    quantos_tres = len(habilidades) + itens["total"]
+    for onde, caminho in (
+        ("docs/02", "docs/02-decisoes-tecnicas.md"),
+        ("docs/10", "docs/10-traducao-do-original.md"),
+        ("traduzir.py", "tools/traducao/traduzir.py"),
+    ):
+        c.afirma("%s arquivos .tres hipotéticos" % onde, ler(caminho),
+                 r"- (\d+) arquivos gerados afogariam", quantos_tres)
+
+    # ------------------------------------------------- roadmap
+    roadmap = ler("docs/04-roadmap.md")
+    c.afirma("docs/04 atributos", roadmap, r"Atributos 18→(\d+)", atributos)
+    c.afirma("docs/04 estados", roadmap,
+             r"estados de controle 4→(\d+)", estados)
+    c.afirma("docs/04 controles", roadmap,
+             r"`CrowdControlEffect` 5→(\d+)", controles)
+    c.afirma("docs/04 efeitos", roadmap, r"efeitos 6→(\d+)", efeitos)
+    for rotulo, chave, padrao in (
+        ("suprema", "UltimateCharge (carga de suprema)",
+         r"\*\*Carga de suprema\*\* \((\d+) habilidades"),
+        ("combo", "ComboSkillInfo (corrente de combo)",
+         r"\*\*Corrente de combo\*\* \((\d+)\)"),
+        ("cancelamento", "janela de cancelamento por tempo",
+         r"\*\*Janelas de cancelamento\*\* \((\d+)\)"),
+    ):
+        c.afirma("docs/04 lacuna %s" % rotulo, roadmap, padrao,
+                 _emissoes_lacuna(relatorio, chave))
 
     # ------------------------------------------------- contagem de testes
     c.afirma("CLAUDE.md testes", claude,
