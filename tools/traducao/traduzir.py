@@ -817,6 +817,13 @@ PAPEL = {
 ## usual de suprema de MOBA, não do original.
 RECARGA_DE_SUPREMA_SEM_CARGA = 45.0
 
+## Velocidade de um projétil cujo `MoveSpeedZ` o original não declara, ou
+## declara zero. **Inventado**, e registrado como tal no relatório.
+##
+## Não há valor neutro possível aqui: zero não é "devagar", é "nunca chega".
+## 15 m/s é a mediana grosseira dos que declaram.
+VELOCIDADE_DE_PROJETIL_PADRAO = 15.0
+
 
 def apelidos_de_ator(registros: list[dict[str, str]]) -> dict[str, str]:
     """Id do ator -> identificador ASCII estável e único.
@@ -1758,8 +1765,17 @@ class Tradutor:
                 self._inventado("alcance do projétil", skill)
             # `"0"` é uma string verdadeira em Python — sem o teste numérico,
             # quatro projéteis com velocidade zero passavam por "declarada".
-            if num(impacto.get("MoveSpeedZ")) <= 0.0:
+            #
+            # E a primeira correção parou na METADE: registrava a invenção e
+            # continuava emitindo o zero, porque `num(coluna, padrão)` só usa o
+            # padrão quando a coluna está AUSENTE. Sete pulsos saíam com
+            # velocidade 0 — quatro deles na suprema do Kaiba — e um projétil
+            # de velocidade zero nunca chega: fica no ar para sempre, com a
+            # esfera parada na tela. Uma sonda de cena pegou.
+            velocidade = num(impacto.get("MoveSpeedZ"))
+            if velocidade <= 0.0:
                 self._inventado("velocidade do projétil", skill)
+                velocidade = VELOCIDADE_DE_PROJETIL_PADRAO
             distancia = num(impacto.get("MoveDistance"), 8.0)
 
             # A largura vem de `CastDirection_Width`, a MESMA chave que o ramo
@@ -1778,7 +1794,7 @@ class Tradutor:
                 "radius": raio,
                 "length": distancia,
                 "width": largura,
-                "projectile_speed": num(impacto.get("MoveSpeedZ"), 15.0),
+                "projectile_speed": velocidade,
                 # `ImpactCount` 0 quer dizer "sem teto", e um projétil sem teto
                 # é um que atravessa.
                 "pierces": inteiro(impacto.get("ImpactCount"), 0) != 1,

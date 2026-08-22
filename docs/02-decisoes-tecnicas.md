@@ -507,3 +507,60 @@ São 359 pulsos de projétil no corpus traduzido, em 223 habilidades.
 colisor, e resolver isso exigiria a camada de gameplay responder a cada tique.
 `ThroughObstacle` já é lacuna registrada do original; o projétil entra nela em
 vez de inventar meia solução.
+
+## 16. Toda telegrafia é conferida por assinatura, e a conferência se testa
+
+**Decidido em 22/08/2026**, ao fechar a lacuna dos golpes invisíveis, depois de
+**oito rodadas de revisão adversarial — sete reprovando**.
+
+A tela desenhava só o primeiro pulso de cada habilidade. `CastResult` passou a
+dizer qual pulso saiu e onde, e `AbilityCaster` desenha todos — cada golpe
+atrasado no momento em que sai, não na conjuração (anunciar todos entregaria ao
+adversário onde o segundo cai). Cone e trapézio ganharam malha de verdade;
+eram desenhados como faixa retangular.
+
+**O que vale além desta lacuna é como ela foi conferida.** `tools/sondar_campeoes.gd`
+compara uma ASSINATURA de cada marca contra o que a engine declarou ter
+resolvido. A assinatura chegou à forma atual perdendo sete versões mais fracas,
+e cada perda foi o mesmo formato de erro:
+
+| Versão | O que deixava passar |
+|---|---|
+| contar nós | cone desenhado como faixa |
+| classe da malha | cone com o raio do círculo e ângulo qualquer |
+| geometria da malha | marca no lugar errado, apontando para o lado errado |
+| lugar e lado | marca a 1% do tamanho — a escala não entra na malha |
+| caixa da malha | faixa virando muro de 8 m, disco virando tubo de 40 |
+| transform do nó | **o `MeshInstance3D` filho**, que é quem renderiza |
+
+A forma que fechou: **classe + caixa no mundo do nó que renderiza + vértices +
+lugar + lado + visibilidade em árvore + camadas de render + vida**.
+
+**Três regras que saíram disso e valem para qualquer conferência do projeto:**
+
+1. **Quem junta o dado não decide.** Toda função que devolvia veredito pôde ser
+   esvaziada sem ruído. As que devolvem a MEDIÇÃO, não — quem decide é o laço
+   que chama, e o piso de trabalho é sobre o mesmo dado que ele lê.
+2. **Fixture degenerado é cobertura falsa.** O conjurador nascia na origem do
+   mundo e mirava no eixo: 17 de 20 âncoras davam (0,0) e todas as direções
+   davam a mesma. Mutação que plantasse toda marca na origem era um no-op
+   literal. Três dimensões da conferência nasceram cegas por isso, não por
+   falta de código.
+3. **Fonte única troca uma cegueira por outra.** Malha e raio virarem função
+   compartilhada elimina a divergência entre desenho e expectativa — e torna a
+   função invisível para quem compara os dois. A contrapartida vai para
+   `tests/`, onde ela é matemática pura: é por isso que `test_telegrafia.gd`
+   afirma que marca de chão é achatada, fica acima do chão, dura o bastante
+   para ser vista e está em alguma camada de render.
+
+**E a circularidade que não se resolve medindo mais.** A âncora do desenho e a
+âncora do acerto são a MESMA: trocar `Origin.PREVIOUS` pelo ponto mirado deixa
+marca e dano concordando, os dois errados. O que quebra isso é afirmar a
+CONSEQUÊNCIA de projeto — dois bonecos em posições conhecidas e a pergunta
+"qual dos dois?". Está em `tests/test_pulsos.gd`.
+
+**Dois defeitos de jogo caíram no caminho, e nenhuma releitura os teria
+achado:** quatro projéteis de velocidade zero na suprema do Kaiba (que ficavam
+no ar para sempre, com a esfera parada na tela), e todo projétil que acertava
+dentro do próprio tique em que nascia — os rápidos e de curto alcance — nunca
+sendo desenhado.

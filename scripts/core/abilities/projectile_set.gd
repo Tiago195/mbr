@@ -73,6 +73,19 @@ func launch(
 ) -> Projectile:
 	if pulse == null or cast == null:
 		return null
+	# Velocidade não-positiva não é "devagar", é "nunca chega": o projétil fica
+	# no ar para sempre e a esfera dele para na tela. Hoje o corpus traduzido
+	# tem **0 pulsos de projétil sem velocidade** — o tradutor substitui por um
+	# valor declarado —, e esse zero é conferido por `tools/conferir_numeros.py`,
+	# porque este aviso não é portão de nada: ele avisa e segue. Um `.tres`
+	# feito à mão ainda pode trazer zero, e um nó imortal é pior que um tiro
+	# que não sai.
+	if pulse.projectile_speed <= 0.0:
+		push_warning(
+			"ProjectileSet: %s tem velocidade %.2f e não pode voar"
+				% [ability.id if ability != null else &"?", pulse.projectile_speed]
+		)
+		return null
 	var plana: Vector3 = Vector3(direction.x, 0.0, direction.z)
 	if plana.length_squared() <= 0.000001:
 		# Sem direção não há voo. Cair no `Vector3.FORWARD` mandaria o projétil

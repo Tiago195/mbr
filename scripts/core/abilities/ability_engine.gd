@@ -118,6 +118,11 @@ static func advance_projectiles(
 		_apply_effects(shot.pulse, shot.cast, impact.targets, false)
 		var result: CastResult = CastResult.of(CastResult.Status.SUCCESS, shot.ability)
 		result.targets = impact.targets
+		# `pulse`/`anchor` de propósito NÃO preenchidos: nada os lê no impacto
+		# de projétil, e `_draw_pulse` recusaria um pulso de forma PROJECTILE
+		# de qualquer jeito — quem o desenha é a esfera que o segue. Preenchê-los
+		# dava impressão de cobertura que não existe, que é o mesmo motivo pelo
+		# qual `actor_xml` já foi removida do índice de tabelas uma vez.
 		results.append(result)
 	return results
 
@@ -223,6 +228,7 @@ static func _apply(
 		)
 
 	var all_targets: Array[Unit] = []
+	var partes: Array[CastResult] = []
 	var lancados: int = 0
 	for index: int in range(immediate.size()):
 		var pulse: AbilityPulse = immediate[index]
@@ -230,6 +236,7 @@ static func _apply(
 			book, ability, pulse, aim, anchors[index], candidates
 		)
 		lancados += result.launched
+		partes.append(result)
 		for hit: Unit in result.targets:
 			if not all_targets.has(hit):
 				all_targets.append(hit)
@@ -249,6 +256,8 @@ static func _apply(
 	var final: CastResult = CastResult.of(CastResult.Status.SUCCESS, ability)
 	final.targets = all_targets
 	final.launched = lancados
+	final.parts = partes
+	final.direction = aim.direction
 	return final
 
 ## Verdadeiro quando nenhum pulso imediato pega ninguém. Só serve para a
@@ -283,6 +292,9 @@ static func _fire(
 
 	var result: CastResult = CastResult.of(CastResult.Status.SUCCESS, ability)
 	result.targets = targets
+	result.pulse = pulse
+	result.anchor = anchor
+	result.direction = aim.direction
 	return result
 
 ## Põe no ar um projétil por direção do leque.
@@ -303,6 +315,9 @@ static func _launch(
 		anchor: Vector3
 ) -> CastResult:
 	var result: CastResult = CastResult.of(CastResult.Status.SUCCESS, ability)
+	result.pulse = pulse
+	result.anchor = anchor
+	result.direction = aim.direction
 	for direction: Vector3 in pulse.spread_directions(aim.direction):
 		if book.projectiles.launch(ability, pulse, aim, anchor, direction) != null:
 			result.launched += 1

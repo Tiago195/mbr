@@ -230,6 +230,16 @@ def _rodar_suite() -> tuple[int, int] | None:
     return int(achados[-1][0]), int(achados[-1][1])
 
 
+## Nível em que os espaços de campeão são contados. 9 é onde todo ranque do
+## original está disponível, e é o padrão do `ChampionSelector`.
+##
+## **Medido: os números não dependem dele.** 127 e 79 saem iguais nos níveis 1,
+## 9 e 18, porque todo grupo de campeão tem ranque disponível já no nível 1 e o
+## número de pulsos não muda com o ranque. O nível fica porque medir pelo
+## caminho do jogo é o princípio — não porque este valor sustente algum número.
+NIVEL_DE_REFERENCIA = 9
+
+
 def main() -> int:
     c = Conferencia()
 
@@ -271,9 +281,57 @@ def main() -> int:
     ]
     com_carga = [a for a in atores if a["ultimate_uses_charge"]]
 
-    pulsos_projetil = sum(
-        1 for h in habilidades for p in h["pulses"] if p["form"] == "PROJECTILE"
-    )
+    pulsos = [p for h in habilidades for p in h["pulses"]]
+    pulsos_projetil = sum(1 for p in pulsos if p["form"] == "PROJECTILE")
+    com_duracao = [p for p in pulsos if float(p.get("duration", 0.0)) > 0.0]
+    com_leque = [p for p in pulsos if int(p.get("spread_count", 1)) > 1]
+    leque_nao_projetil = [p for p in com_leque if p["form"] != "PROJECTILE"]
+    conjuracao_longa = [h for h in habilidades if float(h["cast_time"]) > 0.45]
+
+    # Espaços de campeão (Q/W/E/R dos que têm kit) e quantos carregam
+    # habilidade de vários golpes. É o número que a lacuna da telegrafia cita,
+    # e ele conta ESPAÇOS, não habilidades distintas — dois campeões com o
+    # mesmo kit contam duas vezes, porque a lacuna é sobre o que se vê jogando.
+    #
+    # Duas armadilhas pagas aqui, as duas achadas por revisão adversarial:
+    #
+    # 1. Descartar campeão SEM SUPREMA descartava também os Q/W/E dele. Era um
+    #    campeão (`sasha_1990000`, três espaços, os três de vários golpes), e o
+    #    resultado — 124/76 — ficou ancorado por nove afirmações antes de
+    #    alguém contar de novo. Âncora firme em número errado é pior que
+    #    nenhuma.
+    # 2. O ranque era escolhido por `ranques[-1]`, e o JOGO escolhe por
+    #    `AbilityCatalog.rank_for_level()`. Hoje os dois dão o mesmo total, mas
+    #    divergem num grupo — medir por caminho diferente do que o jogo
+    #    percorre é como o número errado nasce.
+    por_grupo: dict = {}
+    for h in habilidades:
+        por_grupo.setdefault(h["group_id"], []).append(h)
+
+    def rank_for_level(grupo: str, nivel: int) -> dict | None:
+        # Réplica de `AbilityCatalog.rank_for_level`.
+        escolhido = None
+        for x in sorted(por_grupo.get(grupo, []), key=lambda x: x["rank"]):
+            if x["level_requirement"] <= nivel and x["pulses"]:
+                escolhido = x
+        return escolhido
+
+    espacos_de_campeao = 0
+    espacos_com_varios_golpes = 0
+    for a in atores:
+        if a["usage"] != "Player" or not a["ability_groups"]:
+            continue
+        grupos = list(a["ability_groups"])
+        if a["ultimate_group"]:
+            grupos.append(a["ultimate_group"])
+        for grupo in grupos:
+            escolhida = rank_for_level(grupo, NIVEL_DE_REFERENCIA)
+            if escolhida is None:
+                continue
+            espacos_de_campeao += 1
+            com_efeito = [p for p in escolhida["pulses"] if p["effects"]]
+            if len(com_efeito) > 1:
+                espacos_com_varios_golpes += 1
     hab_projetil = [
         h for h in habilidades
         if any(p["form"] == "PROJECTILE" for p in h["pulses"])
@@ -344,6 +402,35 @@ def main() -> int:
              ler("docs/02-decisoes-tecnicas.md"),
              r"pulsos de projétil no corpus traduzido, em (\d+) habilidades",
              len(hab_projetil))
+
+    # -------------------------------------------------------- telegrafia
+    caster = ler("scripts/gameplay/ability_caster.gd")
+    resultado = ler("scripts/core/abilities/cast_result.gd")
+    c.afirma("ability_caster.gd espaços de campeão", caster,
+             r"\*\*(\d+) espaços de campeão\*\*", espacos_de_campeao)
+    c.afirma("ability_caster.gd espaços com vários golpes", caster,
+             r"\*\*(\d+) têm vários golpes\*\*", espacos_com_varios_golpes)
+    c.afirma("cast_result.gd espaços com vários golpes", resultado,
+             r"\*\*(\d+) dos \d+\*\* espaços de campeão", espacos_com_varios_golpes)
+    c.afirma("cast_result.gd espaços de campeão", resultado,
+             r"\*\*\d+ dos (\d+)\*\* espaços de campeão", espacos_de_campeao)
+    c.afirma("ability_caster.gd pulsos do corpus", caster,
+             r"\*\*(\d+) pulsos\*\* do corpus", len(pulsos))
+    c.afirma("ability_caster.gd pulsos com duração", caster,
+             r"\*\*(\d+) declaram duração\*\*", len(com_duracao))
+    c.afirma("ability_caster.gd pulsos com leque", caster,
+             r"\*\*(\d+) pulsos com leque\*\*", len(com_leque))
+    c.afirma("ability_caster.gd leque não-projétil", caster,
+             r"\*\*(\d+) não são projétil\*\*", len(leque_nao_projetil))
+    c.afirma("projectile_set.gd projéteis sem velocidade",
+             ler("scripts/core/abilities/projectile_set.gd"),
+             r"\*\*(\d+) pulsos de projétil sem velocidade\*\*",
+             sum(1 for p in pulsos
+                 if p["form"] == "PROJECTILE"
+                 and float(p.get("projectile_speed", 0.0)) <= 0.0))
+    c.afirma("ability_caster.gd conjuração longa", caster,
+             r"\*\*(\d+) habilidades com conjuração longa\*\*",
+             len(conjuracao_longa))
 
     c.afirma("actor_profile.gd campeões completos",
              ler("scripts/gameplay/champion_selector.gd"),

@@ -35,6 +35,29 @@ var status: Status = Status.INVALID
 var ability: Ability = null
 var targets: Array[Unit] = []
 
+## O pulso que este resultado descreve, e onde ele se plantou.
+##
+## Existem porque a camada visual precisava saber O QUE desenhar e ONDE, e só
+## tinha a habilidade inteira. Com isso ela desenhava `primary_pulse()` e mais
+## nada — **79 dos 127** espaços de campeão carregam habilidade de vários
+## golpes, e do segundo em diante nada aparecia na tela. A habilidade
+## funcionava e parecia quebrada.
+##
+## Nulo no resultado agregado de uma conjuração; preenchido em cada `parts`.
+var pulse: AbilityPulse = null
+var anchor: Vector3 = Vector3.ZERO
+## A direção mirada. O leque sai dela por `AbilityPulse.spread_directions()`.
+var direction: Vector3 = Vector3.FORWARD
+
+## Um resultado por pulso que saiu AGORA. Vazio nos resultados por pulso.
+##
+## Os pulsos atrasados não estão aqui: eles chegam depois, um por um, por
+## `AbilityEngine.resolve_scheduled()`. É essa separação que deixa a tela
+## mostrar cada golpe **quando ele acontece** em vez de anunciar todos na
+## conjuração — anunciar entregaria ao adversário o que ele deveria aprender
+## apanhando.
+var parts: Array[CastResult] = []
+
 ## Quantos projéteis esta conjuração pôs no ar.
 ##
 ## Existe porque, com projétil que voa de verdade, `targets` vazio deixou de

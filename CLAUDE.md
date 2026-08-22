@@ -215,7 +215,7 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 ## Estado atual
 
 > Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **394 testes, 1114 asserções**, todos verdes, stderr limpo.
+> branch `master`. **416 testes, 1170 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
@@ -407,7 +407,7 @@ Das 124 habilidades dos 31 campeões com suprema:
 
 | Quantas | O que falta |
 |---|---|
-| 61 | Têm vários golpes e `AbilityCaster._draw` desenha **só o primeiro pulso** |
+| ~~61~~ | ~~Vários golpes, e a tela desenhava só o primeiro~~ — **fechada**: cada golpe é desenhado quando sai, e cone e trapézio ganharam forma de verdade. Recontado pelo caminho que o jogo usa, são **79 dos 127 espaços**; o 61 contava referências de impacto do XML, que é outra medida |
 | 65 | Alimentam a carga da suprema, que não existe |
 | 43 | Deveriam **zerar a cadência do ataque básico** (`ResetAttackCoolTime`) |
 | 35 | Área que **acompanha o alvo** (`FollowTarget`); a nossa planta no chão |
@@ -417,8 +417,8 @@ Das 124 habilidades dos 31 campeões com suprema:
 26 dos 31 campeões têm ao menos uma afetada. Regerar esta medição é uma varredura
 de `skill_xml` + `impact_xml` pelas colunas de `ORFAS_QUE_SAO_LACUNA`.
 
-**A mais barata e a que mais aparece é a primeira**: a telegrafia de um pulso
-só faz metade do kit parecer que não faz nada. As outras são sistema.
+A primeira já foi fechada. As outras são sistema, e estão sendo atacadas em
+ordem de quantas habilidades cada uma afeta.
 
 ### Três sistemas que a tradução revelou e o roadmap não previa
 
@@ -478,9 +478,19 @@ conhece nó da engine.
 godot --headless --path . --script res://tools/sondar_campeoes.gd
 ```
 
-Carrega `main.tscn` de verdade, troca de campeão nos 33, conjura os quatro
-espaços de cada um e reprova se quebrar — ou se um atributo do Inspector sumir
-na troca. Não substitui olho humano: ela sabe se quebrou, não se ficou bom.
+Carrega `main.tscn` de verdade, troca de campeão nos 33, conjura os 127 espaços
+e confere que **cada golpe virou marca na tela com a geometria do pulso, no
+lugar dele, apontando para o lado dele, visível e pelo tempo certo** — e
+nenhuma marca a mais. Oito rodadas de revisão adversarial construíram essa
+conferência; o histórico está em `docs/02-decisoes-tecnicas.md`, decisão 16.
+
+**A sonda testa a si mesma antes de julgar.** Ela cria uma marca-cobaia, mexe
+numa propriedade de cada vez e confere que a assinatura muda. Piso de contagem
+não bastava: `_estado` devolvendo sempre "visível" não muda contagem nenhuma.
+O que prova que uma conferência distingue algo é mexer nesse algo e ver o
+veredito mudar.
+
+Não substitui olho humano: ela sabe se quebrou, não se ficou bom.
 
 ### Número em documento é asserção
 
@@ -537,6 +547,16 @@ significa ciclo de referência, e a suíte passa verde mesmo assim.
   que estoura — mas também significa que código crítico (como o `quit()` do
   runner) não pode dividir função com código que pode estourar. Um `SceneTree`
   headless sem `quit` roda para sempre: a suíte trava em vez de falhar
+- **GDScript não concatena literais de string adjacentes.** Em Python,
+  `"abc"
+"def"` vira uma string só; aqui é erro de sintaxe — e a mensagem
+  ("Expected closing \")\" after call arguments") não menciona string. Custou
+  três interrupções na mesma sessão. Usar `+` explícito
+- **Nó fora da árvore não tem `global_position` nem `look_at`.** Os dois
+  imprimem erro no stderr e devolvem lixo. E `Engine.get_main_loop()` é NULO
+  enquanto `run_tests.gd` roda, porque a suíte inteira acontece dentro do
+  `_init()` dele — então teste unitário não consegue pôr nó na árvore. O que
+  depende de árvore vai para `tools/sondar_campeoes.gd`, que monta a cena
 - **`Array.filter()` devolve `Array` sem tipo.** Atribuir a `Array[T]` estoura
   em runtime; usar laço explícito
 - **Enum exportado serializa como INTEIRO no `.tres`.** Inserir um valor no

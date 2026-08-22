@@ -716,3 +716,214 @@ func test_tempo_total_conta_o_ultimo_pulso() -> void:
 	b.duration = 2.0
 	ability.pulses = [a, b]
 	assert_almost_eq(ability.total_pulse_time(), 3.0)
+
+# ------------------------------------------ o que a tela precisa para desenhar
+
+## A camada visual desenhava só `primary_pulse()`, e 61 das 124 habilidades de
+## campeão do original têm vários golpes: do segundo em diante nada aparecia.
+## O que faltava não era desenho — era o resultado dizer QUAL pulso saiu e
+## ONDE. Estes testes protegem esse contrato.
+
+func test_o_resultado_traz_uma_parte_por_pulso_imediato() -> void:
+	var caster: Unit = _unit()
+	var alvo: Unit = _unit(Vector3(1, 0, 0), 1)
+
+	var ability := Ability.new()
+	ability.id = &"tres_golpes"
+	ability.aim = Ability.Aim.POINT
+	ability.cast_range = 20.0
+	var a: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 10.0)
+	a.radius = 3.0
+	var b: AbilityPulse = _pulso(AbilityPulse.Form.CONE, 10.0)
+	b.length = 5.0
+	var c: AbilityPulse = _pulso(AbilityPulse.Form.LINE, 10.0)
+	c.length = 5.0
+	ability.pulses = [a, b, c]
+
+	var result := AbilityEngine.cast(
+		AbilityBook.new(), ability,
+		AbilityCast.at_point(caster, Vector3(1, 0, 0)), [alvo]
+	)
+
+	assert_eq(result.parts.size(), 3, "um resultado por pulso imediato")
+	for parte: CastResult in result.parts:
+		assert_not_null(parte.pulse, "parte sem o pulso que a gerou")
+
+func test_a_parte_sabe_onde_o_pulso_se_plantou() -> void:
+	# Sem a âncora, a marca no chão apareceria no ponto mirado mesmo quando o
+	# pulso se plantou noutro lugar — `Origin.CASTER`, deslocamento lateral,
+	# encadeamento a partir do anterior.
+	var caster: Unit = _unit(Vector3(4, 0, 4))
+	var ability := Ability.new()
+	ability.id = &"em_mim"
+	ability.aim = Ability.Aim.POINT
+	ability.cast_range = 50.0
+	var pulse: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 10.0)
+	pulse.origin = AbilityPulse.Origin.CASTER
+	pulse.radius = 2.0
+	ability.pulses = [pulse]
+
+	var result := AbilityEngine.cast(
+		AbilityBook.new(), ability,
+		AbilityCast.at_point(caster, Vector3(20, 0, 20)), []
+	)
+
+	assert_eq(result.parts.size(), 1)
+	assert_true(
+		result.parts[0].anchor.distance_to(caster.position) < 0.01,
+		"a âncora era do conjurador e veio %s" % str(result.parts[0].anchor)
+	)
+
+func test_o_golpe_atrasado_chega_com_pulso_e_ancora() -> void:
+	# É o que permite desenhar o segundo golpe QUANDO ele sai, em vez de
+	# anunciá-lo na conjuração.
+	var caster: Unit = _unit()
+	var alvo: Unit = _unit(Vector3(1, 0, 0), 1)
+
+	var ability := Ability.new()
+	ability.id = &"atrasado"
+	ability.aim = Ability.Aim.POINT
+	ability.cast_range = 20.0
+	var agora: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 10.0)
+	agora.radius = 3.0
+	var depois: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 10.0)
+	depois.radius = 3.0
+	depois.delay = 0.5
+	ability.pulses = [agora, depois]
+
+	var book := AbilityBook.new()
+	var result := AbilityEngine.cast(
+		book, ability, AbilityCast.at_point(caster, Vector3(1, 0, 0)), [alvo]
+	)
+	assert_eq(result.parts.size(), 1, "só o imediato sai na conjuração")
+
+	book.advance_time(0.6, caster)
+	var tardios: Array[CastResult] = AbilityEngine.resolve_scheduled(book, [alvo])
+	assert_eq(tardios.size(), 1)
+	assert_not_null(tardios[0].pulse, "o golpe atrasado não disse qual pulso era")
+	assert_true(
+		tardios[0].anchor.distance_to(Vector3(1, 0, 0)) < 0.01,
+		"âncora do golpe atrasado veio %s" % str(tardios[0].anchor)
+	)
+
+func test_todo_pulso_com_efeito_vira_uma_parte_ou_um_agendamento() -> void:
+	# A conferência que fecha a lacuna, sobre o corpus inteiro: nenhum golpe
+	# pode sair sem que a camada visual receba a chance de desenhá-lo.
+	var catalogo := AbilityCatalog.new()
+	catalogo.load_from()
+	var caster: Unit = _unit()
+	var alvo: Unit = _unit(Vector3(0, 0, -2), 1)
+	var invisiveis: Array[String] = []
+	var conferidas: int = 0
+
+	for id: StringName in catalogo.by_id:
+		var ability: Ability = catalogo.by_id[id]
+		var com_efeito: int = 0
+		for pulse: AbilityPulse in ability.pulses:
+			if pulse != null and not pulse.effects.is_empty():
+				com_efeito += 1
+		if com_efeito < 2:
+			continue
+		conferidas += 1
+
+		var book := AbilityBook.new()
+		var result := AbilityEngine.cast(
+			book, ability, AbilityCast.at_point(caster, Vector3(0, 0, -2)),
+			[alvo]
+		)
+		if not result.succeeded():
+			continue
+		# Cada pulso ou saiu agora (uma parte) ou está na fila.
+		var cobertos: int = result.parts.size() + book.scheduled_count()
+		if cobertos < com_efeito:
+			invisiveis.append("%s: %d de %d" % [id, cobertos, com_efeito])
+
+	assert_true(conferidas > 300, "só %d habilidades de vários golpes" % conferidas)
+	assert_eq(
+		invisiveis.size(), 0,
+		"golpes sem como serem desenhados: %s" % str(invisiveis.slice(0, 5))
+	)
+
+# --------------------------------------- a âncora, afirmada por CONSEQUÊNCIA
+
+## Onde cada golpe se planta não dá para conferir comparando o desenho com a
+## engine: a marca na tela e o dano saem da MESMA âncora, então os dois erram
+## juntos e nada acusa. Uma revisão adversarial mostrou que `Origin.PREVIOUS` e
+## `Origin.TARGET_UNIT` podiam ser trocados pelo ponto mirado sem uma linha
+## vermelha — nem na suíte, nem na sonda de cena.
+##
+## O que quebra a circularidade é afirmar a CONSEQUÊNCIA de projeto: quem tem
+## que ser pego, e quem não pode ser. Dois bonecos em posições conhecidas e a
+## pergunta "qual dos dois?".
+##
+## `CASTER` e os deslocamentos (`forward_offset`, `side_offset`) já ficam
+## vermelhos quando mutados — estes dois eram os descobertos.
+
+func test_o_golpe_encadeado_cai_onde_o_anterior_caiu() -> void:
+	# `Origin.PREVIOUS` é o `ParentImpactPosition` do original: 8 pulsos
+	# desenháveis nos kits de campeão, 29 no corpus. É o que faz "explode onde
+	# a flecha parou" funcionar; quebrado, todo segundo golpe encadeado cai no
+	# ponto mirado, em silêncio.
+	var caster: Unit = _unit()
+	var perto: Unit = _unit(Vector3(0.5, 0, 0), 1)
+	var no_ponto_mirado: Unit = _unit(Vector3(10, 0, 0), 1)
+
+	var ability := Ability.new()
+	ability.id = &"encadeado"
+	ability.aim = Ability.Aim.POINT
+	ability.cast_range = 50.0
+
+	# O primeiro se planta no conjurador e é pequeno demais para pegar alguém:
+	# assim o único dano possível vem do segundo.
+	var primeiro: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 10.0)
+	primeiro.origin = AbilityPulse.Origin.CASTER
+	primeiro.radius = 0.1
+	var segundo: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 10.0)
+	segundo.origin = AbilityPulse.Origin.PREVIOUS
+	segundo.radius = 1.0
+	ability.pulses = [primeiro, segundo]
+
+	AbilityEngine.cast(
+		AbilityBook.new(), ability,
+		AbilityCast.at_point(caster, Vector3(10, 0, 0)),
+		[perto, no_ponto_mirado]
+	)
+
+	assert_true(
+		perto.health.current < 1000.0,
+		"PREVIOUS não pegou quem está na âncora do pulso anterior"
+	)
+	assert_almost_eq(
+		no_ponto_mirado.health.current, 1000.0,
+		"PREVIOUS pegou quem está no PONTO MIRADO — a âncora não foi herdada"
+	)
+
+func test_o_golpe_no_alvo_cai_no_alvo_e_nao_no_conjurador() -> void:
+	# `Origin.TARGET_UNIT`: 5 pulsos nos kits, 33 no corpus.
+	var caster: Unit = _unit()
+	var colado_no_conjurador: Unit = _unit(Vector3(0.5, 0, 0), 1)
+	var alvo: Unit = _unit(Vector3(6, 0, 0), 1)
+
+	var ability := Ability.new()
+	ability.id = &"no_alvo"
+	ability.aim = Ability.Aim.UNIT
+	ability.cast_range = 50.0
+	var pulse: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 10.0)
+	pulse.origin = AbilityPulse.Origin.TARGET_UNIT
+	pulse.radius = 1.0
+	ability.pulses = [pulse]
+
+	AbilityEngine.cast(
+		AbilityBook.new(), ability,
+		AbilityCast.on_unit(caster, alvo),
+		[colado_no_conjurador, alvo]
+	)
+
+	assert_true(
+		alvo.health.current < 1000.0,
+		"TARGET_UNIT não pegou o próprio alvo apontado"
+	)
+	assert_almost_eq(
+		colado_no_conjurador.health.current, 1000.0,
+		"TARGET_UNIT pegou quem está no CONJURADOR — a âncora não foi para o alvo"
+	)
