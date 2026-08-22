@@ -1,16 +1,25 @@
 class_name Ability
 extends Resource
 
-## Uma habilidade declarada como dado — Fase 3.2.
+## Uma habilidade declarada como dado — Fase 3.2, reestruturada na tradução do
+## original (`docs/10-traducao-do-original.md`).
 ##
 ## Nada aqui é comportamento: é a combinação de peças de um vocabulário
 ## fechado. Habilidade nova deve ser um `.tres` novo, sem uma linha de código
 ## de sistema. Se uma habilidade exigir classe nova, o sistema está errado —
 ## generalize antes de continuar (`03-sistemas-de-jogo.md`).
 ##
+## **O que mudou na tradução:** forma, filtro e efeitos saíram daqui e foram
+## para `AbilityPulse`. Uma habilidade agora é *ativação + mira + uma lista de
+## pulsos*. O motivo está em `ability_pulse.gd`: uma habilidade do original tem
+## até 8 golpes com tempo, forma e alvos independentes, e uma forma só não
+## expressa isso.
+##
+## Habilidade de golpe único continua sendo um `.tres` com um pulso. Não ficou
+## mais cara — ficou capaz.
+##
 ## Nomes dos enums escolhidos para não colidir com classe embutida da Godot:
-## `Form` e não `Shape`, `Aim` e não `Target`. Ver a armadilha registrada em
-## `CLAUDE.md`.
+## `Aim` e não `Target`. Ver a armadilha registrada em `CLAUDE.md`.
 
 ## Como o jogador aponta.
 enum Aim {
@@ -22,21 +31,6 @@ enum Aim {
 	DIRECTION,
 	## Um combatente escolhido a dedo.
 	UNIT,
-}
-
-## A região que efetivamente atinge.
-enum Form {
-	## Só o alvo apontado, sem área.
-	SINGLE,
-	## Círculo centrado no ponto mirado.
-	CIRCLE,
-	## Setor circular a partir do conjurador.
-	CONE,
-	## Retângulo a partir do conjurador, na direção mirada.
-	LINE,
-	## Como LINE, mas quem resolve o voo é a camada de gameplay.
-	## Aqui só se calcula quem o projétil atingiria.
-	PROJECTILE,
 }
 
 @export var id: StringName = &""
@@ -51,38 +45,29 @@ enum Form {
 @export var can_move_while_casting: bool = false
 ## Se falso, nem o próprio jogador cancela depois de começar.
 @export var cancelable: bool = true
+## Mana cobrada ao conjurar. O original cobra em 684 das 948 habilidades.
+## Quem não tem mana máxima conjura de graça — ver `ResourcePool`.
+@export var mana_cost: float = 0.0
 
 @export_group("Alvo")
 @export var aim: Aim = Aim.POINT
 ## Distância máxima do ponto ou alvo mirado. 0 = sem limite.
 @export var cast_range: float = 8.0
 
-@export_group("Forma")
-@export var form: Form = Form.CIRCLE
-## CIRCLE e PROJECTILE.
-@export var radius: float = 2.5
-## CONE, LINE e PROJECTILE.
-@export var length: float = 8.0
-## LINE e PROJECTILE.
-@export var width: float = 1.5
-## CONE. Ângulo total de abertura, em graus.
-@export var cone_angle: float = 60.0
-## PROJECTILE. Metros por segundo — só a camada visual usa.
-@export var projectile_speed: float = 18.0
-## PROJECTILE. Se falso, para no primeiro atingido.
-@export var pierces: bool = false
+@export_group("Pulsos")
+## Os golpes, em ordem. Cada um com sua forma, seu tempo e seus efeitos.
+@export var pulses: Array[AbilityPulse] = []
 
-@export_group("Filtro")
-@export var hits_enemies: bool = true
-@export var hits_allies: bool = false
-@export var hits_self: bool = false
-## Teto de alvos atingidos, dos mais próximos para os mais distantes.
-## 0 = sem teto.
-@export var max_targets: int = 0
-
-@export_group("Efeitos")
-## Aplicados em ordem a cada alvo.
-@export var effects: Array[AbilityEffect] = []
+@export_group("Progressão")
+## Nível da habilidade, 1 a 5. O original guarda cada ranque como uma linha
+## separada de `skill_xml` compartilhando o mesmo `SkillGroupID` — quer dizer,
+## ranque não é um multiplicador aplicado em cima, é outro conjunto de números.
+## Copiamos essa decisão: cada ranque é um `.tres` próprio.
+@export var rank: int = 1
+## Identificador comum aos ranques da mesma habilidade.
+@export var group_id: StringName = &""
+## Nível de personagem exigido para subir a este ranque.
+@export var level_requirement: int = 0
 
 ## Recarga já com a redução do conjurador aplicada.
 func cooldown_for(caster: Unit) -> float:
@@ -98,12 +83,41 @@ func cooldown_for(caster: Unit) -> float:
 	)
 	return cooldown * (1.0 - reduction)
 
-## Verdadeiro quando todo efeito depende de acertar alguém.
+## O pulso principal — o primeiro. É o que a telegrafia desenha e o que a IA
+## usa para estimar alcance. Nulo numa habilidade sem pulso, que é dado
+## inválido e a engine recusa.
+func primary_pulse() -> AbilityPulse:
+	return pulses[0] if not pulses.is_empty() else null
+
+## O pulso único, criando-o se ainda não houver.
+##
+## Existe para declarar habilidade de um golpe só sem duas linhas de cerimônia.
+## Em `.tres` a lista vem preenchida do disco e isto nunca cria nada; em código
+## — teste e ferramenta de tradução — é o atalho.
+func single_pulse() -> AbilityPulse:
+	if pulses.is_empty():
+		pulses = [AbilityPulse.new()]
+	return pulses[0]
+
+func has_pulses() -> bool:
+	for pulse: AbilityPulse in pulses:
+		if pulse != null and not pulse.effects.is_empty():
+			return true
+	return false
+
+## Verdadeiro quando TODO efeito de TODO pulso depende de acertar alguém.
+##
+## Basta um efeito no conjurador — o escudo de uma investida — para a resposta
+## ser falsa: aí a conjuração tem o que fazer mesmo sem pegar ninguém.
 func requires_target() -> bool:
-	for effect: AbilityEffect in effects:
-		if effect != null and not effect.needs_target():
+	var any: bool = false
+	for pulse: AbilityPulse in pulses:
+		if pulse == null or pulse.effects.is_empty():
+			continue
+		any = true
+		if not pulse.requires_target():
 			return false
-	return not effects.is_empty()
+	return any
 
 ## Verdadeiro quando não acertar ninguém deve RECUSAR a conjuração, em vez de
 ## gastá-la.
@@ -118,20 +132,23 @@ func requires_target() -> bool:
 func refuses_without_target() -> bool:
 	return aim == Aim.UNIT and requires_target()
 
-## Se um projétil que não atravessa, o teto de alvos é 1 por construção.
-func effective_max_targets() -> int:
-	if form == Form.PROJECTILE and not pierces:
-		return 1
-	return max_targets
+## Quanto tempo, depois do fim da conjuração, até o último pulso sair.
+## Serve para a camada visual saber quanto tempo manter a telegrafia.
+func total_pulse_time() -> float:
+	var last: float = 0.0
+	for pulse: AbilityPulse in pulses:
+		if pulse == null:
+			continue
+		last = maxf(last, pulse.delay + maxf(pulse.duration, 0.0))
+	return last
 
 func describe() -> String:
 	var parts: PackedStringArray = []
-	for effect: AbilityEffect in effects:
-		if effect != null:
-			parts.append(effect.describe())
-	return "%s [%s/%s] %s" % [
+	for pulse: AbilityPulse in pulses:
+		if pulse != null:
+			parts.append(pulse.describe())
+	return "%s [%s] %s" % [
 		display_name if not display_name.is_empty() else String(id),
 		Aim.keys()[aim].to_lower(),
-		Form.keys()[form].to_lower(),
-		", ".join(parts),
+		" | ".join(parts),
 	]

@@ -26,6 +26,9 @@ enum Status {
 	INVALID,
 	## Conjuração cortada no meio.
 	INTERRUPTED,
+	## Sem mana. Valor novo no FIM: `Status` não é exportado para `.tres` hoje,
+	## mas a disciplina é a mesma do resto e custa nada.
+	NO_RESOURCE,
 }
 
 var status: Status = Status.INVALID

@@ -1,7 +1,7 @@
 class_name AbilityEngine
 extends RefCounted
 
-## Resolve conjurações — Fase 3.2.
+## Resolve conjurações — Fase 3.2, por pulso desde a tradução do original.
 ##
 ## Função pura sobre dados: recebe habilidade, mira e a lista de combatentes
 ## candidatos; devolve o que aconteceu. Não conhece nó, não consulta física,
@@ -15,6 +15,12 @@ extends RefCounted
 ##   nova tentativa com BUSY. Cancelar exige o pedido explícito
 ## - Recarga começa ao iniciar a conjuração, não ao terminar: cortar a
 ##   conjuração de alguém não devolve a habilidade
+## - Mana é cobrada ao INICIAR, junto da recarga, e pelo mesmo motivo
+##
+## O que a tradução mudou: uma habilidade tem vários pulsos, com tempos
+## próprios. Os de tempo zero saem na hora; os demais ficam marcados no livro,
+## e `resolve_scheduled()` os solta quando vencem. Quem chama tem que chamá-la
+## a cada tique — é o único acréscimo ao contrato da camada de gameplay.
 
 ## Tenta conjurar.
 ##
@@ -36,6 +42,7 @@ static func cast(
 
 	if ability.cast_time > 0.0:
 		book.begin_cast(ability, aim, aim.caster)
+		_charge(ability, aim.caster)
 		return CastResult.of(CastResult.Status.CASTING, ability)
 
 	return _apply(book, ability, aim, candidates, true)
@@ -56,8 +63,27 @@ static func resolve_pending(book: AbilityBook, candidates: Array) -> CastResult:
 	if not aim.caster.is_alive():
 		return CastResult.of(CastResult.Status.DEAD, ability)
 
-	# A recarga já foi iniciada em `begin_cast`.
+	# A recarga e a mana já foram cobradas em `cast`.
 	return _apply(book, ability, aim, candidates, false)
+
+## Solta os pulsos marcados que venceram. Devolve um resultado por pulso.
+##
+## Chamar a cada tique, depois de `book.advance_time()`. Uma habilidade de
+## golpe único nunca marca nada e isto devolve lista vazia — o custo de chamar
+## sempre é uma comparação.
+static func resolve_scheduled(book: AbilityBook, candidates: Array) -> Array[CastResult]:
+	var results: Array[CastResult] = []
+	if book == null or not book.has_scheduled():
+		return results
+
+	for entry: AbilityBook.Scheduled in book.take_due():
+		if entry.cast == null or entry.cast.caster == null:
+			continue
+		# O conjurador morrer não desfaz o que já foi lançado, mas efeito que
+		# escala com atributo dele passa a ler um morto. É o mesmo critério do
+		# veneno em `PeriodicSet`: o golpe sai, o dono não importa mais.
+		results.append(_fire(entry.ability, entry.pulse, entry.cast, entry.anchor, candidates))
+	return results
 
 # ---------------------------------------------------------------- checagens
 
@@ -65,7 +91,7 @@ static func resolve_pending(book: AbilityBook, candidates: Array) -> CastResult:
 static func _check(book: AbilityBook, ability: Ability, aim: AbilityCast) -> CastResult:
 	if ability == null or aim == null or aim.caster == null:
 		return CastResult.of(CastResult.Status.INVALID, ability)
-	if ability.effects.is_empty():
+	if not ability.has_pulses():
 		return CastResult.of(CastResult.Status.INVALID, ability)
 
 	var caster: Unit = aim.caster
@@ -80,6 +106,11 @@ static func _check(book: AbilityBook, ability: Ability, aim: AbilityCast) -> Cas
 		var refused: CastResult = CastResult.of(CastResult.Status.ON_COOLDOWN, ability)
 		refused.cooldown_remaining = book.remaining_cooldown(ability)
 		return refused
+
+	# Mana antes do alcance: ficar sem recurso é uma informação diferente de
+	# estar longe, e quem mira precisa saber qual das duas é.
+	if not caster.mana.can_afford(ability.mana_cost):
+		return CastResult.of(CastResult.Status.NO_RESOURCE, ability)
 
 	# Antes do alcance: sem ninguém apontado, o motivo é falta de alvo e não
 	# distância. Medir a distância até um alvo inexistente daria a mensagem
@@ -106,6 +137,10 @@ static func _in_range(ability: Ability, aim: AbilityCast) -> bool:
 		_:
 			return aim.caster.ground_distance_to_point(aim.point) <= ability.cast_range
 
+static func _charge(ability: Ability, caster: Unit) -> void:
+	if ability.mana_cost > 0.0:
+		caster.mana.spend(ability.mana_cost)
+
 # ---------------------------------------------------------------- aplicação
 
 static func _apply(
@@ -113,16 +148,92 @@ static func _apply(
 		ability: Ability,
 		aim: AbilityCast,
 		candidates: Array,
-		start_cooldown: bool
+		charge_now: bool
 ) -> CastResult:
-	var targets: Array[Unit] = AbilityShape.resolve(ability, aim, candidates)
+	if charge_now:
+		_charge(ability, aim.caster)
 
-	if targets.is_empty() and ability.refuses_without_target():
-		# Só alvo único recusa: sem alguém apontado não há comando a emitir.
-		# Skillshot em área vazia SAI e gasta a recarga — errar faz parte.
+	# As âncoras são todas calculadas AGORA, mesmo as dos pulsos atrasados.
+	# `Origin.PREVIOUS` encadeia aqui, na ordem declarada, e o resultado fica
+	# congelado. Recalcular depois faria a explosão do segundo pulso perseguir
+	# um alvo que já saiu de perto — e área no chão não persegue ninguém.
+	var anchor: Vector3 = aim.point
+	var immediate: Array[AbilityPulse] = []
+	var anchors: Array[Vector3] = []
+	var delayed: Array[AbilityPulse] = []
+	var delayed_anchors: Array[Vector3] = []
+
+	for pulse: AbilityPulse in ability.pulses:
+		if pulse == null or pulse.effects.is_empty():
+			continue
+		anchor = pulse.anchor_for(aim, anchor)
+		if pulse.delay > 0.0:
+			delayed.append(pulse)
+			delayed_anchors.append(anchor)
+		else:
+			immediate.append(pulse)
+			anchors.append(anchor)
+
+	# A recusa por falta de alvo é decidida ANTES de marcar qualquer pulso.
+	# Marcar primeiro e recusar depois deixaria pulsos órfãos na fila de uma
+	# conjuração que oficialmente não aconteceu — e eles sairiam mesmo assim.
+	if ability.refuses_without_target() and _hits_nobody(immediate, anchors, aim, candidates):
 		return CastResult.of(CastResult.Status.NO_TARGET, ability)
 
-	for effect: AbilityEffect in ability.effects:
+	for index: int in range(delayed.size()):
+		var late: AbilityPulse = delayed[index]
+		book.schedule(
+			ability, late, aim, delayed_anchors[index], late.delay, late.repeat_count()
+		)
+
+	var all_targets: Array[Unit] = []
+	for index: int in range(immediate.size()):
+		var pulse: AbilityPulse = immediate[index]
+		var result: CastResult = _fire(ability, pulse, aim, anchors[index], candidates)
+		for hit: Unit in result.targets:
+			if not all_targets.has(hit):
+				all_targets.append(hit)
+		# Pulso que repete e começa agora: a primeira saída foi imediata, as
+		# outras entram na fila.
+		if pulse.repeat_count() > 1:
+			book.schedule(
+				ability, pulse, aim, anchors[index],
+				pulse.loop_interval, pulse.repeat_count() - 1
+			)
+
+	if charge_now:
+		book.start_cooldown(ability, aim.caster)
+
+	aim.caster.triggers.fire(TriggerSet.Event.ABILITY_CAST, aim.caster, null)
+
+	var final: CastResult = CastResult.of(CastResult.Status.SUCCESS, ability)
+	final.targets = all_targets
+	return final
+
+## Verdadeiro quando nenhum pulso imediato pega ninguém. Só serve para a
+## recusa por falta de alvo, e por isso resolve as formas sem aplicar nada.
+static func _hits_nobody(
+		pulses: Array[AbilityPulse],
+		anchors: Array[Vector3],
+		aim: AbilityCast,
+		candidates: Array
+) -> bool:
+	for index: int in range(pulses.size()):
+		if not AbilityShape.resolve(pulses[index], aim, candidates, anchors[index]).is_empty():
+			return false
+	return true
+
+## Um pulso saindo: acha quem pega e aplica os efeitos.
+static func _fire(
+		ability: Ability,
+		pulse: AbilityPulse,
+		aim: AbilityCast,
+		anchor: Vector3,
+		candidates: Array
+) -> CastResult:
+	var targets: Array[Unit] = AbilityShape.resolve(pulse, aim, candidates, anchor)
+
+	for effect: AbilityEffect in pulse.effects:
 		if effect == null:
 			continue
 		if effect.recipient == AbilityEffect.Recipient.CASTER:
@@ -132,9 +243,6 @@ static func _apply(
 			continue
 		for target: Unit in targets:
 			effect.apply(aim, target)
-
-	if start_cooldown:
-		book.start_cooldown(ability, aim.caster)
 
 	var result: CastResult = CastResult.of(CastResult.Status.SUCCESS, ability)
 	result.targets = targets

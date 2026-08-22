@@ -21,6 +21,26 @@ var _cooldowns: Dictionary = {}
 ## "remaining": float }. Vazio quando não há.
 var _pending: Dictionary = {}
 
+## Um pulso marcado para sair mais tarde.
+##
+## Existe porque uma habilidade do original tem golpes com tempos diferentes
+## dentro da mesma conjuração — o `StartTime` de cada `Impact`. O livro é quem
+## guarda, e não a engine, porque a engine é estática e sem estado de
+## propósito: é ela que roda igual no cliente e no servidor.
+class Scheduled extends RefCounted:
+	var ability: Ability
+	var pulse: AbilityPulse
+	var cast: AbilityCast
+	## Onde a forma se planta. Calculada na conjuração e congelada: um pulso
+	## atrasado que recalculasse a âncora seguiria o alvo que fugiu, e área no
+	## chão não persegue ninguém.
+	var anchor: Vector3 = Vector3.ZERO
+	var remaining: float = 0.0
+	## Quantas saídas ainda faltam, contando a atual.
+	var repeats_left: int = 1
+
+var _scheduled: Array[Scheduled] = []
+
 # ---------------------------------------------------------------- slots
 
 func learn(slot: Slot, ability: Ability) -> void:
@@ -96,8 +116,65 @@ func take_pending() -> Dictionary:
 	return pending
 
 ## Corta a conjuração em curso. Devolve o que foi cortado, ou vazio.
+##
+## NÃO cancela os pulsos já marcados. Interromper alguém no meio da conjuração
+## impede o que ainda não saiu de sair; o que já foi disparado está no mundo e
+## segue seu curso — a bomba não volta para a mão de quem a jogou.
 func interrupt() -> Dictionary:
 	return take_pending()
+
+# ---------------------------------------------------------------- pulsos
+
+## Marca um pulso para sair daqui a `delay` segundos.
+func schedule(
+		ability: Ability,
+		pulse: AbilityPulse,
+		cast: AbilityCast,
+		anchor: Vector3,
+		delay: float,
+		repeats: int = 1
+) -> Scheduled:
+	var entry := Scheduled.new()
+	entry.ability = ability
+	entry.pulse = pulse
+	entry.cast = cast
+	entry.anchor = anchor
+	entry.remaining = maxf(delay, 0.0)
+	entry.repeats_left = maxi(repeats, 1)
+	_scheduled.append(entry)
+	return entry
+
+func has_scheduled() -> bool:
+	return not _scheduled.is_empty()
+
+func scheduled_count() -> int:
+	return _scheduled.size()
+
+## Entrega os pulsos que venceram. Quem ainda tem repetição volta para a fila
+## com o intervalo do próprio pulso; quem não tem sai.
+func take_due() -> Array[Scheduled]:
+	var due: Array[Scheduled] = []
+	if _scheduled.is_empty():
+		return due
+	var kept: Array[Scheduled] = []
+	for entry: Scheduled in _scheduled:
+		if entry.remaining > 0.0:
+			kept.append(entry)
+			continue
+		due.append(entry)
+		if entry.repeats_left > 1:
+			entry.repeats_left -= 1
+			entry.remaining = maxf(entry.pulse.loop_interval, 0.01)
+			kept.append(entry)
+	_scheduled = kept
+	return due
+
+## Descarta os pulsos marcados. Usado ao morrer — área de quem morreu no meio
+## da conjuração não deve continuar batendo.
+func clear_scheduled() -> int:
+	var count: int = _scheduled.size()
+	_scheduled.clear()
+	return count
 
 # ---------------------------------------------------------------- tempo
 
@@ -115,6 +192,9 @@ func advance_time(delta: float, caster: Unit = null) -> void:
 			finished.append(id)
 	for id: StringName in finished:
 		_cooldowns.erase(id)
+
+	for entry: Scheduled in _scheduled:
+		entry.remaining -= delta
 
 	if not is_casting():
 		return

@@ -4,7 +4,8 @@
 [ext_resource type="Script" path="res://scripts/core/abilities/effects/displacement_effect.gd" id="2_1ma41"]
 [ext_resource type="Script" path="res://scripts/core/abilities/effects/damage_effect.gd" id="3_y4x27"]
 [ext_resource type="Script" path="res://scripts/core/abilities/effects/shield_effect.gd" id="4_xnj3g"]
-[ext_resource type="Script" path="res://scripts/core/abilities/ability.gd" id="5_dlcan"]
+[ext_resource type="Script" path="res://scripts/core/abilities/ability_pulse.gd" id="5_pulse0"]
+[ext_resource type="Script" path="res://scripts/core/abilities/ability.gd" id="6_dlcan"]
 
 [sub_resource type="Resource" id="Resource_lxtd6"]
 script = ExtResource("2_1ma41")
@@ -23,15 +24,20 @@ base_shield = 90.0
 scaling_ratio = 0.5
 recipient = 1
 
+[sub_resource type="Resource" id="Resource_pulso0"]
+script = ExtResource("5_pulse0")
+form = 3
+origin = 0
+length = 6.5
+width = 2.2
+max_targets = 3
+effects = Array[ExtResource("1_l6n3i")]([SubResource("Resource_lxtd6"), SubResource("Resource_g41x6"), SubResource("Resource_2tm4g")])
+
 [resource]
-script = ExtResource("5_dlcan")
+script = ExtResource("6_dlcan")
 id = &"investida"
 display_name = "Investida"
 cooldown = 12.0
 aim = 2
 cast_range = 0.0
-form = 3
-length = 6.5
-width = 2.2
-max_targets = 3
-effects = Array[ExtResource("1_l6n3i")]([SubResource("Resource_lxtd6"), SubResource("Resource_g41x6"), SubResource("Resource_2tm4g")])
+pulses = Array[ExtResource("5_pulse0")]([SubResource("Resource_pulso0")])

@@ -3,7 +3,8 @@
 [ext_resource type="Script" path="res://scripts/core/abilities/ability_effect.gd" id="1_r6kim"]
 [ext_resource type="Script" path="res://scripts/core/abilities/effects/damage_effect.gd" id="2_mress"]
 [ext_resource type="Script" path="res://scripts/core/abilities/effects/crowd_control_effect.gd" id="3_qhwsa"]
-[ext_resource type="Script" path="res://scripts/core/abilities/ability.gd" id="4_pqlpa"]
+[ext_resource type="Script" path="res://scripts/core/abilities/ability_pulse.gd" id="4_pulse0"]
+[ext_resource type="Script" path="res://scripts/core/abilities/ability.gd" id="5_pqlpa"]
 
 [sub_resource type="Resource" id="Resource_10hnt"]
 script = ExtResource("2_mress")
@@ -17,15 +18,20 @@ duration = 1.5
 slow_amount = 0.35
 source_tag = &"raio"
 
+[sub_resource type="Resource" id="Resource_pulso0"]
+script = ExtResource("4_pulse0")
+form = 4
+origin = 0
+length = 11.0
+width = 1.2
+projectile_speed = 22.0
+effects = Array[ExtResource("1_r6kim")]([SubResource("Resource_10hnt"), SubResource("Resource_veu1w")])
+
 [resource]
-script = ExtResource("4_pqlpa")
+script = ExtResource("5_pqlpa")
 id = &"raio"
 display_name = "Raio Perfurante"
 cooldown = 4.0
 aim = 2
 cast_range = 0.0
-form = 4
-length = 11.0
-width = 1.2
-projectile_speed = 22.0
-effects = Array[ExtResource("1_r6kim")]([SubResource("Resource_10hnt"), SubResource("Resource_veu1w")])
+pulses = Array[ExtResource("4_pulse0")]([SubResource("Resource_pulso0")])

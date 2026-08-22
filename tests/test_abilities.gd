@@ -27,11 +27,11 @@ func _area(radius: float = 3.0, dano: float = 100.0) -> Ability:
 	var ability := Ability.new()
 	ability.id = &"area"
 	ability.aim = Ability.Aim.POINT
-	ability.form = Ability.Form.CIRCLE
-	ability.radius = radius
+	ability.single_pulse().form = AbilityPulse.Form.CIRCLE
+	ability.single_pulse().radius = radius
 	ability.cast_range = 10.0
 	ability.cooldown = 5.0
-	ability.effects = [_dano(dano)]
+	ability.single_pulse().effects = [_dano(dano)]
 	return ability
 
 # ---------------------------------------------------------------- forma
@@ -60,9 +60,9 @@ func test_cone_pega_na_frente_e_ignora_atras() -> void:
 
 	var ability := _area()
 	ability.aim = Ability.Aim.DIRECTION
-	ability.form = Ability.Form.CONE
-	ability.length = 6.0
-	ability.cone_angle = 60.0
+	ability.single_pulse().form = AbilityPulse.Form.CONE
+	ability.single_pulse().length = 6.0
+	ability.single_pulse().cone_angle = 60.0
 
 	var book := AbilityBook.new()
 	var result := AbilityEngine.cast(
@@ -84,9 +84,9 @@ func test_linha_pega_na_faixa_e_ignora_o_que_esta_fora_da_largura() -> void:
 
 	var ability := _area()
 	ability.aim = Ability.Aim.DIRECTION
-	ability.form = Ability.Form.LINE
-	ability.length = 8.0
-	ability.width = 2.0
+	ability.single_pulse().form = AbilityPulse.Form.LINE
+	ability.single_pulse().length = 8.0
+	ability.single_pulse().width = 2.0
 
 	var book := AbilityBook.new()
 	var result := AbilityEngine.cast(
@@ -107,10 +107,10 @@ func test_projetil_que_nao_atravessa_para_no_primeiro() -> void:
 
 	var ability := _area()
 	ability.aim = Ability.Aim.DIRECTION
-	ability.form = Ability.Form.PROJECTILE
-	ability.length = 10.0
-	ability.width = 1.5
-	ability.pierces = false
+	ability.single_pulse().form = AbilityPulse.Form.PROJECTILE
+	ability.single_pulse().length = 10.0
+	ability.single_pulse().width = 1.5
+	ability.single_pulse().pierces = false
 
 	var book := AbilityBook.new()
 	var result := AbilityEngine.cast(
@@ -129,7 +129,7 @@ func test_teto_de_alvos_pega_os_mais_proximos() -> void:
 	var c := _unit(Vector3(3, 0, 0), 1)
 
 	var ability := _area(10.0)
-	ability.max_targets = 2
+	ability.single_pulse().max_targets = 2
 
 	var book := AbilityBook.new()
 	var result := AbilityEngine.cast(
@@ -170,10 +170,10 @@ func test_cura_em_area_atinge_aliados_e_a_si_mesmo() -> void:
 
 	var ability := _area(10.0)
 	ability.id = &"cura_em_area"
-	ability.hits_enemies = false
-	ability.hits_allies = true
-	ability.hits_self = true
-	ability.effects = [cura]
+	ability.single_pulse().hits_enemies = false
+	ability.single_pulse().hits_allies = true
+	ability.single_pulse().hits_self = true
+	ability.single_pulse().effects = [cura]
 
 	var book := AbilityBook.new()
 	AbilityEngine.cast(
@@ -257,7 +257,7 @@ func test_alvo_unico_sem_alvo_e_recusado_sem_custo() -> void:
 	var book := AbilityBook.new()
 	var ability := _area(3.0)
 	ability.aim = Ability.Aim.UNIT
-	ability.form = Ability.Form.SINGLE
+	ability.single_pulse().form = AbilityPulse.Form.SINGLE
 
 	var result := AbilityEngine.cast(
 		book, ability, AbilityCast.at_point(caster, Vector3.ZERO), []
@@ -305,7 +305,7 @@ func test_alvo_unico_fora_de_alcance_e_recusado() -> void:
 	var alvo := _unit(Vector3(20, 0, 0), 1)
 	var ability := _area(3.0)
 	ability.aim = Ability.Aim.UNIT
-	ability.form = Ability.Form.SINGLE
+	ability.single_pulse().form = AbilityPulse.Form.SINGLE
 	ability.cast_range = 8.0
 
 	var result := AbilityEngine.cast(
@@ -432,10 +432,10 @@ func test_efeito_no_conjurador_sai_uma_vez_so() -> void:
 
 	var ability := _area(10.0)
 	ability.aim = Ability.Aim.DIRECTION
-	ability.form = Ability.Form.LINE
-	ability.length = 10.0
-	ability.width = 2.0
-	ability.effects = [dash, _dano(50.0)]
+	ability.single_pulse().form = AbilityPulse.Form.LINE
+	ability.single_pulse().length = 10.0
+	ability.single_pulse().width = 2.0
+	ability.single_pulse().effects = [dash, _dano(50.0)]
 
 	AbilityEngine.cast(
 		AbilityBook.new(), ability, AbilityCast.toward(caster, Vector3(0, 0, -1)),
@@ -455,8 +455,8 @@ func test_habilidade_que_age_no_conjurador_sai_em_area_vazia() -> void:
 
 	var ability := _area(10.0)
 	ability.aim = Ability.Aim.DIRECTION
-	ability.form = Ability.Form.LINE
-	ability.effects = [dash]
+	ability.single_pulse().form = AbilityPulse.Form.LINE
+	ability.single_pulse().effects = [dash]
 
 	var result := AbilityEngine.cast(
 		AbilityBook.new(), ability, AbilityCast.toward(caster, Vector3(1, 0, 0)), []
@@ -475,9 +475,9 @@ func test_efeitos_saem_na_ordem_declarada() -> void:
 	escudo.duration = 5.0
 
 	var ability := _area(10.0)
-	ability.hits_enemies = false
-	ability.hits_allies = true
-	ability.effects = [escudo, _dano(100.0)]
+	ability.single_pulse().hits_enemies = false
+	ability.single_pulse().hits_allies = true
+	ability.single_pulse().effects = [escudo, _dano(100.0)]
 
 	AbilityEngine.cast(
 		AbilityBook.new(), ability, AbilityCast.at_point(caster, Vector3.ZERO), [alvo]
@@ -515,9 +515,13 @@ func test_habilidades_do_jogo_carregam() -> void:
 		if ability == null:
 			continue
 		assert_false(String(ability.id).is_empty(), "%s sem id" % caminho)
-		assert_false(ability.effects.is_empty(), "%s sem efeitos" % caminho)
-		for effect: AbilityEffect in ability.effects:
-			assert_not_null(effect, "%s com efeito nulo" % caminho)
+		assert_true(ability.has_pulses(), "%s sem pulso com efeito" % caminho)
+		for pulse: AbilityPulse in ability.pulses:
+			assert_not_null(pulse, "%s com pulso nulo" % caminho)
+			if pulse == null:
+				continue
+			for effect: AbilityEffect in pulse.effects:
+				assert_not_null(effect, "%s com efeito nulo" % caminho)
 
 func test_meteoro_causa_dano_em_area() -> void:
 	var ability := load("res://data/abilities/meteoro.tres") as Ability
@@ -587,12 +591,12 @@ func test_quarta_habilidade_nasce_so_de_configuracao() -> void:
 	investida.id = &"investida_trovejante"
 	investida.display_name = "Investida Trovejante"
 	investida.aim = Ability.Aim.DIRECTION
-	investida.form = Ability.Form.LINE
-	investida.length = 7.0
-	investida.width = 2.5
+	investida.single_pulse().form = AbilityPulse.Form.LINE
+	investida.single_pulse().length = 7.0
+	investida.single_pulse().width = 2.5
 	investida.cooldown = 14.0
 	investida.cast_range = 0.0
-	investida.max_targets = 3
+	investida.single_pulse().max_targets = 3
 
 	var dash := DisplacementEffect.new()
 	dash.mode = DisplacementEffect.Mode.ALONG_AIM
@@ -621,7 +625,7 @@ func test_quarta_habilidade_nasce_so_de_configuracao() -> void:
 	empurra.distance = 2.0
 	empurra.ignores_root = true
 
-	investida.effects = [dash, dano, atordoa, empurra, escudo]
+	investida.single_pulse().effects = [dash, dano, atordoa, empurra, escudo]
 
 	var caster := _unit()
 	var alvo := _unit(Vector3(0, 0, -3), 1)

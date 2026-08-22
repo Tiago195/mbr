@@ -53,6 +53,7 @@ func _physics_process(delta: float) -> void:
 	if book == null or _combatant == null or _combatant.unit == null:
 		return
 	book.advance_time(delta, _combatant.unit)
+
 	if book.cast_is_ready():
 		var pending: Ability = book.casting_ability()
 		var result: CastResult = AbilityEngine.resolve_pending(
@@ -61,6 +62,17 @@ func _physics_process(delta: float) -> void:
 		_report(pending, result)
 		if result.succeeded():
 			_draw(pending, _last_cast)
+
+	# Pulsos atrasados. Uma habilidade de golpe único nunca marca nada e isto
+	# custa uma comparação — mas sem a chamada, o segundo golpe de qualquer
+	# habilidade traduzida do original simplesmente nunca sairia.
+	for late: CastResult in AbilityEngine.resolve_scheduled(
+			book, Combatant.all_units(get_tree())
+	):
+		if late.ability != null and not late.targets.is_empty():
+			print("[hab] %s (golpe seguinte) acertou %d alvo(s)" % [
+				late.ability.display_name, late.targets.size()
+			])
 
 # ---------------------------------------------------------------- conjuração
 
@@ -118,28 +130,33 @@ func _ground_under_cursor() -> Variant:
 
 # ---------------------------------------------------------------- visual
 
+## Desenha o pulso principal. Só ele: telegrafar todos os golpes de uma vez
+## entregaria ao adversário informação que ele não teria em jogo, e o segundo
+## golpe é justamente o que se aprende jogando contra.
 func _draw(ability: Ability, cast: AbilityCast) -> void:
 	var scene_root: Node = get_tree().current_scene
-	if scene_root == null or cast == null:
+	var pulse: AbilityPulse = ability.primary_pulse()
+	if scene_root == null or cast == null or pulse == null:
 		return
 
-	match ability.form:
-		Ability.Form.CIRCLE:
-			AbilityTelegraph.circle(scene_root, cast.point, ability.radius, color_area)
-		Ability.Form.PROJECTILE:
+	var anchor: Vector3 = pulse.anchor_for(cast, cast.point)
+
+	match pulse.form:
+		AbilityPulse.Form.CIRCLE:
+			AbilityTelegraph.circle(scene_root, anchor, pulse.radius, color_area)
+		AbilityPulse.Form.PROJECTILE:
 			# O dano já saiu quando a esfera parte. É mentira visual, e é
 			# consciente: projétil que viaja de verdade precisa resolver
 			# colisão ao longo do voo, o que muda o momento em que o servidor
 			# decide o acerto. Fica para a Fase 4, junto do netcode.
 			AbilityTelegraph.projectile(
-				scene_root, cast.caster.position,
-				cast.caster.position + cast.direction * ability.length,
-				ability.projectile_speed, color_line
+				scene_root, anchor, anchor + cast.direction * pulse.length,
+				pulse.projectile_speed, color_line
 			)
-		Ability.Form.CONE, Ability.Form.LINE:
+		AbilityPulse.Form.CONE, AbilityPulse.Form.LINE, AbilityPulse.Form.TRAPEZOID:
 			AbilityTelegraph.line(
-				scene_root, cast.caster.position, cast.direction,
-				ability.length, ability.width, color_dash
+				scene_root, anchor, cast.direction,
+				pulse.length, pulse.width, color_dash
 			)
 		_:
 			pass
@@ -172,6 +189,10 @@ func _report(ability: Ability, result: CastResult) -> void:
 			print("[hab] %s bloqueada (atordoado ou silenciado)" % ability.display_name)
 		CastResult.Status.BUSY:
 			print("[hab] %s recusada: já conjurando" % ability.display_name)
+		CastResult.Status.NO_RESOURCE:
+			print("[hab] %s sem mana (custa %.0f)" % [
+				ability.display_name, ability.mana_cost
+			])
 		_:
 			print("[hab] %s -> %s" % [
 				ability.display_name, CastResult.Status.keys()[result.status]
