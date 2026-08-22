@@ -39,6 +39,20 @@ jogam até o fim, e alguém ganha.*
 | Multiplayer | Godot high-level networking + export headless de servidor |
 | Lobby/matchmaking | A definir (provável Node ou Spring — fora da engine) |
 | Arte 3D | Meshy (via MCP) + Mixamo — **só na Fase 6** |
+| Controles | **Esquema do League of Legends** (ver decisão 7) |
+
+## Controles
+
+O jogo copia o esquema do **League of Legends**. O que isso obriga:
+
+- **Botão direito anda.** O esquerdo é de seleção e UI — **não usar para
+  movimento**, mesmo sendo o gesto mais natural
+- **Habilidades são Q/W/E/R miradas no cursor**, não cliques. Na Fase 3, o
+  raycast tela → mundo é disparado lendo a posição do mouse, não um evento
+  de clique
+
+Mapeamento completo e o que ainda está em aberto: decisão 7 em
+`docs/02-decisoes-tecnicas.md`.
 
 ## Ambiente
 
@@ -103,6 +117,24 @@ terreno dele.
   visual/interpolação
 - Nomes de nós em PascalCase, arquivos e variáveis em snake_case
 
+### Ao escrever `.tscn` à mão
+
+Editar a cena como texto é rápido e preciso, mas tem uma armadilha silenciosa:
+
+- **`Transform3D` é serializado por LINHAS da matriz de base**, não por colunas.
+  Escrever transposto não gera erro nenhum — para rotação pura, a transposta é
+  a inversa, e o resultado é a rotação ao contrário. Já custou uma sessão:
+  a câmera olhando para o céu, tela cinza, `errors: []`
+- Não calcular a matriz à mão. Perguntar à engine:
+  `godot --headless --path <projeto> --script <sonda.gd>` com um `Node3D` de
+  `rotation_degrees` conhecido, imprimindo `var_to_str(node.transform)`
+- Depois de escrever, **abrir no editor e conferir o Inspector** — é lá que a
+  rotação aparece de volta em graus
+
+Corolário geral: o MCP pega erro de sintaxe, referência nula e recurso
+faltando. **Não pega "está correto mas aponta para o lugar errado".** Coisa
+visual precisa de olho humano na tela.
+
 ### Ao propor mudanças
 
 - Explique **por que**, não só o quê
@@ -148,11 +180,15 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 
 ## Estado atual
 
-**Fase 1.1 — não iniciada.** Godot 4.7.2 instalada, projeto `mbr` criado,
-documentação instalada, MCP do Godot funcionando. Nenhuma cena, nenhum script.
+**Fase 1.1 — concluída (21/08/2026).** Cena `scenes/main.tscn` com chão,
+cápsula, câmera isométrica e luz. Movimento por botão direito, verificado em
+execução. Repositório em `github.com:Tiago195/mbr`, branch `master`.
 
-Pendências de setup ainda abertas:
-- Projeto **não é repositório Git** ainda — falta `git init` e o primeiro commit
-- `project.godot` não tem `run/main_scene` definido (será definido na Fase 1.1)
+**Próximo: Fase 1.2** — paredes que bloqueiam a passagem, com a cápsula
+deslizando ao encostar.
+
+Particularidade do ambiente: a chave SSH do GitHub está **só no WSL2**.
+Commit funciona no Windows; o push precisa passar pelo WSL:
+`wsl -e bash -lc "cd /mnt/c/Godot/projetos/mbr && git push"`
 
 > Mantenha esta seção atualizada ao fim de cada sessão.

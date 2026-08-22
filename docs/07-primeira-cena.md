@@ -97,7 +97,7 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton \
 			and event.is_pressed() \
-			and event.button_index == MOUSE_BUTTON_LEFT:
+			and event.button_index == MOUSE_BUTTON_RIGHT:
 		var camera: Camera3D = get_viewport().get_camera_3d()
 		if camera == null:
 			return
@@ -131,6 +131,10 @@ salva.
 O clique dá um ponto **2D** na tela. A câmera converte isso numa **linha** que
 entra na cena em 3D (`project_ray_origin` dá o ponto de partida,
 `project_ray_normal` dá a direção).
+
+> **Botão direito, não esquerdo.** Os controles do jogo seguem o League of
+> Legends: direito anda, esquerdo é seleção e UI. Ver decisão 7 em
+> `02-decisoes-tecnicas.md`.
 
 Cruza-se essa linha com um **plano** na altura do chão, e o resultado é onde no
 mundo o jogador clicou.

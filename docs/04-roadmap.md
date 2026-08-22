@@ -258,4 +258,5 @@ Atualizar ao fim de cada sessão. Manter também o "Estado atual" no `CLAUDE.md`
 
 | Fase | Status | Data | Notas |
 |---|---|---|---|
-| 1.1 | ⬜ Não iniciada | | |
+| 1.1 | ✅ Concluída | 21/08/2026 | Critério verificado: anda até o clique, `FrontMarker` na direção certa. Feita **com** IA, contra a recomendação do doc — decisão consciente. Movimento no **botão direito** (decisão 7) |
+| 1.2 | ⬜ Não iniciada | | |

@@ -4,6 +4,10 @@ extends CharacterBody3D
 ## O clique vira um ponto do mundo por raycast contra um plano na altura do
 ## personagem. A mesma conversão tela -> mundo será reusada pela mira de
 ## habilidade na Fase 3.
+##
+## Botão DIREITO move, seguindo o esquema do League of Legends. O esquerdo
+## fica reservado para seleção e UI. Ver decisão 7 em
+## `docs/02-decisoes-tecnicas.md`.
 
 @export var speed: float = 5.0
 @export var arrival_threshold: float = 0.2
@@ -16,7 +20,7 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton \
 			and event.is_pressed() \
-			and event.button_index == MOUSE_BUTTON_LEFT:
+			and event.button_index == MOUSE_BUTTON_RIGHT:
 		var camera: Camera3D = get_viewport().get_camera_3d()
 		if camera == null:
 			return

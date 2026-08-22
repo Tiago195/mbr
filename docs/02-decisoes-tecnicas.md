@@ -157,11 +157,62 @@ armadilha de performance do WSL em `06-setup-ambiente.md`.
 
 ---
 
+## Decisão 7: esquema de controle igual ao do League of Legends
+
+O jogo usa o esquema de controle do **LoL**, não uma invenção própria.
+
+### Por que
+
+É o vocabulário que o público-alvo já tem no dedo. Todo jogador de MOBA sabe
+que botão direito anda, que QWER são as habilidades e que o esquerdo é para
+selecionar. Copiar isso elimina uma barreira de entrada inteira — e "esquema de
+controle original" não é onde este projeto quer gastar novidade.
+
+O Royal Crown, sendo um BR com influência de MOBA, seguia a mesma convenção.
+
+### O mapeamento
+
+| Entrada | Ação | Fase |
+|---|---|---|
+| **Botão direito** | Mover até o ponto do chão | **1.1 — feito** |
+| Botão direito **em inimigo** | Ataque básico | 2.3 |
+| Botão direito **segurado** | Movimento contínuo, seguindo o cursor | a decidir |
+| **Botão esquerdo** | Selecionar alvo, interagir com UI | — |
+| **Q / W / E / R** | Habilidades, miradas na posição do cursor | 3.x |
+| **A** + clique | Attack-move | 6 |
+| **S** | Parar | 2.3 |
+| **Espaço / Y** | Centralizar e travar câmera no personagem | 1.3 |
+| Cursor na borda da tela | Pan da câmera | 1.3 |
+
+### Consequência que importa para a arquitetura
+
+O botão esquerdo fica **reservado**. É tentador usá-lo para "clicar para andar"
+porque é o gesto mais natural — mas ele é o botão de seleção e de UI, e roubá-lo
+agora custa caro depois, quando houver HUD, inventário e alvo selecionável.
+
+Para a mira de habilidade da Fase 3, a implicação é que **habilidade não é
+clique**: é tecla + posição do cursor. O raycast tela → mundo do
+`07-primeira-cena.md` continua sendo a peça reusada, mas disparado por
+`_process` lendo a posição do mouse, não por um evento de clique.
+
+### O que ainda não está decidido
+
+- **Botão direito segurado**: no LoL, manter pressionado faz o personagem
+  perseguir o cursor continuamente. A Fase 1.1 implementa só o clique único.
+  Fica para quando o movimento for testado em combate — é barato de adicionar
+- **Smart cast** (habilidade dispara na posição do cursor sem confirmação) vs.
+  cast com indicador e clique de confirmação. No LoL é configurável; aqui,
+  decidir na Fase 3
+
+---
+
 ## Decisões ainda em aberto
 
 | Questão | Quando decidir |
 |---|---|
-| Renderer: Forward+ ou Compatibility | Ao criar o projeto — depende da GPU |
+| ~~Renderer: Forward+ ou Compatibility~~ | **Resolvido: Forward+** (GPU dedicada, RX 7600 XT) |
+| Botão direito segurado = movimento contínuo? | Quando o movimento for testado em combate |
+| Smart cast vs. indicador + confirmação | Fase 3 |
 | Formato de persistência dos dados de habilidade/item | Fase 3 |
 | Onde hospedar o servidor dedicado | Fase 5 |
 | Godot exportado para web vs. executável distribuído | Fase 5 |
