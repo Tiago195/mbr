@@ -53,7 +53,9 @@ class Tabelas:
 
     Só entra tabela que é REALMENTE lida. `actor_xml` já esteve aqui, indexada
     e nunca usada — código morto que dava a impressão de cobertura que não
-    existia. Ela volta quando alguém for traduzir campeão e mob, e não antes.
+    existia. Voltou agora que campeão e mob são traduzidos, e voltou **junto
+    com o censo de colunas**: indexar sem censar é exatamente o buraco que a
+    remoção tinha fechado.
     """
 
     def __init__(self, raiz: Path) -> None:
@@ -64,6 +66,9 @@ class Tabelas:
         self.ccs = self._indexar("crowd_control_xml")
         self.equipment = self._indexar("equipment_xml")
         self.recipes = self._indexar("craft_recipe_xml")
+        self.actors = self._indexar(
+            "actor_xml", "actor_2_xml", "actor_3_xml", "actor_4_xml"
+        )
 
     def _linhas(self, nome: str) -> list[ET.Element]:
         caminho = self.raiz / f"{nome}.xml"
@@ -402,6 +407,7 @@ class Relatorio:
             "crowd_control": tabelas.ccs,
             "equipment": tabelas.equipment,
             "craft_recipe": tabelas.recipes,
+            "actor": tabelas.actors,
         }
         for nome, tabela in fontes.items():
             presentes: collections.Counter = collections.Counter()
@@ -511,11 +517,61 @@ CONSULTADAS = {
         "Id", "ResultId", "__tabela",
     } | {f"RawMaterialId_{n}" for n in range(1, 9)}
       | {f"RawMaterialCount_{n}" for n in range(1, 9)},
+    # `actor` é a tabela de QUEM: campeão, mob, bot, torre, baú. É ela que
+    # responde "quem tem quais habilidades", que nenhuma das outras responde.
+    "actor": {
+        "Id", "Enable", "UsageType", "LootPreset", "Level", "Rarity",
+        "AIPath", "AbleCombat", "EnableDamage", "EnableTarget",
+        "ControllerRadius", "ControllerHeight",
+        "InfoPosition", "InfoDamageType", "SummonActorMaxCount",
+        "LevelUpUltimateCharge", "PassiveBuffs", "UltimateSkill",
+        "ActivationSkillId", "SlainSkillId", "CombatStartSkill",
+        "ReturnFinishSkill", "__tabela",
+    } | {f"DefaultSkillId_{n}" for n in range(1, 5)}
+      | {f"StatType_{n}" for n in range(1, 14)}
+      | {f"StatValue_{n}" for n in range(1, 14)}
+      | {f"LevelUpStatType_{n}" for n in range(1, 8)}
+      | {f"LevelUpStatValue_{n}" for n in range(1, 8)},
 }
 
 ## Colunas que o tradutor NÃO lê **de propósito**, com o motivo. Estar aqui é
 ## uma decisão registrada; não estar em lugar nenhum é perda silenciosa.
 IGNORADAS = {
+    # --- `actor`: apresentação e física do motor original ----------------
+    # A tabela de atores é 90% aparência. O que dela vira jogo — atributos,
+    # kit, natureza — está em `CONSULTADAS["actor"]`; o que é sistema que não
+    # temos está em `ORFAS_QUE_SAO_LACUNA`. O resto é isto.
+    "DefaultActorResourceId": "malha e animações do ator",
+    "DefaultWeaponSkinId": "modelo da arma", "Skins": "skins",
+    "ViewStateType": "que barra de vida a interface desenha",
+    "ShowMiniMap": "interface", "ShowWorldMap": "interface",
+    "ShowDamageText": "interface", "ShowName": "interface",
+    "NameHeight": "interface", "HideHPBar": "interface",
+    "HpBarType": "interface", "ShowGuidebook": "interface",
+    "GuidebookGroupActorId": "interface", "GuidebookOrder": "interface",
+    "ShowOnCollection": "interface (galeria de campeões)",
+    "InteractionAnimation": "animação", "InteractionSound": "som",
+    "UseDieAnimation": "animação", "LookAtTargetOnDie": "animação",
+    "UseWorldOrientationOnDie": "animação",
+    "DestroyDelayTime": "quanto o cadáver fica na tela",
+    "FollowSpawnerDirection": "orientação inicial do modelo",
+    "PositionY": "altura do modelo", "SyncVisibilityWithParent": "render",
+    # As sete barrinhas da tela de seleção de campeão — "Ataque 2, Defesa 3".
+    # São editoriais, não derivadas dos atributos, e não alimentam nada.
+    "InfoAttackType": "barra da tela de seleção",
+    "InfoDifficulty": "barra da tela de seleção",
+    "InfoAttack": "barra da tela de seleção",
+    "InfoDefense": "barra da tela de seleção",
+    "InfoMobility": "barra da tela de seleção",
+    "InfoCrowdControl": "barra da tela de seleção",
+    "InfoSupport": "barra da tela de seleção",
+    "InfoSubPosition": "barra da tela de seleção",
+    "Mode": "vale 0 em todas as 88 linhas que a declaram",
+    "PickingRadius": "raio do clique do mouse sobre o ator",
+    "PickingHeight": "altura do clique do mouse sobre o ator",
+    "ImpactTargetLayer": "camada de física do motor original",
+    "IgnoreCollision": "camada de física do motor original",
+
     # --- apresentação: som, animação, efeito visual, ícone --------------
     "Sound": "som", "SoundOnHit1": "som", "SoundOnHit2": "som",
     "Animation": "animação", "UseLoopAni": "animação",
@@ -684,7 +740,112 @@ ORFAS_QUE_SAO_LACUNA = {
     "EnableSkillOnCC": "conjurar mesmo sob controle",
     "TargetCondition": "ricochete para outro inimigo",
     "TargetRange": "alcance do ricochete",
+
+    # --- de `actor`: sistemas inteiros que o original tem e nós não ------
+    "ImpactRadius": "hitbox do alvo — nossas formas medem ponto a ponto, "
+                    "então acertar um dragão é tão difícil quanto acertar um "
+                    "campeão",
+    "ImpactHeight": "altura da hitbox do alvo",
+    "VisibilityInFow": "névoa de guerra",
+    "VisibilityInBush": "arbusto que esconde",
+    "VisionBlockage": "obstáculo que bloqueia visão",
+    "HasBushRole": "o ator É um arbusto",
+    "HasDetectingRole": "quem enxerga o que está escondido",
+    "HasInteractionRole": "sistema de interação (baú, forja, vendedor)",
+    "InteractionType": "que interação o ator oferece",
+    "InteractionTime": "quanto tempo a interação leva",
+    "InteractionRadius": "de quão perto dá para interagir",
+    "InteractionSubject": "quem pode interagir",
+    "MultiInteraction": "vários interagindo ao mesmo tempo",
+    "UseInteractionDirectLoot": "loot que cai direto no inventário",
+    "InteractionStartBuffId": "buff enquanto a interação corre",
+    "InteractionEndBuffId": "buff ao terminar a interação",
+    "InteractionEndSkillId": "habilidade ao terminar a interação",
+    "HasForgeRole": "forja (crafting no mapa)",
+    "HasSupplyRole": "caixa de suprimento",
+    "HasVendorRole": "vendedor",
+    "BuyGoldCost": "preço em ouro",
+    "PackageItemActorID": "pacote de itens que o ator entrega",
+    "DropItemRate": "tabela de loot: chance de dropar",
+    "DropItemTableIDs": "tabela de loot: o que dropa",
+    "DropGroupId": "tabela de loot: grupo de drop",
+    "UseSummonerStat": "invocação que herda os atributos do invocador",
+    "UseSummonerDamageTrigger": "invocação que dispara os gatilhos do dono",
+    "DieWithSummoner": "invocação que morre junto com o dono",
+    "FamiliarId": "familiar que acompanha o campeão",
+    "FamiliarPosition": "onde o familiar fica",
+    "Bulletproof": "imune a projétil",
 }
+
+## `UsageType` do original -> `Unit.Nature`.
+##
+## Não é decoração: `Unit.Nature` decide teto de dano contra mob, filtro de
+## `SiegeDamage` e se a morte conta como abate. Errar aqui faz um baú valer
+## uma eliminação.
+NATUREZA = {
+    "Player": "CHAMPION",
+    # Bot é campeão: mesmo kit, mesmos atributos, e morrer para um bot tem que
+    # contar igual. O que muda é quem dá as ordens, e isso não mora aqui.
+    "AIPlayer": "CHAMPION",
+    "Monster": "MONSTER",
+    # Lacaio de torre e familiar existem enquanto quem os criou existir.
+    "Minion": "SUMMON",
+    "Familiar": "SUMMON",
+    # Baú, árvore, veio de minério, porta. `STRUCTURE` no nosso vocabulário.
+    "ActorObject": "STRUCTURE",
+}
+
+## `InfoPosition` -> papel. Puramente informativo: nada no motor lê isto.
+## Existe para dar para listar "os tanques" sem reabrir o XML.
+PAPEL = {
+    "Fighter": "FIGHTER",
+    "ADCarry": "MARKSMAN",
+    "Assassin": "ASSASSIN",
+    "Support": "SUPPORT",
+    "AP": "MAGE",
+    "Tanker": "TANK",
+}
+
+## Recarga que a suprema RECEBE por não termos carga de suprema.
+##
+## No original 31 das 32 supremas têm `CoolTime = 0` e enchem batendo
+## (`LevelUpUltimateCharge = 1000`) — o sistema está na lista de lacunas desde
+## a tradução das habilidades. Copiar o zero literalmente daria uma suprema
+## disparável a cada quadro, que é pior do que uma aproximação declarada.
+##
+## O número é INVENTADO e está registrado como tal no relatório. Vem da faixa
+## usual de suprema de MOBA, não do original.
+RECARGA_DE_SUPREMA_SEM_CARGA = 45.0
+
+
+def apelidos_de_ator(registros: list[dict[str, str]]) -> dict[str, str]:
+    """Id do ator -> identificador ASCII estável e único.
+
+    `LootPreset` é o nome do personagem escrito em INGLÊS (`Leo`, `Violet`) —
+    identificador, não texto localizado, e portanto entra pela mesma regra que
+    deixou `AtlasName` entrar nas habilidades. O `Name` da tabela é coreano e
+    é conteúdo do original: fica de fora (`docs/01-visao-e-escopo.md`).
+
+    O apelido **não é único no dado**: `Leo` aparece em dois atores e `Bella`
+    em três — variantes de tutorial que repetem o kit. Quem chega primeiro em
+    ordem de Id fica com o nome limpo; os outros carregam o Id atrás. Sem isso
+    um campeão sobrescreveria o outro no catálogo, em silêncio.
+    """
+    por_slug: dict[str, list[str]] = collections.defaultdict(list)
+    for registro in sorted(registros, key=lambda r: int(r["Id"])):
+        por_slug[_slug(registro.get("LootPreset", ""))].append(registro["Id"])
+
+    apelidos: dict[str, str] = {}
+    for base, ids in por_slug.items():
+        for posicao, ator_id in enumerate(ids):
+            if not base:
+                apelidos[ator_id] = f"rc_actor_{ator_id}"
+            elif posicao == 0:
+                apelidos[ator_id] = base
+            else:
+                apelidos[ator_id] = f"{base}_{ator_id}"
+    return apelidos
+
 
 # --------------------------------------------------------------------------
 # Tradução de efeitos
@@ -1937,6 +2098,241 @@ class Tradutor:
 
     # ---------------------------------------------------------- item
 
+    # ------------------------------------------------------------- ator
+
+    def ator(self, registro: dict[str, str], apelido: str) -> dict:
+        """Uma linha de `actor_xml` vira um perfil de personagem.
+
+        É a peça que faltava para o corpus virar jogo. As tabelas de
+        habilidade dizem O QUE cada habilidade faz; nenhuma delas diz QUEM a
+        tem. Está aqui, e só aqui.
+        """
+        ator_id = registro["Id"]
+        onde = f"actor {ator_id}"
+
+        uso = registro.get("UsageType", "")
+        if uso not in NATUREZA:
+            self.r.lacuna(f"UsageType={uso}", onde)
+        self.r.usou(f"ator:{uso or 'sem UsageType'}")
+
+        papel = registro.get("InfoPosition", "")
+        if papel and papel not in PAPEL:
+            self.r.lacuna(f"InfoPosition={papel}", onde)
+
+        base = self._atributos_do_ator(
+            registro, "StatType_%d", "StatValue_%d", 14, onde
+        )
+        crescimento = self._atributos_do_ator(
+            registro, "LevelUpStatType_%d", "LevelUpStatValue_%d", 8, onde
+        )
+        self._ataque_basico(registro, base, onde)
+
+        passivas: list[dict] = []
+        for buff_id in lista_ids(registro.get("PassiveBuffs")):
+            passivas.extend(self.buff(buff_id, "CASTER", onde))
+
+        # Q, W e E saem de `DefaultSkillId_2..4`, nessa ordem. O `_1` é o
+        # ataque básico — medido: `UI_Type = InstantTarget` e recarga de menos
+        # de um segundo em todos os 34 campeões e nos 97 mobs que o declaram.
+        # Amarrá-lo a um espaço de habilidade daria ao jogador um Q que é o
+        # próprio ataque que ele já tem no clique.
+        espacos: list[str] = []
+        for indice in (2, 3, 4):
+            grupo = self._grupo_da_skill(
+                registro.get(f"DefaultSkillId_{indice}"), onde
+            )
+            if grupo:
+                espacos.append(grupo)
+
+        suprema = self._grupo_da_skill(registro.get("UltimateSkill"), onde)
+        por_carga = num(registro.get("LevelUpUltimateCharge"), 0.0) > 0.0
+        # O critério é a suprema SAIR SEM RECARGA, e não a coluna de carga
+        # existir. Um ator declarava carga em lugar nenhum e recarga zero, e
+        # ficava com uma suprema disparável a cada quadro — o teste pegou, a
+        # condição anterior (`por_carga`) não pegaria nunca.
+        recarga_no_original = self._recarga_da_skill(registro.get("UltimateSkill"))
+        recarga_da_suprema = 0.0
+        if suprema and recarga_no_original <= 0.0:
+            recarga_da_suprema = RECARGA_DE_SUPREMA_SEM_CARGA
+            self.r.lacuna(
+                "carga de suprema — recarga de %.0fs inventada no lugar"
+                % RECARGA_DE_SUPREMA_SEM_CARGA,
+                onde,
+            )
+
+        perfil = {
+            "id": apelido,
+            "source_id": int(ator_id),
+            "source_table": registro.get("__tabela", "actor_xml"),
+            "display_name": apelido,
+            "usage": uso,
+            "nature": NATUREZA.get(uso, "MONSTER"),
+            "role": PAPEL.get(papel, ""),
+            "damage_type": registro.get("InfoDamageType", ""),
+            "rarity": RARIDADE.get(registro.get("Rarity", "Common"), "COMMON"),
+            "enabled": registro.get("Enable", "Release") == "Release",
+            # Em que nível o bloco de atributos acima vale. Ausente em todo
+            # campeão (começam no 1) e presente nos mobs, que nascem prontos.
+            "base_level": max(1, inteiro(registro.get("Level"), 1)),
+            "base_stats": base,
+            "growth": crescimento,
+            "basic_attack_group": self._grupo_da_skill(
+                registro.get("DefaultSkillId_1"), onde
+            ),
+            "ability_groups": espacos,
+            "ultimate_group": suprema,
+            "ultimate_uses_charge": por_carga,
+            "ultimate_cooldown": recarga_da_suprema,
+            "passive_effects": passivas,
+            "body_radius": num(registro.get("ControllerRadius"), 0.5),
+            "body_height": num(registro.get("ControllerHeight"), 2.0),
+            "damageable": booleano(registro.get("EnableDamage"), True),
+            "targetable": booleano(registro.get("EnableTarget"), True),
+            # `AbleCombat` está AUSENTE em todo campeão e todo bot, e o
+            # padrão literal (`False`) faria os 100 personagens jogáveis
+            # nascerem incapazes de lutar. Quando a coluna não fala, quem
+            # responde é a natureza: só estrutura não briga.
+            "able_combat": booleano(
+                registro.get("AbleCombat"),
+                NATUREZA.get(uso, "MONSTER") != "STRUCTURE",
+            ),
+            # `AI/PlayerAggressive` -> `playeraggressive`. É a taxonomia de
+            # comportamento do original, de graça, para quando os mobs
+            # ganharem IA. Nada lê isto ainda.
+            "ai_profile": _slug(registro.get("AIPath", "").split("/")[-1]),
+            "max_summons": inteiro(registro.get("SummonActorMaxCount"), 0),
+            "on_spawn_group": self._grupo_da_skill(
+                registro.get("ActivationSkillId"), onde
+            ),
+            "on_death_group": self._grupo_da_skill(
+                registro.get("SlainSkillId"), onde
+            ),
+            "on_combat_start_group": self._grupo_da_skill(
+                registro.get("CombatStartSkill"), onde
+            ),
+            "on_return_group": self._grupo_da_skill(
+                registro.get("ReturnFinishSkill"), onde
+            ),
+        }
+        self._conferir_ator(perfil, registro)
+        return perfil
+
+    ## Alcance e cadência do ataque básico, que NÃO estão nos atributos.
+    ##
+    ## Medido, e o achado importa: `AI_SkillRange` da habilidade
+    ## `DefaultSkillId_1` vale 2 para o Leo (guerreiro), 2,4 para a Morgan e 6
+    ## para a Bella (atiradora). O `CoolTime` da mesma linha é o intervalo
+    ## entre ataques — 0,8s no Leo, 0,73s na Bella.
+    ##
+    ## Nenhum dos dois aparece em `StatType_N`. Sem ler daqui, todo campeão
+    ## herdaria o padrão da classe — 2,5m de alcance e um ataque por segundo —
+    ## e a atiradora do original viraria corpo a corpo sem uma linha de erro
+    ## em lugar nenhum. É a armadilha da rodada 5 outra vez: o dado existe, só
+    ## não está onde se olhou.
+    def _ataque_basico(
+        self, registro: dict[str, str], base: dict[str, float], onde: str
+    ) -> None:
+        skill_id = registro.get("DefaultSkillId_1")
+        if not skill_id or skill_id == "0":
+            return
+        skill = self.t.skills.get(skill_id)
+        if skill is None:
+            return
+
+        alcance = num(skill.get("AI_SkillRange"), 0.0)
+        if alcance > 0.0:
+            base["attack_range"] = alcance
+            self.r.usou("stat:attack_range")
+        else:
+            self.r.lacuna("ataque básico sem alcance declarado", onde)
+
+        intervalo = num(skill.get("CoolTime"), 0.0)
+        if intervalo > 0.0:
+            base["attack_speed"] = round(1.0 / intervalo, 4)
+            self.r.usou("stat:attack_speed")
+
+    ## Acusa perfil que saiu sem fazer sentido, e não só sem coluna lida.
+    ##
+    ## É a lição da rodada 7 aplicada aqui: um arremesso com duração zero não
+    ## dava erro nenhum e o relatório o contava como cobertura. Um campeão com
+    ## 0 de vida, ou com o kit vazio, tem exatamente a mesma cara — o dado foi
+    ## lido, o campo existe, e o resultado não serve para jogar.
+    def _conferir_ator(self, perfil: dict, registro: dict[str, str]) -> None:
+        onde = f"actor {registro['Id']}"
+        combatente = perfil["nature"] in ("CHAMPION", "MONSTER", "SUMMON")
+        if combatente and perfil["base_stats"].get("max_health", 0.0) <= 0.0:
+            self.r.lacuna("ator combatente sem vida máxima", onde)
+        if perfil["usage"] != "Player":
+            return
+        # Campeão sem kit não é campeão. 33 dos 40 `Player` têm os três
+        # espaços; os outros são bonecos de tutorial e cascas de teste, e é
+        # justamente por isso que a contagem tem que aparecer.
+        if len(perfil["ability_groups"]) < 3:
+            self.r.lacuna("campeão com menos de três habilidades (Q/W/E)", onde)
+        if not perfil["ultimate_group"]:
+            self.r.lacuna("campeão sem suprema", onde)
+        # Um campeão que caísse no padrão de alcance da classe seria um
+        # campeão de dado incompleto passando por completo.
+        if perfil["base_stats"].get("attack_range", 0.0) <= 0.0:
+            self.r.lacuna("campeão sem alcance de ataque básico", onde)
+
+    ## `CoolTime` de uma habilidade citada pelo ator, ou zero.
+    def _recarga_da_skill(self, skill_id: str | None) -> float:
+        if not skill_id or skill_id == "0":
+            return 0.0
+        return num((self.t.skills.get(skill_id) or {}).get("CoolTime"), 0.0)
+
+    ## Id de habilidade do original -> `group_id` do nosso corpus.
+    ##
+    ## A tabela de atores aponta para a LINHA-MODELO do grupo (`Rank 0`), que
+    ## não referencia impacto nenhum: é a entrada de interface da habilidade
+    ## ainda não aprendida. Guardar esse id daria ao jogador um Q que não faz
+    ## nada, sem erro nenhum no caminho. O que serve é o GRUPO — o ranque sai
+    ## depois de `AbilityCatalog.rank_for_level()`, com o nível do personagem.
+    def _grupo_da_skill(self, skill_id: str | None, onde: str) -> str:
+        if not skill_id or skill_id == "0":
+            return ""
+        skill = self.t.skills.get(skill_id)
+        if skill is None:
+            self.r.lacuna(
+                "ator aponta para habilidade ausente", f"{onde} -> {skill_id}"
+            )
+            return ""
+        return f"rc_g_{skill.get('SkillGroupID', skill_id)}"
+
+    ## `StatType_N`/`StatValue_N` de um ator -> `{nosso_atributo: valor}`.
+    ##
+    ## Serve para os atributos BASE e para o crescimento por nível, que usam o
+    ## mesmo formato com prefixo diferente.
+    ##
+    ## O sinalizador de percentual do mapa `STATS` é ignorado aqui **de
+    ## propósito**: base é base. `MaxAttackSpeedRate = 2` num ator quer dizer
+    ## "o teto dele são 2 ataques por segundo", não "+200%" — e num item, que
+    ## é onde o sinalizador vale, o mesmo nome quer dizer a segunda coisa.
+    def _atributos_do_ator(
+        self,
+        registro: dict[str, str],
+        molde_tipo: str,
+        molde_valor: str,
+        ate: int,
+        onde: str,
+    ) -> dict[str, float]:
+        valores: dict[str, float] = {}
+        for indice in range(1, ate):
+            nome = registro.get(molde_tipo % indice)
+            if not nome:
+                continue
+            if nome not in STATS:
+                self.r.lacuna(f"StatType={nome}", onde)
+                continue
+            atributo, _percentual = STATS[nome]
+            valor = num(registro.get(molde_valor % indice))
+            if nome in STATS_INVERTIDOS:
+                valor = -valor
+            valores[atributo] = valores.get(atributo, 0.0) + valor
+            self.r.usou(f"stat:{atributo}")
+        return valores
+
     def item(self, equip: dict[str, str]) -> dict:
         equip_id = equip["Id"]
         onde = f"equipment {equip_id}"
@@ -2055,7 +2451,11 @@ def ligar_receitas(itens: list[dict], tabelas: Tabelas, relatorio: Relatorio) ->
 # --------------------------------------------------------------------------
 
 def escrever_relatorio(
-    caminho: Path, habilidades: list[dict], itens: list[dict], r: Relatorio
+    caminho: Path,
+    habilidades: list[dict],
+    itens: list[dict],
+    atores: list[dict],
+    r: Relatorio,
 ) -> None:
     total_pulsos = sum(len(h["pulses"]) for h in habilidades)
     sem_pulso = [h for h in habilidades if not h["pulses"]]
@@ -2095,7 +2495,10 @@ def escrever_relatorio(
     linhas.append(f"| Pulsos gerados | {total_pulsos} |")
     linhas.append(f"| Efeitos gerados | {total_efeitos} |")
     linhas.append(f"| Itens traduzidos | **{len(itens)}** |")
+    linhas.append(f"| Atores traduzidos | **{len(atores)}** |")
     linhas.append("")
+
+    linhas.extend(_secao_de_atores(atores, habilidades))
 
     linhas.append("### As que saíram sem pulso")
     linhas.append("")
@@ -2212,6 +2615,78 @@ def escrever_relatorio(
     caminho.write_text("\n".join(linhas), encoding="utf-8")
 
 
+def _secao_de_atores(atores: list[dict], habilidades: list[dict]) -> list[str]:
+    """Quem tem quais habilidades — a parte do original que faltava.
+
+    A contagem por `UsageType` e a de campeões COM KIT são números diferentes,
+    e a diferença é o ponto: `actor_xml` e `actor_2_xml` repetem Ids, e há
+    `Player` que é boneco de tutorial. Publicar só o total daria 58 campeões
+    onde há 33 jogáveis.
+    """
+    por_uso: collections.Counter[str] = collections.Counter(
+        a["usage"] or "(sem UsageType)" for a in atores
+    )
+    campeoes = [
+        a for a in atores if a["usage"] == "Player" and len(a["ability_groups"]) >= 3
+    ]
+    com_suprema = [a for a in campeoes if a["ultimate_group"]]
+    com_crescimento = [a for a in atores if a["growth"]]
+    com_passiva = [a for a in atores if a["passive_effects"]]
+
+    # Grupo que tem ao menos um ranque conjurável. Um campeão cujo W caia num
+    # grupo sem isso nasce com um espaço morto — e a contagem de "33 campeões"
+    # esconderia esse caso se ela fosse a única publicada.
+    jogaveis = {h["group_id"] for h in habilidades if h["pulses"]}
+    def armado(a: dict) -> bool:
+        citados = list(a["ability_groups"]) + [a["ultimate_group"]]
+        return all(g in jogaveis for g in citados)
+    plenos = [a for a in campeoes if armado(a)]
+    mancos = [a for a in campeoes if not armado(a)]
+
+    linhas = ["### Atores", ""]
+    linhas.append(
+        "`actor_xml` é a tabela de QUEM. Nenhuma outra responde quais "
+        "habilidades cada personagem tem — é por ela que o corpus deixa de "
+        "ser catálogo e vira personagem jogável."
+    )
+    linhas.append("")
+    linhas.append("| `UsageType` | Quantos |")
+    linhas.append("|---|---|")
+    for uso, quantos in por_uso.most_common():
+        linhas.append(f"| `{uso}` | {quantos} |")
+    linhas.append("")
+    linhas.append("| | |")
+    linhas.append("|---|---|")
+    linhas.append(
+        f"| Campeões com Q, W e E | **{len(campeoes)}** |"
+    )
+    linhas.append(f"| ...desses, com suprema | {len(com_suprema)} |")
+    linhas.append(
+        f"| ...com **as quatro** habilidades conjuráveis | **{len(plenos)}** |"
+    )
+    linhas.append(f"| Atores com crescimento por nível | {len(com_crescimento)} |")
+    linhas.append(f"| Atores com passiva | {len(com_passiva)} |")
+    linhas.append("")
+    if mancos:
+        linhas.append(
+            "Os %d abaixo citam um grupo de habilidade que não tem nenhum "
+            "ranque conjurável — a habilidade do original cai numa lacuna já "
+            "registrada, e o espaço fica vazio em vez de receber um botão que "
+            "não faz nada." % len(mancos)
+        )
+        linhas.append("")
+        linhas.append("| Campeão | Grupo sem ranque conjurável |")
+        linhas.append("|---|---|")
+        for a in mancos:
+            faltando = [
+                g for g in list(a["ability_groups"]) + [a["ultimate_group"]]
+                if g not in jogaveis
+            ]
+            linhas.append(f"| `{a['id']}` | {', '.join(f'`{g}`' for g in faltando)} |")
+        linhas.append("")
+    return linhas
+
+
 # --------------------------------------------------------------------------
 
 def main() -> int:
@@ -2242,6 +2717,11 @@ def main() -> int:
         for equip in sorted(tabelas.equipment.values(), key=lambda e: int(e["Id"]))
     ]
     ligar_receitas(itens, tabelas, relatorio)
+
+    brutos = sorted(tabelas.actors.values(), key=lambda a: int(a["Id"]))
+    apelidos = apelidos_de_ator(brutos)
+    atores = [tradutor.ator(bruto, apelidos[bruto["Id"]]) for bruto in brutos]
+
     relatorio.censo(tabelas)
 
     args.saida.mkdir(parents=True, exist_ok=True)
@@ -2257,9 +2737,21 @@ def main() -> int:
         "total": len(itens),
         "itens": itens,
     })
-    escrever_relatorio(args.saida / "RELATORIO.md", habilidades, itens, relatorio)
+    _escrever_json(args.saida / "atores.json", {
+        "fonte": "Royal Crown 13.0.13 (referência de design — ver docs/01)",
+        "vocabulario": "docs/03-sistemas-de-jogo.md",
+        "total": len(atores),
+        "atores": atores,
+    })
+    escrever_relatorio(
+        args.saida / "RELATORIO.md", habilidades, itens, atores, relatorio
+    )
 
-    print(f"[traducao] {len(habilidades)} habilidades, {len(itens)} itens")
+    campeoes = [a for a in atores if a["usage"] == "Player" and a["ability_groups"]]
+    print(
+        f"[traducao] {len(habilidades)} habilidades, {len(itens)} itens, "
+        f"{len(atores)} atores ({len(campeoes)} campeões com kit)"
+    )
     print(f"[traducao] {len(relatorio.lacunas)} espécies de lacuna registradas")
     print(f"[traducao] saída em {args.saida}")
     return 0

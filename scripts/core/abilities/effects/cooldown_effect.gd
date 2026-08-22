@@ -4,9 +4,10 @@ extends AbilityEffect
 ## RECARGA — encurta (ou estende) a recarga de habilidades.
 ##
 ## **21 buffs** do original o declaram, por `AdjustCDSkillIds` + `AdjustCDTime`:
-## acertar a habilidade tal reduz 2 segundos da investida. O efeito sai 104
+## acertar a habilidade tal reduz 2 segundos da investida. O efeito sai 123
 ## vezes na tradução, porque vários desses buffs são referenciados por mais de
-## uma habilidade.
+## uma habilidade — e agora também pela passiva de campeão, que passa pelos
+## mesmos buffs.
 ##
 ## É um dos laços de decisão mais fortes que o original tem, e sem esta peça ele
 ## desaparecia inteiro na tradução.
