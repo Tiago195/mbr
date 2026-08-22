@@ -357,3 +357,17 @@ posterior:
 Nenhum é urgente para o protótipo — os três são refinamento de sensação, e o
 que falta antes disso continua sendo oposição, mapa e loot. Ficam registrados
 para não serem redescobertos de memória depois.
+
+### O corpus traduzido ainda não está ligado à cena
+
+**Registrado em 22/08/2026, no fim da sessão da tradução.** O Passo 4 entregou
+1126 habilidades e 421 itens conjuráveis **por teste**, e nenhuma delas em jogo.
+`AbilityCatalog` e `ItemCatalog` não são referenciados fora de `scripts/core/`.
+
+Não é um defeito da tradução: é a fatia vertical que falta. E é a regra de ouro
+nº 1 do projeto cobrando — *"nunca construir um sistema inteiro antes de ele
+estar sendo usado no jogo"*.
+
+O que fecha: traduzir `actor_xml` (58 campeões com kit e atributos base, todos
+os 255 ids de habilidade resolvendo) e amarrar o kit ao jogador. Detalhe e
+armadilhas na seção "Onde parar de ler e começar a trabalhar" do `CLAUDE.md`.

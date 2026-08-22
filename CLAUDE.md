@@ -214,12 +214,95 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 
 ### Onde parar de ler e começar a trabalhar
 
+> **PARE AQUI E LEIA.** Esta seção é o ponto de partida da próxima sessão.
+
 O Passo 4 — traduzir o original para o nosso vocabulário — **está concluído e
 validado**: oito rodadas de revalidação adversarial, sete reprovando, a oitava
-aprovando. Leia `docs/10-traducao-do-original.md` e depois decida o próximo
-passo com a seção *"O que o usuário disse que falta"*, mais abaixo.
+aprovando. Detalhe em `docs/10-traducao-do-original.md`.
 
-**O que essas oito rodadas ensinaram, e vale para tudo daqui em diante:**
+#### A objeção do usuário, no fim da sessão, e ela está certa
+
+> *"pelo q entendi vc so adaptou o script das coisas, mas n o design delas? eu
+> n as consigo ver nem testar no jogo ainda, correto?"*
+
+**Correto.** Conferido: **zero referências a `AbilityCatalog` ou `ItemCatalog`
+fora de `scripts/core/`.** A cena `scenes/main.tscn` ainda amarra as três
+habilidades feitas à mão (`meteoro`, `raio`, `investida`), e `AbilityCaster` só
+aceita `.tres` por `@export`.
+
+Correção parcial da leitura dele: **o design ESTÁ traduzido** — números, formas,
+durações, raios, recargas, comportamento. O que falta é o **fio até a cena**.
+As 1126 habilidades são conjuradas em teste, contra bonecos em memória. Isso
+prova que o motor as executa; não prova nada sobre alguém apertar Q e ver.
+
+#### O próximo passo, com a sondagem já feita
+
+**Objetivo: o jogador ser um campeão do original, com o kit dele, em jogo.**
+
+A peça que falta é *quem tem quais habilidades* — está em `actor_xml` +
+`actor_2_xml`, ainda **não traduzidos**. Sondagem já feita e confirmada:
+
+| | |
+|---|---|
+| `UsageType=Player` | **58 campeões jogáveis** |
+| `UsageType=Monster` | 118 mobs (a "oposição" que falta ao jogo) |
+| `UsageType=AIPlayer` | 99 bots |
+| Kit por campeão | `DefaultSkillId_1..4` + `UltimateSkill` + `PassiveBuffs` |
+| **Os 255 ids de kit resolvem?** | **Sim, 255/255**, contra `t.skills` |
+
+Exemplo medido (Leo, `Id 1000000`):
+
+```
+PassiveBuffs=1000100
+DefaultSkillId_1=1000000  (ataque básico)
+DefaultSkillId_2=1000300  DefaultSkillId_3=1000200  DefaultSkillId_4=1000100
+UltimateSkill=1000800
+StatType_1..13   = PhysicalDamage 120, PhysicalDefense 50, MaxHP 2000,
+                   MaxMP 700, MovingSpeed 3.3, SightRange 12.5, ...
+LevelUpStatType_1..7 = crescimento POR NÍVEL (PhysicalDamage 1.5, MaxHP 60, ...)
+```
+
+`DefaultSkillId_N` aponta para a linha-modelo do grupo; o ranque jogável sai de
+`AbilityCatalog.rank_for_level(group_id, nivel)`, que já existe e tem teste.
+
+**Bônus:** `LevelUpStatType_N` responde "como o personagem cresce durante a
+partida", que `03-sistemas-de-jogo.md` pede e ainda não existe. E `SightRange`
+deixa de ser atributo inerte — a IA de mob é o consumidor que faltava.
+
+#### O plano, na ordem
+
+1. **`ActorProfile` em `scripts/core/`** — atributos base, crescimento por
+   nível, `Array[StringName]` de grupos de habilidade, passiva, `Unit.Nature`.
+   Com um método que monta um `Unit` num nível dado.
+2. **Estender `tools/traducao/traduzir.py`** para emitir
+   `data/traducao/atores.json`. **Acrescentar `actor` ao censo de colunas** —
+   `Tabelas` não indexa mais `actor_xml` (era código morto e foi removido; volta
+   agora, e o censo tem que cobri-la, senão é o buraco da rodada 4 de novo).
+3. **`ActorCatalog`**, igual aos outros dois, com teste que carregue os 58 e
+   confira que todo grupo de habilidade citado existe no `AbilityCatalog`.
+4. **Ligar à cena.** `AbilityCaster` (ou um nó novo) recebe um id de campeão e
+   um nível, aplica os atributos no `Combatant` e aprende o kit no
+   `AbilityBook`. **Atenção:** `Combatant` hoje tem atributos base como
+   `@export` fixo (`max_health`, `attack_damage`, ...) — o perfil precisa
+   sobrescrevê-los.
+5. **Falta a tecla R.** `project.godot` só declara `ability_q`, `ability_w` e
+   `ability_e`. A suprema precisa de `ability_r`, registrada por
+   `physical_keycode` como as outras.
+6. **Critério de parada:** o usuário abre o jogo, escolhe um campeão do
+   original e usa as quatro habilidades dele. **Isso exige olho humano** — é
+   ponto de parar e pedir validação.
+
+#### Depois disso
+
+Mobs com IA simples (`AIPath` do original dá a taxonomia de comportamento de
+graça, e `SightRange` é o alcance de agressão). É a **oposição** que o usuário
+diz faltar, e ela usa o mesmo `Combatant`, `AbilityBook` e `AbilityEngine` do
+jogador — inclusive conjurando.
+
+---
+
+**O que essas oito rodadas de revalidação ensinaram, e vale para tudo daqui em
+diante:**
 
 1. **Cobertura silenciosa é indistinguível de cobertura errada.** Todo achado
    material veio de medir, nunca de reler. Daí o censo de colunas do tradutor,
@@ -227,19 +310,14 @@ passo com a seção *"O que o usuário disse que falta"*, mais abaixo.
    recusa emitir efeito que o motor descartaria.
 2. **Número em documento é asserção.** Três rodadas seguidas reprovaram por
    número defasado, e nunca o mesmo. `tools/conferir_numeros.py` existe por
-   isso — rodar antes de commitar documentação.
+   isso — **rodar antes de commitar documentação**.
 3. **Padrão que cobre dado ausente é a armadilha mais cara.** Um cone lendo
    coluna inexistente alcançava 1 metro; um arremesso copiando `Duration = 0`
    não fazia nada. Nenhum dos dois dava erro. O que pega é conferir se o
    RESULTADO faz sentido, não se a coluna foi lida.
-4. **Teste de mutação, sempre.** Quatro defeitos passaram por suíte verde
-   antes de alguém tentar quebrá-los de propósito.
+4. **Teste de mutação, sempre.** Quatro defeitos passaram por suíte verde antes
+   de alguém tentar quebrá-los de propósito.
 
-Na leitura desta sessão, o próximo passo com mais retorno é **oposição**: mobs
-com IA simples usando o mesmo `Combatant`, `AbilityBook` e `AbilityEngine` do
-jogador — inclusive conjurando, agora que há 1126 habilidades prontas para
-eles. Depois disso, ligar à cena o que já existe só como lógica (zona, loot,
-fluxo de partida).
 
 ### Os dados do original estão extraídos E traduzidos
 
