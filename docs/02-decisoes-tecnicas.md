@@ -416,3 +416,50 @@ Uma marca que soubesse o que significa seria um sistema paralelo ao de efeitos,
 e é isso que `03-sistemas-de-jogo.md` proíbe. Composta com `TriggerEffect` no
 evento `MARK_MAXED`, ela dá "acerte três vezes e o quarto atordoa" sem uma
 linha de código nova.
+
+## 13. O campeão vem de dado, e os `.tres` feitos à mão continuam valendo
+
+**Decidido em 22/08/2026.**
+
+`ChampionSelector` (em `gameplay/`) lê `ActorCatalog` + `AbilityCatalog` e
+escreve os atributos no `Combatant` e o kit no `AbilityCaster`. As habilidades
+`.tres` do Inspector continuam sendo o padrão: esvaziar `champion_id` volta a
+elas, e as duas fontes passam pelo mesmo `AbilityBook`.
+
+**Por quê:** um caminho só levaria a jogar fora as três habilidades feitas à
+mão, que são o que se edita para experimentar design. Duas fontes com um
+destino comum custam um `if` e preservam o modo rápido de testar uma ideia.
+
+**Três consequências que não são óbvias:**
+
+- **`DefaultSkillId_N` aponta para a linha-modelo do grupo, não para a
+  habilidade.** `Rank 0` existe para a interface mostrar a habilidade ainda não
+  aprendida e não referencia impacto nenhum. O perfil guarda o **grupo**; o
+  ranque sai de `AbilityCatalog.rank_for_level()` com o nível. Guardar o id
+  daria um Q que aperta, gasta mana e não faz nada.
+- **Trocar de personagem SUBSTITUI o conjunto de atributos, não soma.**
+  `ActorProfile.apply_stats_to` reescreve tudo, com um `fallback` para o que só
+  o Inspector declara (`crit_chance`, `ability_power`). Somar deixava resíduo
+  invisível: 28 dos 33 campeões declaram `out_of_combat_health_regen` e cinco
+  não.
+- **A suprema recebe uma recarga inventada de 45 s.** 31 das 32 supremas do
+  original têm `CoolTime = 0` porque enchem batendo, e carga de suprema é
+  lacuna registrada. Copiar o zero daria uma suprema disparável a cada quadro.
+  Quando a carga existir, o número sai — e `ActorProfile.ultimate_uses_charge`
+  já marca quem depende dele.
+
+## 14. Alcance e cadência de ataque vêm da habilidade, não dos atributos
+
+**Decidido em 22/08/2026.** Não é escolha de arquitetura: é como o original
+guarda o dado, e demorou a aparecer.
+
+`AI_SkillRange` e `CoolTime` da habilidade `DefaultSkillId_1` são o alcance e o
+intervalo entre ataques básicos do personagem — 2 m e 0,8 s no Leo, 6 m e
+0,73 s na Bella. **Nenhum dos dois está em `StatType_N`.**
+
+**Por que registrar:** sem ler de lá, todo campeão herdaria o padrão da classe
+(2,5 m, um ataque por segundo) e a atiradora do original viraria corpo a corpo
+— sem erro, sem lacuna, sem sintoma até alguém comparar dois campeões. É a
+terceira vez que essa espécie de defeito aparece neste projeto, e todas as três
+foram achadas conferindo se o RESULTADO faz sentido, nunca se a coluna foi
+lida.

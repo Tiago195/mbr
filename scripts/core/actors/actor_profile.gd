@@ -106,10 +106,20 @@ func stats_at(level: int) -> Dictionary:
 ## `ResourcePool` e todo modificador ativo guardam a referência ao `Stats`, e
 ## substituí-lo os deixaria apontando para um conjunto morto — o personagem
 ## ficaria com a vida máxima antiga e ninguém veria erro nenhum.
-func apply_stats_to(stats: Stats, level: int) -> void:
+##
+## **Substitui o conjunto inteiro**, e não só o que este perfil declara. Sem
+## isso, trocar de personagem herda os atributos que o anterior tinha e este
+## não menciona: 28 dos 33 campeões declaram `out_of_combat_health_regen` e
+## cinco não, e a regeneração do anterior ficava colada nos cinco.
+##
+## `fallback` é o que vale para atributo que NENHUM dos dois declara — os
+## `@export` do Inspector, no caso do `Combatant`.
+func apply_stats_to(stats: Stats, level: int, fallback: Dictionary = {}) -> void:
 	if stats == null:
 		return
-	stats.set_bases(stats_at(level))
+	var combinado: Dictionary = fallback.duplicate()
+	combinado.merge(stats_at(level), true)
+	stats.reset_bases(combinado)
 
 func build_unit(level: int, team: int = 0) -> Unit:
 	var stats := Stats.new()

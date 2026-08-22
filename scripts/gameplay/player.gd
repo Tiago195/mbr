@@ -17,6 +17,10 @@ const TARGET_MASK: int = 2
 ## Alcance do raycast de mira, em metros. Maior que a diagonal do mapa.
 const AIM_DISTANCE: float = 1000.0
 
+## Velocidade de quem não tem `move_speed` nos atributos. Um campeão do
+## original tem — 3,3 no Leo, 4,5 na Sasha — e é ele que manda quando existe.
+## Sem esta ligação, trocar de campeão não mudaria nada no andar, e a diferença
+## entre um tanque e um assassino é metade do que se sente jogando.
 @export var speed: float = 5.0
 @export var arrival_threshold: float = 0.2
 
@@ -109,10 +113,16 @@ func _walk_to_target() -> void:
 	var to_target: Vector3 = target_position - global_position
 	to_target.y = 0.0
 	if to_target.length() > arrival_threshold:
-		velocity = to_target.normalized() * speed
+		velocity = to_target.normalized() * _speed()
 		_face(to_target)
 	else:
 		velocity = Vector3.ZERO
+
+## Passo por segundo. Vem dos atributos quando o personagem os declara — o que
+## faz lentidão e aceleração de habilidade valerem no corpo, de graça.
+func _speed() -> float:
+	var do_perfil: float = _combatant.stats.get_value(Stat.Id.MOVE_SPEED)
+	return do_perfil if do_perfil > 0.0 else speed
 
 ## Persegue até entrar no alcance, para, e bate no ritmo da velocidade de
 ## ataque. Enquanto ataca, continua encarando o alvo.
@@ -127,7 +137,7 @@ func _pursue_and_attack() -> void:
 	_face(to_enemy)
 
 	if to_enemy.length() > _combatant.stats.get_value(Stat.Id.ATTACK_RANGE):
-		velocity = to_enemy.normalized() * speed
+		velocity = to_enemy.normalized() * _speed()
 		return
 
 	velocity = Vector3.ZERO

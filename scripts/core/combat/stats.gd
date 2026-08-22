@@ -27,9 +27,24 @@ func get_base(id: Stat.Id) -> float:
 	return _base.get(id, Stat.default_of(id))
 
 ## Define vários de uma vez. Conveniência para declarar personagem em dado.
+##
+## **Soma ao que já havia.** Atributo que não está em `values` fica como
+## estava — que é o certo para equipar um item e o errado para trocar de
+## personagem. Para trocar, `reset_bases`.
 func set_bases(values: Dictionary) -> void:
 	for id: Stat.Id in values:
 		set_base(id, float(values[id]))
+
+## Substitui o conjunto INTEIRO de bases. O que não estiver em `values` volta
+## ao padrão de `Stat.DEFAULTS`.
+##
+## Existe porque `set_bases` deixa resíduo, e o resíduo é invisível: 28 dos 33
+## campeões do original declaram `out_of_combat_health_regen` e cinco não.
+## Trocar de um que declara para um que não declara mantinha o valor do
+## anterior — sem erro, sem sintoma até alguém comparar dois personagens.
+func reset_bases(values: Dictionary) -> void:
+	_base.clear()
+	set_bases(values)
 
 # ---------------------------------------------------------------- consulta
 

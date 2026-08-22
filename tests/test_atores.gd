@@ -237,6 +237,49 @@ func test_abaixo_do_nivel_base_o_atributo_nao_encolhe() -> void:
 	assert_almost_eq(perfil.stat_at(Stat.Id.MAX_HEALTH, 5), 1000.0)
 	assert_almost_eq(perfil.stat_at(Stat.Id.MAX_HEALTH, 7), 1200.0)
 
+func test_trocar_de_campeao_nao_herda_atributo_do_anterior() -> void:
+	# 28 dos 33 campeões declaram `out_of_combat_health_regen` e cinco não.
+	# Com `set_bases`, trocar de um que declara para um que não declara mantinha
+	# o valor do anterior — o dado foi lido, o campo existe, e o resultado é um
+	# personagem que não é nem um nem outro.
+	var declara: ActorProfile = null
+	var nao_declara: ActorProfile = null
+	for profile: ActorProfile in _actors().champions():
+		if profile.base_stats.has(Stat.Id.OUT_OF_COMBAT_HEALTH_REGEN):
+			if declara == null:
+				declara = profile
+		elif nao_declara == null:
+			nao_declara = profile
+	assert_not_null(declara, "nenhum campeão declara regeneração fora de combate")
+	assert_not_null(nao_declara, "todos declaram — o caso sumiu do corpus")
+	if declara == null or nao_declara == null:
+		return
+
+	var stats := Stats.new()
+	declara.apply_stats_to(stats, 9)
+	assert_true(
+		stats.get_value(Stat.Id.OUT_OF_COMBAT_HEALTH_REGEN) > 0.0,
+		"o primeiro campeão não trouxe a regeneração"
+	)
+	nao_declara.apply_stats_to(stats, 9)
+	assert_almost_eq(
+		stats.get_value(Stat.Id.OUT_OF_COMBAT_HEALTH_REGEN), 0.0,
+		"a regeneração do campeão anterior ficou colada"
+	)
+
+func test_o_piso_do_inspector_sobrevive_a_troca() -> void:
+	# O perfil do original não declara `crit_chance` nem `ability_power`. Zerar
+	# tudo que ele não menciona faria o campeão nascer sem os dois, e a cena
+	# declara os dois de propósito.
+	var leo: ActorProfile = _actors().get_profile(&"leo")
+	if leo == null:
+		assert_true(false, "o Leo sumiu do catálogo")
+		return
+	var stats := Stats.new()
+	leo.apply_stats_to(stats, 9, {Stat.Id.CRIT_CHANCE: 0.25})
+	assert_almost_eq(stats.get_value(Stat.Id.CRIT_CHANCE), 0.25)
+	assert_almost_eq(stats.get_value(Stat.Id.MAX_HEALTH), 2480.0)
+
 # ---------------------------------------------------------------- suprema
 
 func test_a_suprema_ganha_recarga_no_lugar_da_carga() -> void:

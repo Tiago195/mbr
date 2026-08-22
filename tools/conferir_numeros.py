@@ -253,6 +253,24 @@ def main() -> int:
     total_efeitos = sum(len(p["effects"]) for h in habilidades for p in h["pulses"])
     de_skill_xml = [h for h in habilidades if h["source_table"] == "skill_xml"]
 
+    atores = json.loads(ler("data/traducao/atores.json"))["atores"]
+    # "Campeão" é mais estreito que `UsageType == Player`, e a diferença é o
+    # ponto: 40 linhas de jogador, 33 com kit, 28 com as quatro conjuráveis.
+    # Publicar só a primeira daria 40 campeões onde há 28 jogáveis.
+    campeoes = [
+        a for a in atores
+        if a["usage"] == "Player" and len(a["ability_groups"]) >= 3
+    ]
+    grupos_jogaveis = {h["group_id"] for h in habilidades if h["pulses"]}
+    completos = [
+        a for a in campeoes
+        if all(
+            g in grupos_jogaveis
+            for g in list(a["ability_groups"]) + [a["ultimate_group"]]
+        )
+    ]
+    com_carga = [a for a in atores if a["ultimate_uses_charge"]]
+
     relatorio = ler("data/traducao/RELATORIO.md")
     doc10 = ler("docs/10-traducao-do-original.md")
     claude = ler("CLAUDE.md")
@@ -283,6 +301,32 @@ def main() -> int:
              r"\| Habilidades traduzidas \| \*\*(\d+)\*\*", len(habilidades))
     c.afirma("RELATORIO com pulso", relatorio,
              r"\| \.\.\.com pelo menos um pulso \| (\d+) \|", len(com_pulso))
+    c.afirma("RELATORIO atores", relatorio,
+             r"\| Atores traduzidos \| \*\*(\d+)\*\*", len(atores))
+    c.afirma("RELATORIO campeões com kit", relatorio,
+             r"\| Campeões com Q, W e E \| \*\*(\d+)\*\*", len(campeoes))
+    c.afirma("RELATORIO campeões completos", relatorio,
+             r"\| \.\.\.com \*\*as quatro\*\* habilidades conjuráveis \| "
+             r"\*\*(\d+)\*\*", len(completos))
+
+    # ---------------------------------------------------------- atores
+    c.afirma("CLAUDE.md atores", claude,
+             r"\*\*(\d+) atores\*\* traduzidos", len(atores))
+    c.afirma("CLAUDE.md campeões com kit", claude,
+             r"(\d+) campeões com kit", len(campeoes))
+    c.afirma("CLAUDE.md campeões jogáveis", claude,
+             r"\*\*(\d+) deles com as quatro habilidades\*\*", len(completos))
+    c.afirma("docs/10 atores", doc10,
+             r"\| Atores \| \*\*(\d+)\*\*", len(atores))
+    c.afirma("docs/10 campeões com kit", doc10,
+             r"\| \.\.\.campeões com kit \| (\d+) \|", len(campeoes))
+    c.afirma("docs/10 campeões completos", doc10,
+             r"\| \.\.\.com as quatro conjuráveis \| (\d+) \|", len(completos))
+    c.afirma("docs/10 supremas por carga", doc10,
+             r"(\d+) supremas enchem batendo", len(com_carga))
+    c.afirma("actor_profile.gd campeões completos",
+             ler("scripts/gameplay/champion_selector.gd"),
+             r"Cinco dos (\d+) têm um espaço", len(campeoes))
 
     # ---------------------------------------------------------- CLAUDE.md
     c.afirma("CLAUDE.md atributos", claude,

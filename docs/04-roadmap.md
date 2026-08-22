@@ -330,6 +330,7 @@ integração · 🟡 aguardando validação humana · ⏭️ adiada
 | 5.2 | 🟨 Lógica pronta | 22/08/2026 | `Item` e `Inventory` em `core/items/`, 16 testes. Falta loot no chão, coleta e UI |
 | 5.3 | 🟨 Lógica pronta | 22/08/2026 | `Zone` em `core/match/`, 18 testes. Falta o círculo desenhado e trocar `damage_per_second` por buff |
 | 5.4 | 🟨 Lógica pronta | 22/08/2026 | `MatchState` em `core/match/`, 15 testes. Governa a zona e decide o vencedor. Falta spawn, respawn de lobby e ligação com a cena |
+| **Passo 5** | ✅ Concluída | 22/08/2026 | **Os campeões do original em jogo.** `actor_xml` traduzida: 384 atores, 33 campeões com kit, 28 com as quatro habilidades conjuráveis. `ChampionSelector` amarra atributos e kit ao jogador; Q/W/E/R e troca por Page Down. Sonda em `tools/sondar_campeoes.gd` |
 | **Passo 4** | ✅ Concluída | 22/08/2026 | **Tradução do original.** 948 habilidades + 421 itens no nosso vocabulário. Atributos 18→44, estados de controle 4→10 (e opções de `CrowdControlEffect` 5→11), efeitos 6→14, `Ability` virou lista de pulsos. Corpus carregável e conjurável em `data/traducao/`. Ver `docs/10-traducao-do-original.md` |
 
 ### O que a tradução do original mudou no roadmap
@@ -358,16 +359,22 @@ Nenhum é urgente para o protótipo — os três são refinamento de sensação,
 que falta antes disso continua sendo oposição, mapa e loot. Ficam registrados
 para não serem redescobertos de memória depois.
 
-### O corpus traduzido ainda não está ligado à cena
+### O corpus traduzido chegou à cena — fechado em 22/08/2026
 
-**Registrado em 22/08/2026, no fim da sessão da tradução.** O Passo 4 entregou
-1126 habilidades e 421 itens conjuráveis **por teste**, e nenhuma delas em jogo.
-`AbilityCatalog` e `ItemCatalog` não são referenciados fora de `scripts/core/`.
-
-Não é um defeito da tradução: é a fatia vertical que falta. E é a regra de ouro
-nº 1 do projeto cobrando — *"nunca construir um sistema inteiro antes de ele
+O Passo 4 entregou 1126 habilidades conjuráveis **por teste**, e nenhuma delas
+em jogo: `AbilityCatalog` não era referenciado fora de `scripts/core/`. Era a
+regra de ouro nº 1 cobrando — *"nunca construir um sistema inteiro antes de ele
 estar sendo usado no jogo"*.
 
-O que fecha: traduzir `actor_xml` (58 campeões com kit e atributos base, todos
-os 255 ids de habilidade resolvendo) e amarrar o kit ao jogador. Detalhe e
-armadilhas na seção "Onde parar de ler e começar a trabalhar" do `CLAUDE.md`.
+O que fechou foi traduzir `actor_xml`, a única tabela que responde **quem tem
+quais habilidades**, e amarrar o resultado ao `Combatant` e ao `AbilityCaster`.
+
+Uma correção de número que vale registrar: a sondagem anterior dizia **58
+campeões**, e são **40** — `actor_xml` e `actor_2_xml` repetem Ids, e a
+contagem somava as duas tabelas sem deduplicar. Das 40, 33 têm kit e 28 têm as
+quatro habilidades conjuráveis. Foi a mesma espécie de erro que
+`tools/conferir_numeros.py` existe para pegar, e o número estava num documento
+que a ferramenta não cobria.
+
+O que ainda não está ligado: **itens e inventário**. `ItemCatalog` continua sem
+consumidor fora de `core/` — falta loot no chão, coleta e UI (Fase 5.2).

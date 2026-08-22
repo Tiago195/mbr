@@ -289,6 +289,56 @@ XML: o ramo do projétil calculava `Radius × 2` e caía num 2,0 fabricado, quan
 alcance. A diferença para o cone é o buraco colado nos pés — e é ela que
 caracteriza o tiro de longo alcance.
 
+### `actor_xml` — quem tem quais habilidades
+
+As tabelas de habilidade dizem O QUE cada habilidade faz. **Nenhuma delas diz
+QUEM a tem.** Isso mora em `actor_xml` + `actor_2_xml`, e por muito tempo a
+tradução não a lia — o corpus era um catálogo que ninguém empunhava.
+
+A tabela virou `ActorProfile`: atributos base, crescimento por nível, kit por
+grupo de habilidade, passiva e `Unit.Nature`.
+
+**A convenção de espaço, medida e não suposta:**
+
+| Coluna | Vira |
+|---|---|
+| `DefaultSkillId_1` | ataque básico (`UI_Type = InstantTarget` nos 34 campeões e nos 97 mobs que a declaram) |
+| `DefaultSkillId_2..4` | Q, W e E, nessa ordem |
+| `UltimateSkill` | R |
+| `PassiveBuffs` | passiva, traduzida pelo mesmo caminho dos buffs |
+| `StatType_1..13` | atributos base |
+| `LevelUpStatType_1..7` | crescimento POR NÍVEL — o que responde "como o personagem cresce durante a partida", que `03-sistemas-de-jogo.md` pedia e não existia |
+| `AIPath` | taxonomia de comportamento, guardada e ainda sem consumidor |
+
+**A coluna aponta para a linha-modelo, não para a habilidade.**
+`DefaultSkillId_2 = 1000300` é a linha de `Rank 0` do grupo — a entrada de
+interface da habilidade ainda não aprendida, sem impacto nenhum. Guardar esse
+id daria ao jogador um Q que aperta, gasta mana e não faz nada, sem uma linha
+de erro. O perfil guarda o **grupo**, e o ranque sai de
+`AbilityCatalog.rank_for_level()` com o nível do personagem.
+
+**Dois atributos que não estão nos atributos.** `AI_SkillRange` e `CoolTime` da
+habilidade de ataque básico são o alcance e a cadência do personagem: 2m e
+0,8s no Leo, 6m e 0,73s na Bella. Nenhum dos dois aparece em `StatType_N`. Sem
+ler de lá, todo campeão cairia no padrão da classe — 2,5m e um ataque por
+segundo — e a atiradora do original viraria corpo a corpo. Mesma espécie de
+armadilha do cone que lia coluna inexistente: o dado existe, só não está onde
+se olhou primeiro.
+
+**A suprema não tem recarga.** 31 supremas enchem batendo
+(`LevelUpUltimateCharge = 1000`, `CoolTime = 0`) — o sistema de carga de
+suprema é lacuna registrada desde a tradução das habilidades. Copiar o zero
+daria uma suprema disparável a cada quadro; entra uma recarga de **45 s**,
+inventada e declarada como lacuna no relatório.
+
+**A contagem que importa não é a primeira.** `UsageType = Player` dá 40 linhas;
+33 têm os três espaços de habilidade; 28 têm as quatro habilidades
+conjuráveis. Os cinco que faltam citam um grupo cuja habilidade cai numa
+lacuna já registrada, e o `RELATORIO.md` os nomeia um a um. Publicar só as 40
+daria "40 campeões" onde há 28 jogáveis.
+
+---
+
 ### `Unit.Nature`
 
 `MaxPhysicalDamageForMonster`, `SiegeDamage` e "invocação morta não conta como
@@ -309,6 +359,9 @@ Números da última execução (o `RELATORIO.md` gerado tem o detalhe):
 | Pulsos | 1687 |
 | Efeitos | 3229 |
 | Itens | **421**, em 257 linhas de melhoria |
+| Atores | **384** — campeão, mob, bot, lacaio, baú, árvore |
+| ...campeões com kit | 33 |
+| ...com as quatro conjuráveis | 28 |
 
 Das 162 sem pulso:
 

@@ -21,7 +21,7 @@ extends AbilityEffect
 ## veio desta habilidade sem tocar em modificador de item.
 @export var source_tag: StringName = &"habilidade"
 
-func apply(cast: AbilityCast, target: Unit) -> void:
+func apply(_cast: AbilityCast, target: Unit) -> void:
 	if target == null or not target.is_alive():
 		return
 	target.stats.add_modifier(StatModifier.new(

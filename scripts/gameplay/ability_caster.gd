@@ -12,9 +12,14 @@ extends Node
 ## continuam os mesmos.
 
 ## Habilidades por slot. Arraste os `.tres` de `data/abilities/` no Inspector.
+##
+## São o kit PADRÃO. Um `ChampionSelector` irmão substitui os quatro espaços
+## pelo kit de um campeão do original — e quando não houver seletor nenhum,
+## estas continuam valendo. As duas fontes passam pelo mesmo `AbilityBook`.
 @export var ability_q: Ability
 @export var ability_w: Ability
 @export var ability_e: Ability
+@export var ability_r: Ability
 
 @export_group("Telegrafia")
 @export var color_area: Color = Color(0.95, 0.55, 0.15)
@@ -30,6 +35,18 @@ var _combatant: Combatant
 var _last_cast: AbilityCast
 
 func _ready() -> void:
+	ensure_ready()
+
+## Monta o livro se ainda não existir.
+##
+## Público e idempotente pelo mesmo motivo de `Combatant.ensure_ready()`: o
+## `ChampionSelector` precisa do livro dentro do `_ready()` dele, e a ordem em
+## que a Godot chama `_ready()` entre irmãos depende da ordem na cena.
+## Depender disso é receita para um bug que só aparece quando alguém arrasta
+## um nó no editor.
+func ensure_ready() -> void:
+	if book != null:
+		return
 	_combatant = Combatant.of(get_parent())
 	if _combatant == null:
 		push_warning("AbilityCaster sem Combatant irmão.")
@@ -37,9 +54,27 @@ func _ready() -> void:
 	_combatant.ensure_ready()
 
 	book = AbilityBook.new()
-	book.learn(AbilityBook.Slot.Q, ability_q)
-	book.learn(AbilityBook.Slot.W, ability_w)
-	book.learn(AbilityBook.Slot.E, ability_e)
+	var owner_unit: Unit = _combatant.unit
+	book.learn(AbilityBook.Slot.Q, ability_q, owner_unit)
+	book.learn(AbilityBook.Slot.W, ability_w, owner_unit)
+	book.learn(AbilityBook.Slot.E, ability_e, owner_unit)
+	book.learn(AbilityBook.Slot.R, ability_r, owner_unit)
+
+## Troca os quatro espaços pelo kit de um campeão do original.
+##
+## Devolve quantos espaços foram preenchidos. Esquecer vem de graça: o `learn`
+## do `AbilityBook` já desfaz a passiva de ranque da habilidade anterior, que é
+## o que impede o bônus de dois campeões se somar ao trocar.
+func adopt_kit(profile: ActorProfile, catalog: AbilityCatalog, level: int) -> int:
+	ensure_ready()
+	if book == null or profile == null:
+		return 0
+	# A recarga é de quem tinha o livro, não de quem tem agora. Sem limpar,
+	# trocar de campeão herdaria a recarga do anterior num espaço que agora
+	# tem outra habilidade.
+	book.clear_cooldowns()
+	book.clear_scheduled()
+	return profile.equip_book(book, catalog, _combatant.unit, level)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"ability_q"):
@@ -48,6 +83,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_try_cast(AbilityBook.Slot.W)
 	elif event.is_action_pressed(&"ability_e"):
 		_try_cast(AbilityBook.Slot.E)
+	elif event.is_action_pressed(&"ability_r"):
+		_try_cast(AbilityBook.Slot.R)
 
 func _physics_process(delta: float) -> void:
 	if book == null or _combatant == null or _combatant.unit == null:
@@ -77,8 +114,11 @@ func _physics_process(delta: float) -> void:
 # ---------------------------------------------------------------- conjuração
 
 func _try_cast(slot: AbilityBook.Slot) -> void:
+	if book == null:
+		return
 	var ability: Ability = book.ability_in(slot)
 	if ability == null:
+		print("[hab] %s vazio" % AbilityBook.Slot.keys()[slot])
 		return
 
 	var cast: AbilityCast = _aim(ability)

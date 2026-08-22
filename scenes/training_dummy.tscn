@@ -26,9 +26,10 @@ shape = SubResource("CapsuleShape3D_dummy")
 [node name="Combatant" type="Node" parent="."]
 script = ExtResource("2_combatant")
 team = 1
-max_health = 300.0
+max_health = 3000.0
 attack_damage = 0.0
-armor = 20.0
+armor = 50.0
+magic_resist = 40.0
 
 [node name="CombatFeedback" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)

@@ -38,6 +38,11 @@ signal displaced(offset: Vector3)
 
 var unit: Unit
 
+## Os atributos que vieram do Inspector. Guardados porque `adopt_profile`
+## precisa deles como piso: o perfil do original não declara `crit_chance` nem
+## `ability_power`, e sem o piso o campeão nasceria com zero dos dois.
+var _bases_do_inspector: Dictionary = {}
+
 ## Atalhos para o que o `unit` possui. Existem para não obrigar todo chamador
 ## a escrever `combatant.unit.health`.
 var stats: Stats
@@ -74,8 +79,7 @@ func ensure_ready() -> void:
 	if unit != null:
 		return
 
-	var built := Stats.new()
-	built.set_bases({
+	_bases_do_inspector = {
 		Stat.Id.MAX_HEALTH: max_health,
 		Stat.Id.ATTACK_DAMAGE: attack_damage,
 		Stat.Id.ABILITY_POWER: ability_power,
@@ -85,7 +89,9 @@ func ensure_ready() -> void:
 		Stat.Id.ATTACK_RANGE: attack_range,
 		Stat.Id.CRIT_CHANCE: crit_chance,
 		Stat.Id.LIFESTEAL: lifesteal,
-	})
+	}
+	var built := Stats.new()
+	built.set_bases(_bases_do_inspector)
 
 	unit = Unit.new(built, team)
 	stats = unit.stats
@@ -100,6 +106,29 @@ func ensure_ready() -> void:
 	# Ver o comentário em `unit.gd`.
 	unit.damaged.connect(func(result: DamageResult) -> void: damaged.emit(result))
 	unit.health.died.connect(func() -> void: died.emit())
+
+## Substitui os atributos do Inspector pelos de um campeão do original.
+##
+## Escreve POR CIMA do `Stats` que já existe, e não troca o `Unit`: `Health`,
+## `ResourcePool`, `CombatFeedback` e o `AbilityBook` já guardam referência ao
+## que está aí. Trocar o objeto os deixaria apontando para um conjunto morto —
+## a barra de vida continuaria mostrando o máximo antigo, sem erro nenhum.
+##
+## O que os `@export var max_health`, `attack_damage` e companhia continuam
+## fazendo: são o padrão de quem NÃO é campeão do original. O boneco de treino
+## é declarado assim, e continua sendo.
+func adopt_profile(profile: ActorProfile, level: int) -> void:
+	ensure_ready()
+	if profile == null or unit == null:
+		return
+	profile.apply_stats_to(unit.stats, level, _bases_do_inspector)
+	unit.nature = profile.nature
+	# Vida e mana são cheias a partir do máximo NOVO. Sem isto, trocar de um
+	# campeão de 2000 para um de 2600 deixaria o segundo nascer com 2000.
+	unit.health.current = unit.health.maximum()
+	unit.health.changed.emit(unit.health.current, unit.health.maximum())
+	unit.mana.current = unit.mana.maximum()
+	unit.mana.changed.emit(unit.mana.current, unit.mana.maximum())
 
 func _physics_process(delta: float) -> void:
 	if unit == null:

@@ -50,6 +50,11 @@ O jogo copia o esquema do **League of Legends**. O que isso obriga:
 - **Habilidades são Q/W/E/R miradas no cursor**, não cliques. Na Fase 3, o
   raycast tela → mundo é disparado lendo a posição do mouse, não um evento
   de clique
+- As quatro teclas estão registradas em `project.godot` por `physical_keycode`
+  — o `R` entrou junto com o kit dos campeões
+- **Page Down / Page Up trocam de campeão em jogo.** É provisório e é de
+  propósito: a Fase 1 não tem tela de seleção, e sem isso testar 27 campeões
+  exigiria 27 edições da cena
 
 Mapeamento completo e o que ainda está em aberto: decisão 7 em
 `docs/02-decisoes-tecnicas.md`.
@@ -210,94 +215,85 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 ## Estado atual
 
 > Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **374 testes, 1067 asserções**, todos verdes, stderr limpo.
+> branch `master`. **376 testes, 1073 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
 > **PARE AQUI E LEIA.** Esta seção é o ponto de partida da próxima sessão.
 
-O Passo 4 — traduzir o original para o nosso vocabulário — **está concluído e
-validado**: oito rodadas de revalidação adversarial, sete reprovando, a oitava
-aprovando. Detalhe em `docs/10-traducao-do-original.md`.
+**O corpus traduzido chegou à cena.** Abrir o jogo agora coloca o jogador como
+um campeão do original, com os atributos dele e o kit dele em Q/W/E/R. Era o
+buraco que o usuário apontou ao fim da tradução — *"eu não as consigo ver nem
+testar no jogo"* — e ele está fechado.
 
-#### A objeção do usuário, no fim da sessão, e ela está certa
-
-> *"pelo q entendi vc so adaptou o script das coisas, mas n o design delas? eu
-> n as consigo ver nem testar no jogo ainda, correto?"*
-
-**Correto.** Conferido: **zero referências a `AbilityCatalog` ou `ItemCatalog`
-fora de `scripts/core/`.** A cena `scenes/main.tscn` ainda amarra as três
-habilidades feitas à mão (`meteoro`, `raio`, `investida`), e `AbilityCaster` só
-aceita `.tres` por `@export`.
-
-Correção parcial da leitura dele: **o design ESTÁ traduzido** — números, formas,
-durações, raios, recargas, comportamento. O que falta é o **fio até a cena**.
-As 1126 habilidades são conjuradas em teste, contra bonecos em memória. Isso
-prova que o motor as executa; não prova nada sobre alguém apertar Q e ver.
-
-#### O próximo passo, com a sondagem já feita
-
-**Objetivo: o jogador ser um campeão do original, com o kit dele, em jogo.**
-
-A peça que falta é *quem tem quais habilidades* — está em `actor_xml` +
-`actor_2_xml`, ainda **não traduzidos**. Sondagem já feita e confirmada:
+#### O que dá para fazer agora
 
 | | |
 |---|---|
-| `UsageType=Player` | **58 campeões jogáveis** |
-| `UsageType=Monster` | 118 mobs (a "oposição" que falta ao jogo) |
-| `UsageType=AIPlayer` | 99 bots |
-| Kit por campeão | `DefaultSkillId_1..4` + `UltimateSkill` + `PassiveBuffs` |
-| **Os 255 ids de kit resolvem?** | **Sim, 255/255**, contra `t.skills` |
+| Onde | `scenes/main.tscn`, nó `Player/ChampionSelector` |
+| Quem entra | `champion_id` no Inspector (`leo` por padrão), `level` (9 = todo ranque disponível) |
+| Trocar em jogo | **Page Down / Page Up** — 27 campeões na roda |
+| O que aparece | painel no canto com atributos e o nome das quatro habilidades |
+| Conjurar | **Q, W, E e R** — o `R` foi registrado agora em `project.godot` |
 
-Exemplo medido (Leo, `Id 1000000`):
+Em `data/traducao/atores.json`: **384 atores** traduzidos, dos quais
+**33 campeões com kit** e **28 deles com as quatro habilidades**
+conjuráveis. Os cinco que faltam
+citam um grupo cuja habilidade cai numa lacuna já registrada, e o
+`data/traducao/RELATORIO.md` nomeia cada um.
+
+Sondagem automática da cena, que a suíte de `tests/` não alcança:
 
 ```
-PassiveBuffs=1000100
-DefaultSkillId_1=1000000  (ataque básico)
-DefaultSkillId_2=1000300  DefaultSkillId_3=1000200  DefaultSkillId_4=1000100
-UltimateSkill=1000800
-StatType_1..13   = PhysicalDamage 120, PhysicalDefense 50, MaxHP 2000,
-                   MaxMP 700, MovingSpeed 3.3, SightRange 12.5, ...
-LevelUpStatType_1..7 = crescimento POR NÍVEL (PhysicalDamage 1.5, MaxHP 60, ...)
+godot --headless --path . --script res://tools/sondar_campeoes.gd
 ```
 
-`DefaultSkillId_N` aponta para a linha-modelo do grupo; o ranque jogável sai de
-`AbilityCatalog.rank_for_level(group_id, nivel)`, que já existe e tem teste.
+Ela troca de campeão nos 33, conjura os quatro espaços de cada um, e reprova se
+algo quebrar ou se um atributo do Inspector sumir na troca.
 
-**Bônus:** `LevelUpStatType_N` responde "como o personagem cresce durante a
-partida", que `03-sistemas-de-jogo.md` pede e ainda não existe. E `SightRange`
-deixa de ser atributo inerte — a IA de mob é o consumidor que faltava.
+#### O que ISSO não prova, e por que a próxima sessão começa aqui
+
+A sonda sabe se quebrou. **Ela não sabe se está bom.** O que falta é olho
+humano em três coisas, e nenhuma é automatizável:
+
+1. **A telegrafia aparece onde o dano cai?** As formas do original — cone,
+   trapézio, leque de projéteis — nunca foram desenhadas em jogo. `AbilityCaster._draw`
+   só sabe círculo, linha e projétil, e desenha **só o pulso principal**;
+   habilidade de 5 pulsos mostra um.
+2. **A sensação bate com o papel?** O tanque anda a 3,3 e o suporte a 4,2; a
+   atiradora alcança 6 m e o guerreiro 2. Os números estão lá — se isso se
+   *sente*, ninguém mediu.
+3. **A suprema de 45 s.** É número inventado (o original enche batendo). Pode
+   estar longe demais para testar e perto demais para valer.
 
 #### O plano, na ordem
 
-1. **`ActorProfile` em `scripts/core/`** — atributos base, crescimento por
-   nível, `Array[StringName]` de grupos de habilidade, passiva, `Unit.Nature`.
-   Com um método que monta um `Unit` num nível dado.
-2. **Estender `tools/traducao/traduzir.py`** para emitir
-   `data/traducao/atores.json`. **Acrescentar `actor` ao censo de colunas** —
-   `Tabelas` não indexa mais `actor_xml` (era código morto e foi removido; volta
-   agora, e o censo tem que cobri-la, senão é o buraco da rodada 4 de novo).
-3. **`ActorCatalog`**, igual aos outros dois, com teste que carregue os 58 e
-   confira que todo grupo de habilidade citado existe no `AbilityCatalog`.
-4. **Ligar à cena.** `AbilityCaster` (ou um nó novo) recebe um id de campeão e
-   um nível, aplica os atributos no `Combatant` e aprende o kit no
-   `AbilityBook`. **Atenção:** `Combatant` hoje tem atributos base como
-   `@export` fixo (`max_health`, `attack_damage`, ...) — o perfil precisa
-   sobrescrevê-los.
-5. **Falta a tecla R.** `project.godot` só declara `ability_q`, `ability_w` e
-   `ability_e`. A suprema precisa de `ability_r`, registrada por
-   `physical_keycode` como as outras.
-6. **Critério de parada:** o usuário abre o jogo, escolhe um campeão do
-   original e usa as quatro habilidades dele. **Isso exige olho humano** — é
-   ponto de parar e pedir validação.
+1. **Pedir ao usuário que teste** — escolher um campeão, usar as quatro
+   habilidades, dizer o que está errado. **É o critério de parada desta etapa.**
+2. **Oposição.** Continua sendo o que mais falta, e agora está barato: os 99
+   mobs do original já estão traduzidos, com atributos, kit e `AIPath` (a
+   taxonomia de comportamento: `AIAggressive`, `PlayerNonAggressive`,
+   `TowerMinionAI`, `DragonAI`...). `SightRange` é o alcance de agressão, e já
+   é atributo. Falta o nó que decide — e ele usa o mesmo `Combatant`,
+   `AbilityBook` e `AbilityEngine` do jogador, inclusive conjurando.
+3. **Telegrafia das formas que faltam**, se o teste do usuário disser que é o
+   que mais atrapalha.
 
-#### Depois disso
+#### O que a próxima sessão precisa saber antes de mexer
 
-Mobs com IA simples (`AIPath` do original dá a taxonomia de comportamento de
-graça, e `SightRange` é o alcance de agressão). É a **oposição** que o usuário
-diz faltar, e ela usa o mesmo `Combatant`, `AbilityBook` e `AbilityEngine` do
-jogador — inclusive conjurando.
+- **`ActorProfile.apply_stats_to` SUBSTITUI o conjunto de atributos**, não soma.
+  Foi um defeito real: 28 dos 33 campeões declaram
+  `out_of_combat_health_regen` e cinco não, e com `set_bases` a regeneração do
+  anterior ficava colada nos cinco. O `fallback` é o piso do Inspector —
+  `crit_chance` e `ability_power` não existem no perfil do original e viriam a
+  zero sem ele.
+- **O perfil guarda o GRUPO da habilidade, nunca o id.** A tabela de atores
+  aponta para a linha-modelo (`Rank 0`), que não tem pulso: seria um Q que
+  aperta, gasta mana e não faz nada.
+- **`ultimate_for()` devolve CÓPIA** quando mexe na recarga. O `AbilityCatalog`
+  entrega a mesma instância a todo mundo, e escrever nela mudaria a suprema de
+  todos os campeões do grupo. Um teste de mutação passou verde antes de o teste
+  virar independente de ordem.
 
 ---
 
@@ -333,6 +329,11 @@ vocabulário de `docs/03-sistemas-de-jogo.md`, carregáveis por `AbilityCatalog`
 e `ItemCatalog` e conjuráveis pela mesma `AbilityEngine` das habilidades feitas
 à mão. Regerar: `py tools/traducao/traduzir.py`.
 
+E **384 atores** traduzidos em `atores.json`, carregados por `ActorCatalog`:
+campeão, mob, bot, lacaio, baú e árvore, com atributos base, crescimento por
+nível, kit e passiva. É a tabela que responde *quem tem quais habilidades* — a
+única que responde, e a que faltava para o corpus virar personagem jogável.
+
 O que o vocabulário ganhou para caber: atributos **18 → 44**, controles de
 grupo **4 → 10** estados (e as opções de `CrowdControlEffect` de 5 para 11),
 efeitos **6 → 14**, e `Ability` deixou de ter uma forma para
@@ -344,9 +345,13 @@ lacunas que sobraram estão em `docs/10-traducao-do-original.md`.
 Fases 1.1 a 1.3, 2.1 a 2.4, e 3.1 a 3.4 — todas validadas em execução.
 
 Dá para: andar clicando com o botão direito, contornar obstáculos, atacar
-bonecos de treino, e usar três habilidades em Q/W/E (área no chão, projétil
-que para no primeiro, dash com escudo). Barra de vida com escudo e números de
-dano flutuantes.
+bonecos de treino, e **ser um campeão do original com o kit dele em Q/W/E/R**,
+trocando de campeão com Page Down. Barra de vida com escudo e números de dano
+flutuantes.
+
+As três habilidades feitas à mão (`meteoro`, `raio`, `investida`) continuam no
+Inspector do `AbilityCaster` e voltam a valer esvaziando o `champion_id` do
+`ChampionSelector`. As duas fontes passam pelo mesmo `AbilityBook`.
 
 **Veredito do usuário sobre a diversão:** *"pro que nós temos agora é
 impossível isso ser divertido, ainda falta muito"*. Justo — não há oposição
@@ -429,6 +434,16 @@ velho — rodar um passe de importação antes:
 Todo teste novo entra em `tests/` e é registrado em `SUITES`, dentro de
 `tests/run_tests.gd`. Só `scripts/core/` é testável assim: é a parte que não
 conhece nó da engine.
+
+**O que está em `gameplay/` tem sonda própria**, porque a suíte não o alcança:
+
+```
+godot --headless --path . --script res://tools/sondar_campeoes.gd
+```
+
+Carrega `main.tscn` de verdade, troca de campeão nos 33, conjura os quatro
+espaços de cada um e reprova se quebrar — ou se um atributo do Inspector sumir
+na troca. Não substitui olho humano: ela sabe se quebrou, não se ficou bom.
 
 ### Número em documento é asserção
 
