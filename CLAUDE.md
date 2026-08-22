@@ -333,6 +333,28 @@ Todo teste novo entra em `tests/` e é registrado em `SUITES`, dentro de
 `tests/run_tests.gd`. Só `scripts/core/` é testável assim: é a parte que não
 conhece nó da engine.
 
+### Número em documento é asserção
+
+```
+py tools/conferir_numeros.py
+```
+
+Confere os números afirmados em `CLAUDE.md` e em `docs/` contra o código e
+contra o corpus traduzido. **Rodar antes de commitar documentação.**
+
+Existe porque três revalidações seguidas do Passo 4 reprovaram pela mesma
+espécie de erro, e nunca pelo mesmo número: "atributos 18 → 44" certo e
+"controle 4 → 10" errado; "o censo sai vazio" contra o relatório gerado no
+mesmo commit dizendo que não; "dois bugs" numa seção com cinco itens.
+
+Corrigir um de cada vez não resolve — o que resolve é a afirmação passar a ser
+verificável por máquina. Se um número muda no código, a ferramenta acusa o
+documento que ficou para trás.
+
+Afirmação nova em documento: acrescentar a conferência dela ali. Se o texto
+mudar de forma e o padrão parar de casar, a ferramenta também acusa — uma
+conferência órfã é tão ruim quanto nenhuma.
+
 **Armadilha do arnês.** GDScript não deixa capturar erro em tempo de execução:
 `call()` volta normalmente mesmo quando o método estourou no meio, e um teste
 que crashou passaria como sucesso. Duas defesas:
