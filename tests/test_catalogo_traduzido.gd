@@ -192,6 +192,50 @@ func test_impacto_encadeado_virou_pulso_proprio() -> void:
 			% com_ancora_anterior
 	)
 
+func test_a_habilidade_com_os_dois_removedores_traz_as_duas_purificacoes() -> void:
+	# `skill 3400100` é a ÚNICA do original com `RemoveCC` e `RemoveDebuff` ao
+	# mesmo tempo, e o tradutor devolvia no primeiro ramo que casasse — o
+	# segundo sumia. Um caso só, e por isso mesmo precisa de teste: sem ele, a
+	# correção não tem nada que a segure, e o único sinal seria o diff do
+	# relatório gerado.
+	var ability: Ability = _abilities().get_ability(&"rc_3400100")
+	assert_not_null(ability, "rc_3400100 sumiu do corpus")
+	if ability == null:
+		return
+
+	var escopos: Array[int] = []
+	for pulse: AbilityPulse in ability.pulses:
+		for effect: AbilityEffect in pulse.effects:
+			var limpeza := effect as CleanseEffect
+			if limpeza != null:
+				escopos.append(limpeza.scope)
+	assert_true(
+		escopos.has(CleanseEffect.Scope.CROWD_CONTROL),
+		"faltou a purificação de controle (RemoveCC)"
+	)
+	assert_true(
+		escopos.has(CleanseEffect.Scope.BUFFS),
+		"faltou a purificação de efeito negativo (RemoveDebuff)"
+	)
+
+func test_as_purificacoes_do_corpus_estao_todas_la() -> void:
+	# 7 habilidades com `RemoveCC` e 1 com `RemoveDebuff` no original. Se o
+	# tradutor perder qualquer uma, este número cai.
+	var controle: int = 0
+	var negativos: int = 0
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			for effect: AbilityEffect in pulse.effects:
+				var limpeza := effect as CleanseEffect
+				if limpeza == null:
+					continue
+				if limpeza.scope == CleanseEffect.Scope.CROWD_CONTROL:
+					controle += 1
+				elif limpeza.scope == CleanseEffect.Scope.BUFFS:
+					negativos += 1
+	assert_eq(controle, 7, "as 7 de RemoveCC")
+	assert_eq(negativos, 1, "a única de RemoveDebuff")
+
 func test_o_corpus_traz_passiva_de_ranque() -> void:
 	# 40 linhas de `skill.StatType1` no original: o bônus que a habilidade dá
 	# por existir naquele ranque. Ficaram invisíveis por duas rodadas — o censo

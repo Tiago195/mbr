@@ -12,7 +12,8 @@ extends AbilityEffect
 ## O vocabulário do doc lista slow junto dos outros, então ele continua sendo
 ## uma opção deste efeito. A diferença é só de implementação.
 ##
-## O original tem 13 tipos em `crowd_control_xml` e nós temos 10 aqui: a
+## O original tem 13 tipos em `crowd_control_xml` e nós temos 11 opções aqui
+## (dez estados mais `SLOW`, que é modificador de atributo): a
 ## tabela de equivalência, com o que virou o quê e por quê, está em
 ## `docs/10-traducao-do-original.md`.
 

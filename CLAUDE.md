@@ -208,7 +208,7 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 ## Estado atual
 
 > Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **329 testes, 908 asserções**, todos verdes, stderr limpo.
+> branch `master`. **331 testes, 913 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
@@ -237,7 +237,8 @@ e `ItemCatalog` e conjuráveis pela mesma `AbilityEngine` das habilidades feitas
 à mão. Regerar: `py tools/traducao/traduzir.py`.
 
 O que o vocabulário ganhou para caber: atributos **18 → 44**, controles de
-grupo **4 → 10**, efeitos **6 → 14**, e `Ability` deixou de ter uma forma para
+grupo **4 → 10** estados (e as opções de `CrowdControlEffect` de 5 para 11),
+efeitos **6 → 14**, e `Ability` deixou de ter uma forma para
 ter uma **lista de pulsos** (decisão 10). O mapeamento coluna a coluna e as
 lacunas que sobraram estão em `docs/10-traducao-do-original.md`.
 

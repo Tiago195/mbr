@@ -258,7 +258,8 @@ ANCORA = {
 
 ## `Type` de `crowd_control_xml` -> nosso `CrowdControlEffect.Kind`.
 ##
-## 13 tipos viram 8 porque o critério é COMPORTAMENTO: `HardStun` e `Freeze`
+## Doze dos 13 tipos viram 9 dos nossos, e `KnockBack` não vira estado nenhum.
+## O critério é COMPORTAMENTO, não tema: `HardStun` e `Freeze`
 ## atordoam igual a `Stun`, e `ThrowUp` e `Airborne` são o mesmo arremesso.
 ## Espelhar os 13 daria cinco caminhos para o mesmo `can_move() == false`.
 CONTROLE = {
@@ -348,6 +349,8 @@ class Relatorio:
         ## Colunas presentes no XML que ninguém consulta nem declara ignorar.
         ## `{tabela: {coluna: quantas linhas a têm}}`
         self.nao_consultadas: dict[str, collections.Counter] = {}
+        ## Toda coluna vista no XML, para achar declaração que nunca dispara.
+        self.colunas_vistas: set[str] = set()
 
     def usou(self, chave: str) -> None:
         self.usos[chave] += 1
@@ -392,6 +395,7 @@ class Relatorio:
                     continue
                 sobrando[coluna] = quantas
             self.nao_consultadas[nome] = sobrando
+            self.colunas_vistas |= set(presentes)
 
 
 ## Colunas que o tradutor CONSULTA, por tabela. Mantida à mão e conferida pelo
@@ -446,7 +450,6 @@ CONSULTADAS = {
 IGNORADAS = {
     # --- apresentação: som, animação, efeito visual, ícone --------------
     "Sound": "som", "SoundOnHit1": "som", "SoundOnHit2": "som",
-    "InteractionSound": "som",
     "Animation": "animação", "UseLoopAni": "animação",
     "SkillSpeed": "animação",
     # Medido, não presumido: `Duration` é MAIOR que o `StartTime` do último
@@ -471,19 +474,14 @@ IGNORADAS = {
     "StartScaleZ": "escala visual", "EndScaleZ": "escala visual",
     "Angle": "orientação visual", "FollowDirection": "orientação visual",
     "Desc": "texto localizado", "DescParam": "texto localizado",
-    "Name": "texto localizado", "StatText": "texto localizado",
+    "Name": "texto localizado",
     "ConditionMessageID": "texto localizado",
-    "ColorCode": "cor de interface", "DataFormat": "formato de interface",
     "Mobile_UI_Type": "interface de celular",
-    "UI_BoundHUDRadius": "interface", "ShowMiniMap": "interface",
-    "ShowWorldMap": "interface", "IsHiding": "interface",
-    "ShowGuidebook": "interface", "GuidebookOrder": "interface",
-    "GuidebookGroupActorId": "interface",
+    "UI_BoundHUDRadius": "interface", "IsHiding": "interface",
     # --- economia e progressão fora de partida --------------------------
-    "BuyGoldCost": "economia", "LootPriority": "tabela de loot",
+    "LootPriority": "tabela de loot",
     "DropTableExtraCondition": "tabela de loot", "DropCount": "tabela de loot",
-    "UseDropAssetData": "tabela de loot", "DropItemTableIDs": "tabela de loot",
-    "DropItemRate": "tabela de loot", "Consume": "regra de consumo",
+    "UseDropAssetData": "tabela de loot", "Consume": "regra de consumo",
     "AcquisitionActorIDs": "onde se acha", "EtcAcquisitionActorIDs": "onde se acha",
     "HuntAcquisitionActorIDs": "onde se acha",
     "AcquisitionMapiconIDs": "onde se acha",
@@ -499,7 +497,6 @@ IGNORADAS = {
               "constante 1 nas 844 linhas",
     "PersistRankOnCC": "marcador interno", "PersistStartTime": "marcador interno",
     "PersistEndTime": "marcador interno", "Persistence": "marcador interno",
-    "ImpactTargetLayer": "camada de física do original",
     "SummonProperPosition": "ajuste de posição da invocação",
     "ForceUltimateCharge": "carga de suprema (lacuna registrada)",
     "UltimateCharge": "carga de suprema (lacuna registrada)",
@@ -531,7 +528,6 @@ IGNORADAS = {
     
     
     "SkillType": "rótulo Moving/Haste do original",
-    "SightRange": "lido como atributo em actor",
     
     "IgnoreEnableSkillOnCC": "exceção de controle",
     "IgnoreMiss": "acerto garantido — sem consumidor ainda",
@@ -539,8 +535,6 @@ IGNORADAS = {
     "StartPositionY": "altura, ignorada como o resto da altura",
     "MaxHeight": "altura do arremesso, visual",
     "MoveSpeed": "velocidade do arremesso, visual",
-    
-    "FollowSpawnerDirection": "orientação ao nascer",
         # NÃO é redundante com `StartPosition`: `crowd_control_xml` não tem essa
     # coluna. Diz de onde o empurrão irradia — do ponto de impacto (157) ou do
     # conjurador (113). Nós sempre empurramos para longe do conjurador, o que é
@@ -549,7 +543,6 @@ IGNORADAS = {
                   "do conjurador — assunção registrada em docs/10",
     
     "SkillCancelableTime": "lido em skill",
-    "MaxSlot": "interface de inventário",
     # --- receita de fabricação -----------------------------------------
     # Conferidas inertes no dado real, não presumidas: `CraftTime` é 0 nas 383
     # linhas, `SuccessRate` só existe nas 84 sem material (as não-fabricáveis)
@@ -1557,10 +1550,10 @@ class Tradutor:
             if impact_id in vistos:
                 self.r.usou("impacto repetido na habilidade, emitido uma vez")
                 continue
-            antes = len(vistos)
+            # `pulsos()` já registra em `vistos` ao entrar; não há o que
+            # acrescentar aqui. A versão anterior tinha um `if` que nunca era
+            # verdadeiro — resto de uma tentativa mais complicada.
             pulsos.extend(self.pulsos(impact_id, skill, onde, emitidos=vistos))
-            if len(vistos) == antes:
-                vistos.add(impact_id)
 
         # `RemoveCC` é purificação, e `CleanseEffect` já existia. Sai como um
         # pulso no próprio conjurador, antes dos outros: purificar depois de
@@ -1917,6 +1910,23 @@ def escrever_relatorio(
             for coluna, quantas in colunas.most_common():
                 linhas.append(f"| `{tabela}` | `{coluna}` | {quantas} |")
     linhas.append("")
+
+    orfas_declaradas = sorted(
+        k for k in IGNORADAS if k not in r.colunas_vistas
+    )
+    if orfas_declaradas:
+        linhas.append("### Declarações que nunca disparam")
+        linhas.append("")
+        linhas.append(
+            "Entradas de `IGNORADAS` que nomeiam colunas inexistentes nas "
+            "tabelas lidas. Não fazem mal, mas inflam a lista e dão impressão "
+            "de cobertura que não existe — uma justificativa que nunca é usada "
+            "é uma justificativa que ninguém conferiu."
+        )
+        linhas.append("")
+        for chave in orfas_declaradas:
+            linhas.append(f"- `{chave}`")
+        linhas.append("")
 
     linhas.append("## Lacunas — o que o original diz e nós ainda não")
     linhas.append("")

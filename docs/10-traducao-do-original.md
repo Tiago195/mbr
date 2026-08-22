@@ -108,10 +108,19 @@ dado não é traduzível.
 - `BasePhysicalDamageAmp` — amplifica o atributo base, o que no nosso modelo é
   literalmente um modificador percentual do atributo.
 
-### Controle de grupo: 4 → 10
+### Controle de grupo: 4 → 10 estados
 
-`crowd_control_xml` tem 13 tipos. Viraram 10 porque o critério é
-**comportamento, não tema**:
+Duas contagens, porque são duas listas e elas não têm o mesmo tamanho:
+
+- **`StatusSet.Kind`** — os estados de verdade que um combatente carrega:
+  **4 → 10**.
+- **`CrowdControlEffect.Kind`** — o que uma habilidade pode declarar: **5 → 11**.
+  Tem um a mais porque `SLOW` é declarável mas não é estado — vira modificador
+  de `move_speed`.
+
+`crowd_control_xml` tem 13 tipos. Doze deles viram **9** dos nossos, e o
+décimo terceiro (`KnockBack`) não vira estado nenhum — é empurrão puro. O
+critério é **comportamento, não tema**:
 
 | Original | Nosso | Por quê |
 |---|---|---|
@@ -121,8 +130,9 @@ dado não é traduzível.
 | `Slow` | `SLOW` | Modificador de `move_speed`, não estado |
 | `Root`, `Silence`, `Blind`, `Charmed`, `Taunt`, `Polymorph` | idem | |
 
-Espelhar os 13 daria cinco caminhos diferentes para o mesmo
-`can_move() == false`, e cada regra de interação teria que lembrar dos cinco.
+Espelhar os 13 daria quatro caminhos diferentes para o mesmo
+`can_move() == false` — `Stun`, `HardStun`, `Freeze` e `ThrowUp`/`Airborne` — e
+cada regra de interação teria que lembrar de todos.
 
 Junto vieram as regras: cegueira deixa atacar **e errar** (diferente de
 desarmar), provocação deixa atacar (é o que a torna perigosa), transformação
@@ -252,7 +262,7 @@ adversarial pegou.
 
 O conserto foi estrutural: o tradutor mantém duas listas explícitas —
 `CONSULTADAS` (o que ele lê) e `IGNORADAS` (o que ele decide não ler, **com o
-motivo**) — e o relatório varre as cinco tabelas do original atrás de colunas
+motivo**) — e o relatório varre as seis tabelas do original atrás de colunas
 que não estejam em nenhuma das duas.
 
 **Hoje o censo sai vazio** — e essa frase já foi falsa uma vez. A primeira
@@ -366,9 +376,11 @@ Onde o original não documenta e a escolha foi nossa:
 
 ---
 
-## Dois bugs do tradutor que valeram a lição
+## Cinco bugs do tradutor que valeram a lição
 
-Ambos silenciosos, ambos achados por medir a cobertura em vez de confiar nela:
+Todos silenciosos. Os dois primeiros vieram do relatório de cobertura; os três
+seguintes, de revalidação adversarial — um segundo par de olhos com a instrução
+explícita de tentar reprovar o trabalho.
 
 1. **Invocação lida dentro do laço de colunas.** Um impacto que *só* invoca não
    tem `ImpactStatType` nenhum, então o laço nunca rodava e a invocação nunca
