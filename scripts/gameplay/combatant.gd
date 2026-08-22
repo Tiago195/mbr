@@ -1,14 +1,15 @@
 class_name Combatant
 extends Node
 
-## Componente que dá atributos, vida e combate a um corpo — Fase 2.3.
+## Ponte entre um corpo na cena e um `Unit` de `core/` — Fases 2.3 e 3.1.
 ##
 ## É um Node solto, filho do corpo, e não uma classe base: o jogador é
-## `CharacterBody3D` e o boneco de treino é `StaticBody3D`. Herança forçaria
-## os dois a compartilhar um tipo de corpo que não têm em comum. Composição
-## resolve, e é o que vai permitir dar combate a mob, torre ou barril.
+## `CharacterBody3D` e o boneco de treino é `StaticBody3D`. Herança forçaria os
+## dois a compartilhar um tipo de corpo que não têm em comum.
 ##
-## A lógica de verdade mora em `core/`; este nó só a conecta à árvore de cena.
+## Toda a regra de combate vive no `unit`. Este nó faz três coisas e só:
+## sincroniza a posição do corpo para o `Unit`, aplica o deslocamento que os
+## efeitos pediram, e repassa os sinais para a camada visual.
 
 signal damaged(result: DamageResult)
 signal died()
@@ -28,23 +29,28 @@ signal died()
 @export_range(0.0, 1.0) var crit_chance: float = 0.0
 @export_range(0.0, 1.0) var lifesteal: float = 0.0
 
+var unit: Unit
+
+## Atalhos para o que o `unit` possui. Existem para não obrigar todo chamador
+## a escrever `combatant.unit.health`.
 var stats: Stats
 var health: Health
 
 func _ready() -> void:
 	ensure_ready()
 
-## Constrói atributos e vida se ainda não existirem.
+## Constrói o `Unit` se ainda não existir.
 ##
-## Existe como método público porque outros nós — o de feedback visual, por
-## exemplo — precisam de `health` no `_ready()` deles, e a ordem em que a Godot
-## chama `_ready()` entre irmãos depende da ordem na cena. Depender disso é
-## receita para um bug que só aparece quando alguém arrasta um nó no editor.
+## É público porque outros nós — o de feedback visual, por exemplo — precisam
+## de `health` no `_ready()` deles, e a ordem em que a Godot chama `_ready()`
+## entre irmãos depende da ordem na cena. Depender disso é receita para um bug
+## que só aparece quando alguém arrasta um nó no editor.
 func ensure_ready() -> void:
-	if stats != null:
+	if unit != null:
 		return
-	stats = Stats.new()
-	stats.set_bases({
+
+	var built := Stats.new()
+	built.set_bases({
 		Stat.Id.MAX_HEALTH: max_health,
 		Stat.Id.ATTACK_DAMAGE: attack_damage,
 		Stat.Id.ARMOR: armor,
@@ -54,68 +60,69 @@ func ensure_ready() -> void:
 		Stat.Id.CRIT_CHANCE: crit_chance,
 		Stat.Id.LIFESTEAL: lifesteal,
 	})
-	health = Health.new(stats)
-	health.died.connect(_on_died)
 
-## O corpo ao qual este componente está preso. É de onde sai a posição.
+	unit = Unit.new(built, team)
+	stats = unit.stats
+	health = unit.health
+
+	var host: Node3D = body()
+	if host != null:
+		unit.position = host.global_position
+
+	# Conectar na morte via `unit.health`, e não via um sinal repassado pelo
+	# `Unit`: o repasse criaria um ciclo de referência entre dois RefCounted.
+	# Ver o comentário em `unit.gd`.
+	unit.damaged.connect(func(result: DamageResult) -> void: damaged.emit(result))
+	unit.health.died.connect(func() -> void: died.emit())
+
+func _physics_process(delta: float) -> void:
+	if unit == null:
+		return
+	unit.advance_time(delta)
+
+	var host: Node3D = body()
+	if host == null:
+		return
+
+	unit.position = host.global_position
+	unit.facing = -host.global_transform.basis.z
+
+	var push: Vector3 = unit.consume_displacement()
+	if push.length_squared() > 0.000001:
+		_apply_displacement(host, push)
+
+## Aplica o deslocamento que um efeito pediu.
+##
+## É aqui, e não em `core/`, porque só esta camada tem física: um dash tem que
+## parar na parede em vez de atravessá-la, e `core/` não conhece colisor.
+func _apply_displacement(host: Node3D, push: Vector3) -> void:
+	if host is CharacterBody3D:
+		(host as CharacterBody3D).move_and_collide(push)
+	else:
+		host.global_position += push
+	unit.position = host.global_position
+
+# ---------------------------------------------------------------- atalhos
+
 func body() -> Node3D:
 	return get_parent() as Node3D
 
 func is_alive() -> bool:
-	return health != null and health.is_alive()
+	return unit != null and unit.is_alive()
 
 func is_hostile_to(other: Combatant) -> bool:
-	return other != null and other.team != team
+	return other != null and other.unit != null and unit.is_hostile_to(other.unit)
 
-## Distância no plano do chão. A altura é ignorada de propósito: alcance de
-## ataque num MOBA é medido no chão, senão um alvo em rampa ficaria fora de
-## alcance sem motivo visível.
 func ground_distance_to(other: Combatant) -> float:
-	var from: Node3D = body()
-	var to: Node3D = other.body()
-	if from == null or to == null:
+	if other == null or other.unit == null:
 		return INF
-	var delta: Vector3 = to.global_position - from.global_position
-	delta.y = 0.0
-	return delta.length()
+	return unit.ground_distance_to(other.unit)
 
-## Ataque básico contra outro combatente. Devolve o resultado para quem quiser
-## desenhar número flutuante ou registrar log.
 func basic_attack(target: Combatant) -> DamageResult:
-	return target.receive_damage(
-		self,
-		stats.get_value(Stat.Id.ATTACK_DAMAGE),
-		Damage.Type.PHYSICAL,
-		Damage.Source.BASIC_ATTACK
-	)
+	return unit.basic_attack(target.unit)
 
-## Recebe dano. `attacker` pode ser nulo — dano de zona não tem dono.
-func receive_damage(
-		attacker: Combatant,
-		raw_damage: float,
-		type: Damage.Type,
-		source: Damage.Source
-) -> DamageResult:
-	var attacker_stats: Stats = attacker.stats if attacker != null else null
-	var result: DamageResult = Damage.resolve(
-		attacker_stats,
-		stats,
-		health.current,
-		health.shield,
-		raw_damage,
-		type,
-		source
-	)
-	health.apply(result)
-	if attacker != null and result.lifesteal_healed > 0.0:
-		attacker.health.heal(result.lifesteal_healed)
-	damaged.emit(result)
-	return result
-
-## Segundos entre ataques, derivado de `attack_speed`.
 func attack_interval() -> float:
-	var speed: float = stats.get_value(Stat.Id.ATTACK_SPEED)
-	return 1.0 / maxf(speed, 0.01)
+	return unit.attack_interval()
 
 ## Encontra o Combatant preso a um corpo. Devolve nulo se o corpo não for um
 ## combatente — parede, chão.
@@ -126,6 +133,3 @@ static func of(node: Node) -> Combatant:
 		if child is Combatant:
 			return child
 	return null
-
-func _on_died() -> void:
-	died.emit()

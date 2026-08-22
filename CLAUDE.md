@@ -215,12 +215,17 @@ com o personagem via `Combatant`, um componente Node que se pendura tanto no
 52 testes passando. Convenções fechadas na decisão 8 de
 `docs/02-decisoes-tecnicas.md`.
 
-**Fase 2.4 — acrescentada ao roadmap e implementada (21/08/2026).** Barra de
-vida e número de dano (`CombatFeedback`, `FloatingText`). Não estava no
-roadmap original; entrou porque é instrumentação para balancear, não
-polimento. Aguarda validação humana.
+**Fase 2.4 — acrescentada ao roadmap, implementada e validada (21/08/2026).**
+Barra de vida e número de dano. Não estava no roadmap original; entrou porque
+é instrumentação para balancear, não polimento.
 
-**Próximo: Fase 3** — vocabulário de efeitos e motor de habilidades.
+**Fase 3.1 — concluída (21/08/2026).** Vocabulário de efeitos em
+`scripts/core/abilities/`. `Unit` (em `core/combat/`) reúne atributos, vida,
+estados e posição fora da árvore de cena; `Combatant` virou ponte. 71 testes.
+Formato de dado fechado na decisão 9: `Resource` em `.tres`.
+
+**Próximo: Fase 3.2** — motor de habilidade (cooldown, conjuração, alvo,
+forma, filtro).
 
 ## Testes
 
@@ -251,6 +256,28 @@ Não confiar em suíte verde recém-escrita: quebrar a lógica de propósito e
 confirmar que ela fica vermelha. Já pegou um bug real aqui — lambda em
 GDScript captura por valor, então reatribuir variável de fora dentro dela não
 tem efeito; mutar funciona.
+
+**Ler o stderr, não só o resumo.** `ObjectDB instances were leaked at exit`
+significa ciclo de referência, e a suíte passa verde mesmo assim.
+
+### Armadilhas de GDScript já pagas neste projeto
+
+- **Ciclo entre `RefCounted`.** A Godot conta referências e **não coleta
+  ciclos**. Conectar um sinal de um objeto possuído a um lambda que referencia
+  o dono cria o ciclo, e nenhum dos dois é liberado. Foi o que vazou 150
+  instâncias antes de `Unit` parar de repassar `died`. Sinal deve subir por
+  quem já tem a referência, nunca voltar
+- **Não nomear enum como classe embutida.** `enum Control` colide com o nó de
+  UI `Control`, e `@export var x: Control` resolve para a classe da engine. O
+  erro — "cannot be assigned to a variable of type Control" — não sugere
+  colisão de nome. Vale para `Control`, `Node`, `Timer`, `Label`, `Range`…
+- **Erro em tempo de execução aborta só a função onde ocorreu** e devolve o
+  controle a quem chamou. Isso é o que permite o runner sobreviver a um teste
+  que estoura — mas também significa que código crítico (como o `quit()` do
+  runner) não pode dividir função com código que pode estourar. Um `SceneTree`
+  headless sem `quit` roda para sempre: a suíte trava em vez de falhar
+- **`Array.filter()` devolve `Array` sem tipo.** Atribuir a `Array[T]` estoura
+  em runtime; usar laço explícito
 
 Particularidade do ambiente: a chave SSH do GitHub está **só no WSL2**.
 Commit funciona no Windows; o push precisa passar pelo WSL:

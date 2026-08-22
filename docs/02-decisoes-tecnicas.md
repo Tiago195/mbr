@@ -264,6 +264,53 @@ trocar por GUT é barato — os testes em si mudam pouco.
 
 ---
 
+## Decisão 9: habilidade como `Resource`, salva em `.tres`
+
+Fecha a questão "formato de persistência dos dados de habilidade/item", que
+estava marcada para a Fase 3.
+
+Efeitos e habilidades estendem **`Resource`**, não `RefCounted`. Ganha-se:
+
+- Serialização em `.tres`, que é **texto** — versionável no Git, revisável em
+  diff, editável fora da engine
+- Edição no Inspector, com `@export` tipado
+- Sem escrever parser: a Godot já lê e valida
+
+`Resource` **não é nó**. Continua rodando em teste unitário e no servidor
+headless, que é a restrição que `03-sistemas-de-jogo.md` impõe a `core/`.
+
+A alternativa era JSON com parser próprio. Só valeria se os dados viessem de
+fora da engine — não é o caso.
+
+### Um `Unit` para juntar as peças
+
+`Stats`, `Health` e `StatusSet` estavam soltos, e quem os juntava era o
+`Combatant`, que é Node. Efeito de habilidade precisa de um combatente
+completo **sem** árvore de cena.
+
+`Unit` (em `core/combat/`) reúne os três mais posição e direção. `Combatant`
+passa a ser ponte: sincroniza a posição do corpo, aplica os deslocamentos
+pedidos e repassa sinais. É o que permite testar habilidade sem abrir a engine
+e é pré-requisito da Fase 4.5.
+
+### Lentidão não é estado, é modificador de atributo
+
+O vocabulário do doc lista `slow` junto de stun e root. Na implementação ele
+não vai para o `StatusSet`: vira um modificador percentual de `move_speed`,
+pelo mesmo sistema que os itens usam.
+
+Lentidão **é** um atributo reduzido por um tempo. Modelá-la como estado
+próprio duplicaria stacking e expiração sem ganhar nada — e o doc é explícito
+sobre não construir um segundo sistema paralelo.
+
+### Deslocamento é pedido, não executado
+
+`DisplacementEffect` não move ninguém: acumula em `pending_displacement`. Quem
+move é a camada de gameplay, que tem física e sabe o que fazer quando o dash
+bate na parede. Resolver colisão em `core/` exigiria conhecer a engine.
+
+---
+
 ## Decisões ainda em aberto
 
 | Questão | Quando decidir |
@@ -272,6 +319,6 @@ trocar por GUT é barato — os testes em si mudam pouco.
 | ~~Botão direito segurado = movimento contínuo?~~ | **Resolvido: sim** (Fase 1.2) |
 | Ângulo e distância da câmera | Ajustar por sensação; `offset` e `smoothing` são `@export` |
 | Smart cast vs. indicador + confirmação | Fase 3 |
-| Formato de persistência dos dados de habilidade/item | Fase 3 |
+| ~~Formato de persistência dos dados de habilidade/item~~ | **Resolvido: `Resource` em `.tres`** (decisão 9) |
 | Onde hospedar o servidor dedicado | Fase 5 |
 | Godot exportado para web vs. executável distribuído | Fase 5 |

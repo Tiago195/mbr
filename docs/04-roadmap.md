@@ -290,4 +290,6 @@ Atualizar ao fim de cada sessão. Manter também o "Estado atual" no `CLAUDE.md`
 | 2.1 | ✅ Concluída | 21/08/2026 | `Stat`, `StatModifier`, `Stats`. Critério verificado por `test_equipar_e_desequipar_devolve_ao_estado_anterior` |
 | 2.2 | ✅ Concluída | 21/08/2026 | `Damage` como função pura. 42 testes, 115 asserções, todos os casos de borda do doc de design. Convenções em aberto fechadas na decisão 8 |
 | 2.3 | ✅ Concluída | 21/08/2026 | Validado: mata o boneco clicando. Fórmula conferida no log — 50 normal, 87.5 crítico, contra 20 de armadura |
-| 2.4 | 🟡 Aguardando validação | 21/08/2026 | Fase acrescentada. Barra de vida e número de dano. `CombatFeedback` só observa sinais de `Health` |
+| 2.4 | ✅ Concluída | 21/08/2026 | Validado após corrigir a barra, que deslizava em vez de encolher (billboard descarta escala do nó) |
+| 3.1 | ✅ Concluída | 21/08/2026 | Vocabulário de efeitos: DAMAGE, HEAL, SHIELD, STAT_MOD, CROWD_CONTROL, DISPLACEMENT. `Unit` reúne atributos, vida e estados fora da árvore de cena. 71 testes |
+| 3.2 | ⬜ Não iniciada | | Motor de habilidade: cooldown, conjuração, alvo, forma, filtro |
