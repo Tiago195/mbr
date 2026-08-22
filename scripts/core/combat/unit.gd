@@ -52,6 +52,17 @@ class SummonRequest extends RefCounted:
 	var lifetime: float = 0.0
 	var team: int = 0
 
+## Um ajuste de recarga pedido e ainda não aplicado.
+##
+## Existe pelo mesmo motivo do pedido de invocação: o `AbilityBook` não mora
+## aqui — mob e estrutura não têm livro — então o efeito enfileira e quem tem
+## o livro atende.
+class CooldownRequest extends RefCounted:
+	## Vazio alcança todas as habilidades.
+	var group_ids: Array[StringName] = []
+	var seconds: float = 0.0
+	var proportional: bool = false
+
 var team: int = 0
 var nature: Nature = Nature.CHAMPION
 var stats: Stats
@@ -61,6 +72,8 @@ var status: StatusSet
 var mana: ResourcePool
 ## Venenos, regenerações e auras ativas.
 var periodic: PeriodicSet
+## Marcas: estado com nome, prazo e pilhas, sem efeito próprio.
+var marks: MarkSet
 ## Efeitos armados esperando um evento.
 var triggers: TriggerSet
 
@@ -81,6 +94,9 @@ var pending_displacement: Vector3 = Vector3.ZERO
 ## Invocações pedidas e ainda não materializadas.
 var pending_summons: Array[SummonRequest] = []
 
+## Ajustes de recarga pedidos e ainda não aplicados.
+var pending_cooldown_adjustments: Array[CooldownRequest] = []
+
 func _init(unit_stats: Stats = null, unit_team: int = 0) -> void:
 	stats = unit_stats if unit_stats != null else Stats.new()
 	team = unit_team
@@ -89,6 +105,7 @@ func _init(unit_stats: Stats = null, unit_team: int = 0) -> void:
 	mana = ResourcePool.new(stats)
 	periodic = PeriodicSet.new()
 	triggers = TriggerSet.new()
+	marks = MarkSet.new()
 
 # ---------------------------------------------------------------- estado
 
@@ -263,6 +280,7 @@ func advance_time(delta: float) -> void:
 	mana.advance_time(delta)
 	# Periódicos e gatilhos por último: os dois podem causar dano ou cura, e
 	# devem ver o estado do tique já atualizado.
+	marks.advance_time(delta)
 	periodic.advance_time(delta, self)
 	triggers.advance_time(delta, self)
 
@@ -277,4 +295,11 @@ func consume_displacement() -> Vector3:
 func consume_summons() -> Array[SummonRequest]:
 	var requests: Array[SummonRequest] = pending_summons
 	pending_summons = []
+	return requests
+
+## Entrega os ajustes de recarga pedidos e esvazia a fila. Quem tem o
+## `AbilityBook` aplica.
+func consume_cooldown_adjustments() -> Array[CooldownRequest]:
+	var requests: Array[CooldownRequest] = pending_cooldown_adjustments
+	pending_cooldown_adjustments = []
 	return requests

@@ -37,6 +37,10 @@ enum Event {
 	## As cargas acabaram ou o prazo venceu. Dispara ao sair, e é assim que se
 	## expressa "quando o buff acabar, explode".
 	EXPIRED,
+	## Uma marca do dono chegou ao teto de pilhas. É o `TriggerTiming: MaxStack`
+	## do original, e o que faz "acerte três vezes e o quarto atordoa" caber no
+	## vocabulário sem uma classe própria.
+	MARK_MAXED,
 }
 
 signal fired(event: Event, source: StringName)

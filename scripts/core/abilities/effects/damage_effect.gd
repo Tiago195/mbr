@@ -21,6 +21,13 @@ extends AbilityEffect
 ## Quanto do atributo entra. 0.6 = 60% do poder de habilidade.
 @export var scaling_ratio: float = 0.0
 
+## Atributo alternativo: entra no lugar de `scaling_stat` quando for MAIOR.
+##
+## É o `BetterAtkStat` do original, e existe para a habilidade de um híbrido
+## servir aos dois caminhos de build sem que uma delas fique morta. Igual a
+## `scaling_stat` desliga o comportamento — que é o padrão.
+@export var scaling_stat_alt: Stat.Id = Stat.Id.ABILITY_POWER
+
 @export var damage_type: Damage.Type = Damage.Type.MAGIC
 
 @export_group("Escalonamento pelo alvo")
@@ -83,21 +90,29 @@ func _allows(target: Unit) -> bool:
 func _raw_for(caster: Unit, target: Unit) -> float:
 	var raw: float = base_damage
 	if caster != null and scaling_ratio != 0.0:
-		raw += caster.stats.get_value(scaling_stat) * scaling_ratio
+		raw += _scaling_value(caster) * scaling_ratio
 	if percent_of_target_max_health != 0.0:
 		raw += target.health.maximum() * percent_of_target_max_health
 	if monster_damage_cap > 0.0 and target.nature == Unit.Nature.MONSTER:
 		raw = minf(raw, monster_damage_cap)
 	return raw
 
+## O maior entre os dois atributos de escalonamento. Iguais, é só um.
+func _scaling_value(caster: Unit) -> float:
+	var principal: float = caster.stats.get_value(scaling_stat)
+	if scaling_stat_alt == scaling_stat:
+		return principal
+	return maxf(principal, caster.stats.get_value(scaling_stat_alt))
+
 func describe() -> String:
 	var parts: PackedStringArray = []
 	if base_damage != 0.0 or scaling_ratio == 0.0:
 		parts.append("%.0f" % base_damage)
 	if scaling_ratio != 0.0:
-		parts.append("%.0f%% de %s" % [
-			scaling_ratio * 100.0, Stat.name_of(scaling_stat)
-		])
+		var fonte: String = String(Stat.name_of(scaling_stat))
+		if scaling_stat_alt != scaling_stat:
+			fonte = "maior entre %s e %s" % [fonte, Stat.name_of(scaling_stat_alt)]
+		parts.append("%.0f%% de %s" % [scaling_ratio * 100.0, fonte])
 	if percent_of_target_max_health != 0.0:
 		parts.append("%.1f%% da vida do alvo" % (percent_of_target_max_health * 100.0))
 	return "dano %s" % " + ".join(parts)

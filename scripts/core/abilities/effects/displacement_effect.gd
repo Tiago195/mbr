@@ -25,6 +25,14 @@ enum Mode {
 	AWAY_FROM_CASTER,
 	## Na direção do conjurador.
 	TOWARD_CASTER,
+	## Direto para o ponto mirado, qualquer que seja a distância. É o `Warp` e
+	## o `MoveToPosition` do original — teleporte, não corrida.
+	##
+	## Entra como MODO e não como efeito novo porque a diferença entre correr
+	## 6 metros e aparecer a 6 metros, no nosso modelo, é só o vetor: quem
+	## resolve colisão pelo caminho é a camada de gameplay, e é lá que a
+	## distinção importa. `distance` é ignorada neste modo.
+	TO_AIM_POINT,
 }
 
 @export var mode: Mode = Mode.ALONG_AIM
@@ -38,6 +46,13 @@ func apply(cast: AbilityCast, target: Unit) -> void:
 	if target == null or not target.is_alive():
 		return
 	if not ignores_root and not target.can_move():
+		return
+	if mode == Mode.TO_AIM_POINT:
+		# Vetor absoluto até o ponto, não direção vezes distância. Massa não
+		# resiste a teleporte: ou vai, ou não vai.
+		var salto: Vector3 = cast.point - target.position
+		salto.y = 0.0
+		target.pending_displacement += salto
 		return
 	target.pending_displacement += _direction(cast, target) * _distance_for(target)
 
@@ -76,4 +91,6 @@ func _away_from(caster: Unit, target: Unit) -> Vector3:
 	return flat.normalized()
 
 func describe() -> String:
+	if mode == Mode.TO_AIM_POINT:
+		return "teleporte para o ponto mirado"
 	return "deslocamento %s de %.1fm" % [Mode.keys()[mode].to_lower(), distance]

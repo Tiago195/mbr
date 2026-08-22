@@ -107,6 +107,14 @@ enum Id {
 
 	## Massa. Resiste a empurrão e puxão proporcionalmente.
 	WEIGHT,
+
+	## Corta todo dano SOFRIDO, de qualquer tipo, depois da defesa.
+	##
+	## `AllDamageReduce` do original. É diferente de armadura em dois pontos
+	## que importam: pega dano verdadeiro também, e não tem retornos
+	## decrescentes — 0.2 tira sempre um quinto. Por isso os valores dele são
+	## pequenos, e os nossos devem ser também.
+	DAMAGE_TAKEN_REDUCTION,
 }
 
 const NAMES: Dictionary = {
@@ -153,6 +161,7 @@ const NAMES: Dictionary = {
 	Id.OUT_OF_COMBAT_HEALTH_REGEN: &"out_of_combat_health_regen",
 	Id.OUT_OF_COMBAT_MANA_REGEN: &"out_of_combat_mana_regen",
 	Id.WEIGHT: &"weight",
+	Id.DAMAGE_TAKEN_REDUCTION: &"damage_taken_reduction",
 }
 
 ## Valores neutros. Um personagem sem nenhum atributo definido não deve morrer

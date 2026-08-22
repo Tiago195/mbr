@@ -24,8 +24,13 @@ enum Scope {
 
 @export var scope: Scope = Scope.CROWD_CONTROL
 
-## Quando preenchido, só sai o que veio desta origem. Vazio tira tudo do
+## Quando preenchido, só sai o que veio desta ORIGEM. Vazio tira tudo do
 ## escopo. É o que permite "cancela o próprio veneno" sem limpar o do inimigo.
+##
+## O valor é a **etiqueta** do efeito (`source_tag`), não a origem completa.
+## Cada família carimba a sua com um prefixo diferente — `buff:`, `periodico:`,
+## `gatilho:`, `slow:` — e exigir que quem purifica saiba disso seria pedir
+## para errar. Aqui a etiqueta é expandida nos quatro.
 @export var only_source: StringName = &""
 
 ## Se também tira o escudo. Fora por padrão até em `EVERYTHING`: escudo não é
@@ -48,9 +53,7 @@ func apply(_cast: AbilityCast, target: Unit) -> void:
 			_clear_temporary_modifiers(target)
 			target.periodic.clear()
 		else:
-			target.stats.remove_source(only_source)
-			target.periodic.remove_source(only_source)
-			target.triggers.remove_source(only_source)
+			_clear_tag(target, only_source)
 
 	if strips_shield:
 		target.health.strip_shields()
@@ -69,6 +72,16 @@ func _clear_control(target: Unit) -> void:
 
 func _clear_temporary_modifiers(target: Unit) -> void:
 	target.stats.remove_temporary()
+
+## Tira tudo que carrega uma etiqueta, em todas as famílias de efeito.
+static func _clear_tag(target: Unit, tag: StringName) -> void:
+	target.stats.remove_source(&"buff:%s" % tag)
+	target.stats.remove_source(&"slow:%s" % tag)
+	target.stats.remove_source(tag)
+	target.periodic.remove_source(&"periodico:%s" % tag)
+	target.periodic.remove_source(tag)
+	target.triggers.remove_source(&"gatilho:%s" % tag)
+	target.triggers.remove_source(tag)
 
 func describe() -> String:
 	return "purifica %s" % Scope.keys()[scope].to_lower()

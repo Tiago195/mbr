@@ -90,6 +90,12 @@ static func resolve(
 	# não é diluída pela armadura do alvo.
 	amount *= _amplification(attacker, type)
 
+	# --- 6. Redução plana de quem apanha ----------------------------------
+	# Depois de tudo, inclusive do dano verdadeiro: é a única mitigação que
+	# pega dano verdadeiro, e é isso que a torna a resposta ao adversário que
+	# só bate com dano que ignora defesa.
+	amount *= clampf(1.0 - target.get_value(Stat.Id.DAMAGE_TAKEN_REDUCTION), 0.0, 1.0)
+
 	result.final_damage = amount
 
 	# --- 6. Escudo primeiro, depois vida ----------------------------------

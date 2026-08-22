@@ -81,6 +81,38 @@ func reduce_cooldown(ability: Ability, seconds: float) -> void:
 		return
 	_cooldowns[ability.id] = maxf(0.0, _cooldowns[ability.id] - seconds)
 
+## Atende os ajustes de recarga que efeitos deixaram na fila do dono.
+##
+## Chamar a cada tique, junto de `advance_time`. É a contraparte de
+## `CooldownEffect`, que só sabe pedir — o livro é quem sabe quais habilidades
+## existem e quanto falta em cada uma.
+##
+## Devolve quantas recargas foram mexidas.
+func apply_cooldown_requests(owner: Unit) -> int:
+	if owner == null:
+		return 0
+	var mexidas: int = 0
+	for request: Unit.CooldownRequest in owner.consume_cooldown_adjustments():
+		for ability: Ability in known_abilities():
+			if not _alcanca(request, ability):
+				continue
+			if not _cooldowns.has(ability.id):
+				continue
+			var delta: float = request.seconds
+			if request.proportional:
+				delta = ability.cooldown_for(owner) * request.seconds
+			# O sinal do pedido é o do original: negativo encurta. Somar (em
+			# vez de subtrair) é o que deixa um ajuste positivo ESTENDER a
+			# recarga, que é como se expressa a punição por errar.
+			_cooldowns[ability.id] = maxf(0.0, _cooldowns[ability.id] + delta)
+			mexidas += 1
+	return mexidas
+
+static func _alcanca(request: Unit.CooldownRequest, ability: Ability) -> bool:
+	if request.group_ids.is_empty():
+		return true
+	return request.group_ids.has(ability.group_id) 		or request.group_ids.has(ability.id)
+
 func clear_cooldowns() -> void:
 	_cooldowns.clear()
 

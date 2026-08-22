@@ -513,7 +513,7 @@ func test_purificacao_por_origem() -> void:
 
 	var antidote := CleanseEffect.new()
 	antidote.scope = CleanseEffect.Scope.BUFFS
-	antidote.only_source = &"periodico:veneno"
+	antidote.only_source = &"veneno"
 	antidote.apply(AbilityCast.on_self(victim), victim)
 	assert_eq(victim.periodic.count(), 1, "o fogo continua")
 
