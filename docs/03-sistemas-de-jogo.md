@@ -22,6 +22,13 @@ O nó visual **observa** o estado e desenha. Nunca decide.
 
 ## Sistema de atributos
 
+> **A tabela abaixo é a original da Fase 2.1, com 18 atributos.** O catálogo
+> real tem **44** desde a tradução do original: mana, escudo, tenacidade,
+> resistência a lentidão, esquiva, precisão, amplificação de dano por tipo,
+> poder de cura contra cura recebida, massa, tetos que são atributos.
+> A lista completa está em `scripts/core/combat/stat.gd`, e o porquê de cada
+> um em `10-traducao-do-original.md`.
+
 ### Atributos base
 
 | Atributo | Descrição |
@@ -152,18 +159,57 @@ vocabulário fechado:
 - Número máximo de alvos
 
 **Efeitos** — uma lista, aplicada em ordem
-- `DAMAGE` (valor base + escalonamento com atributo + tipo)
-- `HEAL`
+
+Os oito primeiros estavam previstos desde o início. Os seis últimos entraram na
+tradução do original (`10-traducao-do-original.md`), cada um porque uma coluna
+das tabelas de lá não cabia em nenhum dos outros.
+
+- `DAMAGE` (valor base + escalonamento com atributo + tipo; também percentual
+  da vida do alvo, teto contra mob e restrição por espécie)
+- `HEAL` (idem, com percentual da vida máxima)
 - `SHIELD` (valor + duração)
 - `STAT_MOD` (qual atributo, quanto, duração)
-- `CROWD_CONTROL` (stun, root, silence, slow — valor + duração)
-- `DISPLACEMENT` (dash, knockback, pull — direção + distância)
-- `SUMMON`
+- `CROWD_CONTROL` (stun, root, silence, disarm, blind, charm, taunt, airborne,
+  polymorph, slow — valor + duração)
+- `DISPLACEMENT` (dash, knockback, pull, teleporte — direção + distância)
+- `SUMMON` (criatura, torreta, armadilha — id + prazo)
 - `TRIGGER` (aplica um efeito condicional a um evento futuro)
+- `PERIODIC` (veneno, regeneração, aura — intervalo + prazo)
+- `EXECUTE` (mata abaixo de um limiar; não é dano grande)
+- `RESOURCE` (devolve ou queima mana)
+- `CLEANSE` (purificação e dissipação hostil)
+- `MARK` (estado com nome, prazo e pilhas, sem efeito próprio)
+- `COOLDOWN` (encurta ou estende a recarga de um grupo de habilidades)
+
+**`PERIODIC` e `TRIGGER` não fazem nada sozinhos: eles embrulham outros
+efeitos.** Um periódico de `DAMAGE` é veneno, de `HEAL` é regeneração, de
+`STAT_MOD` é uma aura que renova. Três mecânicas, um efeito — que é exatamente
+o que a regra acima pede.
 
 Com esse vocabulário, a maioria das habilidades de um MOBA se expressa sem
-código novo. As exceções — habilidades genuinamente únicas — ganham um efeito
-customizado, e esse efeito passa a fazer parte do vocabulário.
+código novo. Foi medido: as 948 habilidades do original cabem nele, e o que
+não coube está listado como lacuna em `10-traducao-do-original.md`.
+
+### Habilidade tem vários golpes
+
+Uma habilidade **não** tem uma forma: tem uma lista de `AbilityPulse`, e cada
+pulso tem forma, tempo, âncora, filtro e efeitos próprios.
+
+Isso veio de medição, não de gosto: uma habilidade do original referencia até
+oito impactos, e 330 delas usam mais de um. Uma forma só obrigaria a descartar
+golpes ou a fundi-los, e fundir muda a habilidade — o segundo golpe sai depois,
+noutro raio, e só pega quem ficou.
+
+Habilidade de golpe único continua sendo um arquivo com um pulso. Não ficou
+mais cara; ficou capaz.
+
+### Ranque é outro conjunto de números
+
+Subir uma habilidade de nível **não** multiplica os valores dela. Cada ranque é
+uma declaração própria, com os próprios números, compartilhando um `group_id`.
+
+É como o original faz — cinco linhas de `skill_xml` com o mesmo `SkillGroupID`
+— e é o que permite um ranque mudar de forma, e não só de número.
 
 ### Estados e interações
 
@@ -179,7 +225,10 @@ Definir essas regras **uma vez, no sistema** — não por habilidade.
 ### Fonte dos números
 
 Não é preciso inventar valores nem kits: eles vêm das tabelas extraídas do jogo
-original. Ver `05-extracao-dados-apk.md`.
+original, já traduzidas para este vocabulário em `data/traducao/`. Ver
+`10-traducao-do-original.md` — e note que o corpus traduzido é **referência de
+balanceamento**, não o conteúdo do jogo. Copiar um kit inteiro de lá seria
+clonar; olhar as curvas antes de decidir as nossas é o uso pretendido.
 
 ---
 
@@ -203,6 +252,11 @@ original. Ver `05-extracao-dados-apk.md`.
 Alguns itens fazem mais que somar número: efeito passivo, efeito ativo com
 cooldown próprio. Isso reaproveita o mesmo vocabulário de efeitos das
 habilidades — **não construa um segundo sistema paralelo**.
+
+Está feito: `Item.passive_effects` é uma lista de `AbilityEffect`, e
+`Item.active_ability` é uma `Ability` de verdade, conjurada pela mesma
+`AbilityEngine`. A convenção que faz desequipar funcionar: **a `source_tag` de
+um efeito passivo é o id do item**.
 
 ### Crafting
 

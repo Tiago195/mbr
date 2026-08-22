@@ -353,3 +353,65 @@ bate na parede. Resolver colisão em `core/` exigiria conhecer a engine.
 | ~~Formato de persistência dos dados de habilidade/item~~ | **Resolvido: `Resource` em `.tres`** (decisão 9) |
 | Onde hospedar o servidor dedicado | Fase 5 |
 | Godot exportado para web vs. executável distribuído | Fase 5 |
+
+---
+
+## 10. Habilidade é uma lista de pulsos, não uma forma
+
+**Decidido em 22/08/2026, na tradução do original.**
+
+`Ability` passou a ser *ativação + mira + `Array[AbilityPulse]`*. Forma, filtro
+e efeitos moram no pulso.
+
+**Por quê:** uma `Skill` do original referencia até oito `Impact`, cada um com
+`StartTime`, `StartPosition`, raio e alvos próprios. 330 das habilidades
+traduzidas usam mais de um. Com uma forma só, traduzir obrigaria a descartar
+golpes ou a fundi-los — e fundir muda a habilidade.
+
+**Custa caro reverter?** Sim, e por isso está registrado. Todo `.tres` de
+habilidade e toda leitura de `ability.form` na camada de gameplay dependem
+disso. Foi feito com três habilidades no jogo; fazer depois de trinta seria
+outra conversa.
+
+**O que veio junto:**
+- A âncora do pulso é calculada na conjuração e **congelada**. Recalcular
+  faria a explosão perseguir quem saiu de perto.
+- Pulso atrasado fica no `AbilityBook`, e sai por
+  `AbilityEngine.resolve_scheduled()`. Quem tica precisa chamá-la.
+- Interromper a conjuração **não** cancela pulso já disparado.
+
+## 11. O corpus traduzido é JSON, e não 948 `.tres`
+
+**Decidido em 22/08/2026.**
+
+`data/traducao/*.json` guarda as 1126 habilidades e os 421 itens; os
+carregadores (`AbilityCatalog`, `ItemCatalog`, `EffectFactory`) transformam em
+`Ability` e `Item` sob demanda.
+
+**Por quê:**
+- `.tres` é o formato de quem edita à mão, e corpus gerado não se edita à mão.
+- 1369 arquivos gerados afogariam o `git diff` de qualquer mudança futura no
+  vocabulário. Em JSON, uma mudança de vocabulário é um diff legível.
+- Carregar 2 MB e ~3200 efeitos a cada partida, para usar três habilidades,
+  seria caro pelo motivo errado. Quem quer, chama.
+
+**O que isso NÃO significa:** que habilidade do jogo vira JSON. As nossas
+continuam `.tres`, editáveis no Inspector, uma por arquivo (decisão 9). O JSON
+é o corpus de **referência**.
+
+## 12. Marca é vocabulário, não sistema
+
+**Decidido em 22/08/2026.**
+
+`MarkSet` guarda estados com nome, prazo e pilhas, e não sabe o que eles
+significam. Quem dá sentido é quem consulta.
+
+**Por quê:** 30 buffs do original não concedem atributo, não causam dano e não
+controlam — só têm `Line`, `Rank` e `Duration`. São marcadores, e o jogo os
+consulta em outro lugar. Sem esta peça, a marca do caçador, o passo do combo e
+a postura da arma traduziam para nada.
+
+Uma marca que soubesse o que significa seria um sistema paralelo ao de efeitos,
+e é isso que `03-sistemas-de-jogo.md` proíbe. Composta com `TriggerEffect` no
+evento `MARK_MAXED`, ela dá "acerte três vezes e o quarto atordoa" sem uma
+linha de código nova.

@@ -9,9 +9,10 @@
 > dados revelaram. O texto antes dela é o plano original, mantido por
 > contexto — várias suposições dele foram confirmadas e uma estava errada.
 >
-> **O que falta é o Passo 4:** traduzir as habilidades e itens do original
-> para o vocabulário de efeitos de `03-sistemas-de-jogo.md`. Onde não couber,
-> o vocabulário cresce — e isso é informação sobre o sistema, não problema.
+> **O Passo 4 também está concluído** (22/08/2026): as 948 habilidades e os
+> 421 itens estão traduzidos para o vocabulário de `03-sistemas-de-jogo.md`,
+> e o vocabulário cresceu onde precisou. O mapeamento coluna a coluna, o que
+> cresceu e as lacunas que sobraram estão em **`10-traducao-do-original.md`**.
 
 ## Por que isso existe
 
@@ -144,11 +145,20 @@ XP por nível."
 
 O design doc sai **dos dados**, com os números reais.
 
-### Passo 4 — tradução para o vocabulário próprio
+### Passo 4 — tradução para o vocabulário próprio ✅
 
-Mapear cada habilidade do original para o vocabulário de efeitos definido em
-`03-sistemas-de-jogo.md`. Onde não couber, o vocabulário precisa crescer — e
-isso é informação valiosa sobre o sistema.
+**Concluído em 22/08/2026.** Mapear cada habilidade do original para o
+vocabulário de efeitos definido em `03-sistemas-de-jogo.md`. Onde não couber,
+o vocabulário precisa crescer — e isso é informação valiosa sobre o sistema.
+
+Foi o que aconteceu: atributos de 18 para 44, controles de 4 para 10, efeitos
+de 6 para 14, e `Ability` deixou de ter uma forma para ter uma lista de pulsos.
+1126 habilidades e 421 itens em `data/traducao/`, carregáveis e conjuráveis.
+
+**O detalhe todo está em `10-traducao-do-original.md`.** Inclusive as lacunas,
+que são o produto mais valioso: carga de suprema, corrente de combo e janelas
+de cancelamento são sistemas que o original tem e nós não, achados por medição
+em vez de por memória.
 
 ---
 

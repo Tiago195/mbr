@@ -174,6 +174,7 @@ Ordem de desenho entre materiais com `no_depth_test` é decidida por
 | `docs/07-primeira-cena.md` | Passo a passo da Fase 1.1, com código |
 | `docs/08-arte-e-assets.md` | Meshy, Mixamo, MCP — só relevante na Fase 6 |
 | `docs/09-glossario.md` | Termos de game dev traduzidos |
+| `docs/10-traducao-do-original.md` | **O original traduzido para o nosso vocabulário** — o mapeamento, o que cresceu e as lacunas |
 
 ## Confiabilidade desta documentação
 
@@ -189,6 +190,11 @@ Classificação honesta do conteúdo:
 **Não verificado — tratar como plausível, não como fato:**
 - Passo a passo de navegação do editor (nomes de menu podem diferir na 4.7)
 
+**Medido, não suposto (22/08/2026):**
+- O vocabulário de efeitos de `03-sistemas-de-jogo.md` **aguenta um jogo real**:
+  as 948 habilidades e os 421 itens do original cabem nele, e o que não cabe
+  está listado com nome e contagem em `docs/10-traducao-do-original.md`
+
 **Corrigido pela prática (22/08/2026):**
 - ~~"o processo de extração depende de o build ser Mono ou IL2CPP"~~ — o build
   é IL2CPP, e não importou: os dados saíram sem tocar em código. Ver
@@ -202,28 +208,38 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 ## Estado atual
 
 > Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **154 testes, 439 asserções**, todos verdes.
+> branch `master`. **306 testes, 875 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
-O próximo passo combinado é o **Passo 4 de `docs/05-extracao-dados-apk.md`**:
-traduzir as habilidades e itens do jogo original — já extraídos e legíveis —
-para o vocabulário de efeitos de `docs/03-sistemas-de-jogo.md`.
+O Passo 4 — traduzir o original para o nosso vocabulário — **está concluído**.
+Leia `docs/10-traducao-do-original.md` e depois decida o próximo passo com a
+seção *"O que o usuário disse que falta"*, mais abaixo.
 
-### Os dados do original estão extraídos
+Na leitura desta sessão, o próximo passo com mais retorno é **oposição**: mobs
+com IA simples usando o mesmo `Combatant`, `AbilityBook` e `AbilityEngine` do
+jogador — inclusive conjurando, agora que há 1126 habilidades prontas para
+eles. Depois disso, ligar à cena o que já existe só como lógica (zona, loot,
+fluxo de partida).
+
+### Os dados do original estão extraídos E traduzidos
 
 **113 tabelas XML em `C:\Godot\rc-referencia\xml\`** — fora deste repositório,
 de propósito. São referência de design, não asset do projeto: números e
-estrutura entram, arte e código não (`docs/01-visao-e-escopo.md`).
+estrutura entram, arte, som, código e texto não (`docs/01-visao-e-escopo.md`).
 
 Cifra resolvida: **DES-CBC**, chave `5d0b249faa9fd875`, IV `e950d93408855ed3`.
-Detalhes, inventário das tabelas e o que elas revelaram estão no
-`docs/05-extracao-dados-apk.md`.
+Detalhes e inventário das tabelas em `docs/05-extracao-dados-apk.md`.
 
-Destaques: `skill_xml` (948 habilidades com timing completo), `actor_xml` +
-`actor_2_xml` (116 personagens), `equipment_xml` (421 itens),
-`magnetic_field_xml` (a zona, 9 fases), `drop_table_xml` (696 entradas),
-`actorattribute_xml` (66 atributos contra os nossos 18).
+**A tradução está em `data/traducao/`** — 1126 habilidades e 421 itens no
+vocabulário de `docs/03-sistemas-de-jogo.md`, carregáveis por `AbilityCatalog`
+e `ItemCatalog` e conjuráveis pela mesma `AbilityEngine` das habilidades feitas
+à mão. Regerar: `py tools/traducao/traduzir.py`.
+
+O que o vocabulário ganhou para caber: atributos **18 → 44**, controles de
+grupo **4 → 10**, efeitos **6 → 14**, e `Ability` deixou de ter uma forma para
+ter uma **lista de pulsos** (decisão 10). O mapeamento coluna a coluna e as
+lacunas que sobraram estão em `docs/10-traducao-do-original.md`.
 
 ### O que está pronto e jogável
 
@@ -243,11 +259,17 @@ que revide, nem mapa, nem loot, nem progressão.
 Existem em `core/`, com teste, mas **não estão ligados à cena nem têm camada
 visual**:
 
-| Sistema | Arquivo | Testes | O que falta |
-|---|---|---|---|
-| Zona que fecha | `core/match/zone.gd` | 18 | Círculo desenhado; trocar `damage_per_second` por buff, como o original faz |
-| Itens e inventário | `core/items/` | 16 | Loot no chão, coleta, UI |
-| Fluxo de partida | `core/match/match_state.gd` | 15 | Spawn, lobby, ligação com a cena |
+| Sistema | Arquivo | O que falta |
+|---|---|---|
+| Zona que fecha | `core/match/zone.gd` | Círculo desenhado; trocar `damage_per_second` por buff, como o original faz |
+| Itens e inventário | `core/items/` | Loot no chão, coleta, UI |
+| Fluxo de partida | `core/match/match_state.gd` | Spawn, lobby, ligação com a cena |
+| Corpus traduzido | `data/traducao/` | Nada obriga a usá-lo; é referência de balanceamento, não conteúdo |
+
+E, dentro do combate, peças com teste mas sem consumidor visual ainda: mana
+(`ResourcePool`), marcas (`MarkSet`), invocações (`Unit.pending_summons` espera
+quem materialize) e ajuste de recarga (`AbilityBook.apply_cooldown_requests`
+precisa ser chamado pela camada de gameplay).
 
 ### O que foi adiado, e por decisão de quem
 
@@ -258,6 +280,17 @@ visual**:
 - **Fase 1.4 (NavMesh)** — o roadmap já a marcava opcional; só é necessária
   para a IA dos mobs.
 
+### Três sistemas que a tradução revelou e o roadmap não previa
+
+Achados por medição, não por memória. Nenhum é urgente; todos são refinamento
+de sensação, e o que falta antes continua sendo oposição, mapa e loot.
+
+- **Carga de suprema** — 534 habilidades do original. A suprema não tem
+  recarga: enche batendo e apanhando.
+- **Corrente de combo** — 125. Conjurar A dentro de uma janela troca A por B.
+- **Janelas de cancelamento** — 72. Nós temos um booleano `cancelable`; o
+  original tem quatro instantes por habilidade.
+
 ### O que o usuário disse que falta
 
 Palavras dele: *"nós precisamos de todos — itens, loot, inventário, mapa de
@@ -266,8 +299,7 @@ royale inteira"*.
 
 Na leitura desta sessão, o que mais falta para deixar de ser sandbox não é
 conteúdo, é **oposição**: um boneco parado não é adversário, e nenhuma
-quantidade de habilidade nova conserta isso. Mobs com IA simples usam o mesmo
-`Combatant` e `AbilityBook` que o jogador — inclusive conjuram.
+quantidade de habilidade nova conserta isso.
 
 ### Como este projeto trabalha
 
@@ -282,6 +314,7 @@ unitário e lógica pura eu fecho sozinho.
 
 Ao tomar uma decisão que a documentação marcava como "em aberto", registrá-la
 em `docs/02-decisoes-tecnicas.md` e dizer que tomou — ele reverte se discordar.
+
 
 ## Testes
 
@@ -334,6 +367,16 @@ significa ciclo de referência, e a suíte passa verde mesmo assim.
   headless sem `quit` roda para sempre: a suíte trava em vez de falhar
 - **`Array.filter()` devolve `Array` sem tipo.** Atribuir a `Array[T]` estoura
   em runtime; usar laço explícito
+- **Enum exportado serializa como INTEIRO no `.tres`.** Inserir um valor no
+  meio de `Stat.Id`, `CrowdControlEffect.Kind` ou qualquer enum exportado
+  renumera tudo que vem depois e troca, **em silêncio**, o atributo ou o
+  controle de toda habilidade e todo item já salvos. Valor novo entra no fim,
+  sempre. Está anotado em cada enum afetado
+- **`call()` não funciona numa classe sem instância.** Uma tabela de despacho
+  `{nome: método}` resolvida com `MinhaClasse.call(tabela[nome])` não compila:
+  "Cannot call non-static function `call()` on the class directly". Usar
+  `match` explícito — que ainda por cima quebra em tempo de compilação quando
+  alguém acrescenta um caso e esquece de tratá-lo
 
 Particularidade do ambiente: a chave SSH do GitHub está **só no WSL2**.
 Commit funciona no Windows; o push precisa passar pelo WSL:

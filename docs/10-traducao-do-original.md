@@ -1,0 +1,274 @@
+# 10 — Tradução do original para o vocabulário próprio
+
+> **Passo 4 de `05-extracao-dados-apk.md`, concluído em 22/08/2026.**
+>
+> As 948 habilidades de `skill_xml` e os 421 itens de `equipment_xml` estão
+> traduzidos para o vocabulário de `03-sistemas-de-jogo.md`. Onde não coube, o
+> vocabulário cresceu — e o que continua não cabendo está listado no fim, com
+> o motivo.
+
+## O que é isto, e o que não é
+
+**É** um mapeamento: cada coluna das tabelas do original, lida uma vez, com a
+decisão de para onde ela vai no nosso modelo — ou o registro de que não vai a
+lugar nenhum e por quê.
+
+**Não é** um clone. Os números do original são ponto de partida de
+balanceamento e prova de que o vocabulário aguenta um jogo real. Arte, som,
+código e texto continuam sendo da LINE/Meerkat e não entram no build
+(`01-visao-e-escopo.md`). É por isso que o corpus traduzido não carrega nome
+nem descrição do original: o `display_name` de cada entrada é o identificador
+do ícone, em inglês, que é estrutura e não conteúdo.
+
+## Como rodar
+
+```
+py tools/traducao/traduzir.py
+```
+
+Lê `C:\Godot\rc-referencia\xml` (fora deste repositório, de propósito) e
+escreve em `data/traducao/`:
+
+| Arquivo | O que é |
+|---|---|
+| `habilidades.json` | 1126 habilidades no nosso vocabulário |
+| `itens.json` | 421 itens |
+| `RELATORIO.md` | Cobertura e lacunas, **gerado — não editar** |
+
+`AbilityCatalog` e `ItemCatalog` carregam esses arquivos e devolvem `Ability` e
+`Item` de verdade. **A tradução é executável**: `tests/test_catalogo_traduzido.gd`
+conjura todas as 1126 pela mesma `AbilityEngine` das habilidades feitas à mão,
+e equipa e desequipa os 421 conferindo que nenhum modificador fica para trás.
+
+### Por que JSON e não 948 arquivos `.tres`
+
+- `.tres` é o formato de quem edita à mão. Corpus gerado não se edita à mão —
+  se editasse, a execução seguinte apagaria a edição.
+- 1369 arquivos gerados afogariam o `git diff` de qualquer mudança futura no
+  vocabulário. Em JSON, uma mudança de vocabulário é um diff legível.
+- O JSON nomeia as **nossas** peças. Não é um despejo do original.
+
+---
+
+## O modelo do original, em uma passada
+
+Foi a primeira surpresa útil: o original não guarda "uma habilidade" num lugar
+só. Ele espalha em quatro tabelas, e a forma dessa divisão é boa.
+
+```
+Skill  (948)   ativação, mira, recarga, custo
+  └─ Impact (1602)   uma região que aparece num lugar e num tempo
+       ├─ ImpactStat*   o que ela faz com quem pegou
+       ├─ Buff (487)         atributo, escudo, periódico, marcador
+       └─ CrowdControl (283)  atordoar, prender, arremessar, lentidão
+```
+
+Um `Impact` é exatamente o que passamos a chamar de **pulso**: forma, tempo,
+âncora e alvos próprios. Uma `Skill` referencia até oito deles.
+
+---
+
+## O que cresceu, e por qual coluna
+
+### Atributos: 18 → 44
+
+Cada um entrou porque uma tabela do original **concede o valor**, e sem ele o
+dado não é traduzível.
+
+| Coluna do original | Vira | Observação |
+|---|---|---|
+| `PhysicalDamage`, `MagicalDamage` | `attack_damage`, `ability_power` | |
+| `PhysicalDefense`, `MagicalDefense` | `armor`, `magic_resist` | |
+| `HasteRatio`, `SlowRatio` | `move_speed` percentual | Mesmo atributo, sinais opostos |
+| `SlowResist`, `Toughness` | `slow_resist`, `tenacity` | Resistências separadas: bota e elmo |
+| `Agility`, `Accuracy`, `Flexibility` | `dodge`, `accuracy`, `crit_avoidance` | Esquiva de verdade, com `missed` no resultado |
+| `MaxMP`, `MPRegen` | `max_mana`, `mana_regen` | Recurso de conjuração |
+| `PhysicalDamageAmp` | `physical_damage_amp` | Multiplica **depois** da defesa |
+| `HealAmp` × `ReceivedHealAmp` | `heal_power` × `heal_received_amp` | Dois lados, e é o que permite "cura reduzida" |
+| `MaxCDReductionRatio` | `cooldown_reduction_cap` | O teto virou atributo, e agora um item pode elevá-lo |
+| `Weight` | `weight` | Resiste a empurrão sofrido, não ao próprio dash |
+| `AllDamageReduce` | `damage_taken_reduction` | Única mitigação que alcança dano verdadeiro |
+| `SightRange`, `MaxGroggyHp` | `sight_range`, `max_stagger` | **Inertes**: existem para o item ser traduzível, sem consumidor ainda |
+
+**Não viraram atributo, de propósito:**
+
+- `PhysicalDefenseReduce` — é debuff no alvo, não penetração do atacante.
+  Vira armadura **negativa**, que a fórmula de dano já sabe tratar.
+- `MaxShield` e as variantes `MaxShieldPer...` — são o tamanho de um escudo
+  concedido, não um atributo. Viram um `ShieldEffect`, com as `Per...` como
+  escalonamento dele. Emitir dois escudos daria duas camadas onde havia uma.
+- `BasePhysicalDamageAmp` — amplifica o atributo base, o que no nosso modelo é
+  literalmente um modificador percentual do atributo.
+
+### Controle de grupo: 4 → 10
+
+`crowd_control_xml` tem 13 tipos. Viraram 10 porque o critério é
+**comportamento, não tema**:
+
+| Original | Nosso | Por quê |
+|---|---|---|
+| `Stun`, `HardStun`, `Freeze` | `STUN` | Os três travam tudo. `HardStun` vira `ignores_tenacity` |
+| `ThrowUp`, `Airborne` | `AIRBORNE` | Mesmo arremesso. Estado próprio porque tenacidade não o encurta e a camada visual precisa distingui-lo |
+| `KnockBack` | *(nenhum)* | Empurrão puro: só deslocamento, nenhum estado |
+| `Slow` | `SLOW` | Modificador de `move_speed`, não estado |
+| `Root`, `Silence`, `Blind`, `Charmed`, `Taunt`, `Polymorph` | idem | |
+
+Espelhar os 13 daria cinco caminhos diferentes para o mesmo
+`can_move() == false`, e cada regra de interação teria que lembrar dos cinco.
+
+Junto vieram as regras: cegueira deixa atacar **e errar** (diferente de
+desarmar), provocação deixa atacar (é o que a torna perigosa), transformação
+deixa andar. `has_agency()` diz quando a ordem de quem joga deixou de valer.
+
+### Efeitos: 6 → 14
+
+Os dois primeiros já estavam prometidos em `03-sistemas-de-jogo.md` e não
+existiam:
+
+| Efeito | Nasceu de | O que fecha |
+|---|---|---|
+| `PeriodicEffect` | `LoopInterval` + buff com `Impact` | Veneno, regeneração, aura. **Embrulha** outros efeitos: um periódico de dano é veneno, de cura é regeneração |
+| `TriggerEffect` | `TriggerTiming` + `BuffReleaseCondition` | Passiva de campeão. "Ao acertar três vezes, ganha escudo" |
+| `SummonEffect` | `SummonActorId` | Lobo, totem, armadilha, parede |
+| `ExecuteEffect` | `Die` | Mata na hora. Não é dano grande: escudo absorveria e resistência reduziria |
+| `ResourceEffect` | `Mana` | Devolve e queima recurso |
+| `CleanseEffect` | `Release_Effects_Id` | Purificação e dissipação hostil |
+| `MarkEffect` | Buff só com `Line` e `Rank` | **Marcador**: estado sem efeito próprio. 30 buffs do original são só isso |
+| `CooldownEffect` | `AdjustCDSkillIds` | Acertar X reduz a recarga de Y. 100 buffs usam |
+
+Mais campos nos que já existiam: `percent_of_target_max_health` e
+`monster_damage_cap` (e o teto contra mob **precisa** existir junto do dano
+percentual, senão farmar selva vira o caminho mais rápido de escalar),
+`restriction` (o `SiegeDamage`), `scaling_stat_alt` (`BetterAtkStat`, escala
+pelo maior entre os dois ataques) e `DisplacementEffect.TO_AIM_POINT` (`Warp`).
+
+### Habilidade vira lista de pulsos
+
+**A mudança estrutural.** Até aqui `Ability` tinha **uma** forma, **um** filtro
+e **uma** lista de efeitos. Uma `Skill` do original referencia até oito
+`Impact`, e 330 das traduzidas usam mais de um.
+
+Traduzir sem isso obrigaria a escolher entre descartar impactos ou fundi-los —
+e fundir está errado: o segundo golpe sai meio segundo depois, num raio menor,
+e só pega quem ficou.
+
+O caso que convence, direto do corpus:
+
+```
+skill_bella_multishot [direction]
+  +0.30s [projectile] dano 40 + 50% de attack_damage
+  +0.60s [projectile] dano 40 + 50% de attack_damage
+  +0.90s [projectile] dano 40 + 50% de attack_damage
+  +1.20s [projectile] dano 40 + 50% de attack_damage
+```
+
+Quatro flechas, uma a cada 0,3 s. No modelo antigo isso seria uma flecha só
+com o dano somado — outra habilidade.
+
+Decisões que vieram junto:
+
+- **A âncora é congelada na conjuração.** Um pulso atrasado que recalculasse a
+  posição faria a explosão perseguir quem já saiu de perto, e área no chão não
+  persegue ninguém.
+- **`Origin.PREVIOUS`** é o `ParentImpactPosition`: "explode onde a flecha
+  parou", sem a habilidade precisar saber onde ela parou.
+- **Interromper não cancela o que já saiu.** A bomba no ar não volta para a mão.
+- **Ranque é recurso próprio, não multiplicador.** O original guarda os cinco
+  ranques como cinco linhas de `skill_xml` com o mesmo `SkillGroupID` — ou
+  seja, ranque é *outro conjunto de números*, não uma escala em cima. Copiamos.
+
+### Forma nova: `TRAPEZOID`
+
+`CastTrapezoid`: um retângulo que começa a uma distância mínima e alarga com o
+alcance. A diferença para o cone é o buraco colado nos pés — e é ela que
+caracteriza o tiro de longo alcance.
+
+### `Unit.Nature`
+
+`MaxPhysicalDamageForMonster`, `SiegeDamage` e "invocação morta não conta como
+abate" dependem de **que espécie** é o alvo, não de que time. Daí
+`CHAMPION`, `MONSTER`, `STRUCTURE`, `SUMMON`.
+
+---
+
+## Cobertura
+
+Números da última execução (o `RELATORIO.md` gerado tem o detalhe):
+
+| | |
+|---|---|
+| Habilidades traduzidas | **1126** — as 948 de `skill_xml` + 178 das tabelas de continuação |
+| ...com pelo menos um pulso | 963 |
+| ...com mais de um pulso | 330 |
+| Pulsos | 1501 |
+| Efeitos | 3197 |
+| Itens | **421**, em 257 linhas de melhoria |
+
+Das 163 sem pulso:
+
+- **116 são linha-modelo** (`Rank 0`): a entrada de interface da habilidade
+  ainda não aprendida. Não referencia impacto **por definição**.
+- **2 são quebra de combo**: marcador que cancela uma corrente. Não ter efeito
+  é o efeito.
+- **45 não têm tradução**, e todas caem nas lacunas abaixo.
+
+---
+
+## Lacunas — o que o original diz e nós ainda não
+
+Estas são o produto mais valioso do Passo 4. Cada uma é um sistema que o
+original tem e nós não, achado por medição em vez de por memória.
+
+### Valem a pena, e ainda não existem
+
+| Lacuna | Onde aparece | O que é |
+|---|---|---|
+| **Carga de suprema** | `UltimateCharge`, 534 habilidades | A suprema não tem recarga: enche batendo e apanhando. Muda o ritmo da partida inteira, e é a lacuna mais cara da lista |
+| **Corrente de combo** | `ComboSkillInfo`, 125 | Conjurar A dentro de uma janela troca A por B. É boa parte do que dava textura ao corpo a corpo do original |
+| **Janelas de cancelamento** | `MoveCancelableTime` e três irmãs, 72 | Nós temos um booleano `cancelable`. O original tem quatro instantes por habilidade: quando dá para andar, quando dá para conjurar outra, quando dá para atacar. É onde mora o "feel" |
+| **Corrente entre dois alvos** | `Link`, 47 | Amarra dois combatentes e rompe na distância |
+| **Troca de habilidade no espaço** | `UseSkillSlot`, 27 | Postura que reescreve o que Q e W fazem |
+| **Amplificação por habilidade** | `PhysicalDamageAmp_SkillE`, 21 | "+20% no dano do seu E". Exige modificador por habilidade, e hoje só temos por atributo |
+
+### Precisam de sistema que não é de combate
+
+| Lacuna | Onde | Por que fica fora |
+|---|---|---|
+| Curva de deslocamento | `MoveCurve`, 154 | Trajetória de dash como curva editada. É camada visual, e depende de asset |
+| `BuffReleaseCondition` de animação | `SkillFinish`, `Move`, `InteractionStart`, 58 | Dependem de eventos que `core/` não emite. `ShieldExhaust` e `SkillActivated` **foram fechados** — viraram `TriggerEffect` + `CleanseEffect` |
+| Valor de poção | `RecoverDataType`, 43 | Os números vivem no texto localizado, que não extraímos. Melhor uma lacuna honesta que um valor inventado |
+| Ping | `PingList`, 22 | Interface, não combate |
+| Veículo e zona vermelha | 3 | Modo de jogo específico |
+
+### Assunções registradas
+
+Onde o original não documenta e a escolha foi nossa:
+
+- **Direção do empurrão.** `crowd_control_xml` tem `Direction` com quatro
+  valores e nenhuma explicação de eixo. Assumimos `Backward` = puxa, o resto
+  empurra. Se estiver invertido, o conserto é uma linha e vale para as 20
+  entradas de uma vez.
+- **`cast_time` fica em zero.** O original não trava a conjuração como um MOBA
+  clássico; ele usa a animação com janelas de cancelamento. O que corresponde
+  ao nosso tempo de conjuração é o atraso do primeiro impacto, e esse virou o
+  `delay` do pulso. Preserva o timing sem inventar um travamento.
+- **`ActiveDuration` só vira duração de área quando há laço.** Sem laço ela é o
+  tempo que o colisor fica ligado, que para nós é instantâneo.
+
+---
+
+## Dois bugs do tradutor que valeram a lição
+
+Ambos silenciosos, ambos achados por medir a cobertura em vez de confiar nela:
+
+1. **Invocação lida dentro do laço de colunas.** Um impacto que *só* invoca não
+   tem `ImpactStatType` nenhum, então o laço nunca rodava e a invocação nunca
+   saía. 61 impactos traduziam para vazio. A leitura foi para fora do laço.
+2. **Limite de profundidade em vez de guarda de ciclo.** Buff que aponta para
+   impacto que aponta para buff é comum e legítimo no original. Cortar em
+   profundidade 3 descartava 66 habilidades inteiras. Virou conjunto de
+   visitados, que é o correto: o que não pode é voltar ao mesmo nó.
+
+A lição vale além do tradutor: **cobertura silenciosa é indistinguível de
+cobertura errada.** O relatório existe por isso, e é o que transformou "1126
+habilidades traduzidas" de afirmação em medição.

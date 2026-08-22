@@ -330,3 +330,30 @@ integração · 🟡 aguardando validação humana · ⏭️ adiada
 | 5.2 | 🟨 Lógica pronta | 22/08/2026 | `Item` e `Inventory` em `core/items/`, 16 testes. Falta loot no chão, coleta e UI |
 | 5.3 | 🟨 Lógica pronta | 22/08/2026 | `Zone` em `core/match/`, 18 testes. Falta o círculo desenhado e trocar `damage_per_second` por buff |
 | 5.4 | 🟨 Lógica pronta | 22/08/2026 | `MatchState` em `core/match/`, 15 testes. Governa a zona e decide o vencedor. Falta spawn, respawn de lobby e ligação com a cena |
+| **Passo 4** | ✅ Concluída | 22/08/2026 | **Tradução do original.** 948 habilidades + 421 itens no nosso vocabulário. Atributos 18→44, controles 4→10, efeitos 6→14, `Ability` virou lista de pulsos. Corpus carregável e conjurável em `data/traducao/`. Ver `docs/10-traducao-do-original.md` |
+
+### O que a tradução do original mudou no roadmap
+
+O Passo 4 não estava na numeração de fases — ele vinha de
+`05-extracao-dados-apk.md` — mas mexeu no plano de duas formas que valem
+registro:
+
+**O vocabulário de efeitos deixou de ser hipótese.** A Fase 3.1 apostava que
+uma lista fechada de peças expressaria a maioria das habilidades de um MOBA.
+Agora está medido: as 948 do original cabem, e as que não cabem têm nome. A
+regra "habilidade nova não escreve classe nova" passou a ter evidência.
+
+**Apareceram três sistemas que o roadmap não previa**, e todos são de fase
+posterior:
+
+- **Carga de suprema** (534 habilidades do original). A suprema não tem
+  recarga: enche batendo e apanhando. Muda o ritmo da partida, e é a lacuna
+  mais cara da lista.
+- **Corrente de combo** (125). Conjurar A dentro de uma janela troca A por B.
+  É boa parte do que dava textura ao corpo a corpo do original.
+- **Janelas de cancelamento** (72). Nós temos um booleano; o original tem
+  quatro instantes por habilidade. É onde mora o "feel".
+
+Nenhum é urgente para o protótipo — os três são refinamento de sensação, e o
+que falta antes disso continua sendo oposição, mapa e loot. Ficam registrados
+para não serem redescobertos de memória depois.
