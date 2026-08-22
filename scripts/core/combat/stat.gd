@@ -1,7 +1,8 @@
 class_name Stat
 extends RefCounted
 
-## Catálogo de atributos — Fase 2.1.
+## Catálogo de atributos — Fase 2.1, ampliado na tradução do original
+## (`docs/10-traducao-do-original.md`).
 ##
 ## Nada em `scripts/core/` pode importar nó da engine. Esta classe estende
 ## RefCounted, não Node, de propósito: ela roda em teste unitário e no servidor
@@ -11,6 +12,11 @@ extends RefCounted
 ## compilação em vez de atributo silenciosamente zerado. Para arquivos de
 ## configuração de item e habilidade, que precisam nomear atributos em texto,
 ## `from_name()` faz a ponte.
+##
+## **Nunca inserir valor no meio deste enum.** `@export var stat: Stat.Id`
+## serializa o enum como INTEIRO no `.tres`. Inserir no meio renumera tudo que
+## vem depois e troca, em silêncio, o atributo de toda habilidade e todo item
+## já salvos. Valor novo entra no fim, sempre.
 
 enum Id {
 	MAX_HEALTH,
@@ -34,6 +40,73 @@ enum Id {
 	ARMOR_PEN_PERCENT,
 	MAGIC_PEN_FLAT,
 	MAGIC_PEN_PERCENT,
+
+	# --- A partir daqui, atributos que a tradução do original exigiu -------
+	# Cada um existe porque uma tabela do original concede o valor e sem ele o
+	# dado não é traduzível. Quais já têm consumidor e quais ainda são inertes
+	# está em `docs/10-traducao-do-original.md`.
+
+	## Recurso de conjuração. `CostType` do original é sempre `ManaCost`.
+	MAX_MANA,
+	MANA_REGEN,
+
+	## Teto de escudo acumulado, e a regeneração dele. 0 = sem teto.
+	##
+	## Cuidado com o falso amigo: o `MaxShield` do original NÃO é isto. Lá ele
+	## é o TAMANHO do escudo que um buff concede, e no nosso vocabulário isso
+	## já é `ShieldEffect`. O teto é conceito nosso, e existe porque escudo
+	## empilhável sem limite é a via mais curta para um tanque imortal.
+	SHIELD_CAP,
+	SHIELD_REGEN,
+	## Multiplica escudo RECEBIDO, não concedido. Fica no alvo.
+	SHIELD_RECEIVED_AMP,
+
+	## Amplificação de dano causado, por tipo. Multiplica depois da defesa —
+	## é o que diferencia de simplesmente somar poder de ataque.
+	PHYSICAL_DAMAGE_AMP,
+	MAGIC_DAMAGE_AMP,
+
+	## Acerto e esquiva. O original usa `Accuracy` com valor 1 em quase todo
+	## impacto, e `CriticalRatio: -9999` para dizer "esta habilidade não
+	## critita" — que é exatamente a convenção da decisão 8.
+	ACCURACY,
+	DODGE,
+	## `Flexibility`: chance de o crítico sofrido virar acerto normal.
+	CRIT_AVOIDANCE,
+	CRIT_DAMAGE_REDUCTION,
+
+	## Resistências a controle. `SLOW_RESIST` corta só lentidão;
+	## `TENACITY` (`Toughness`) corta a duração dos controles duros.
+	SLOW_RESIST,
+	TENACITY,
+
+	## Cura concedida × cura recebida. São dois lados e não se confundem.
+	HEAL_POWER,
+	HEAL_RECEIVED_AMP,
+	HEALTH_REGEN_AMP,
+
+	## Alcance de visão. É o que sustenta névoa de guerra e arbusto.
+	SIGHT_RANGE,
+
+	## "Groggy" do original: uma segunda barra que, esvaziada, atordoa.
+	MAX_STAGGER,
+
+	## Tetos. O original tem `MaxCDReductionRatio`, `MaxAttackSpeedRate` e
+	## `MaxMoveSpeed` como atributos próprios, o que permite um item elevar o
+	## teto em vez de só chegar mais perto dele.
+	COOLDOWN_REDUCTION_CAP,
+	ATTACK_SPEED_CAP,
+	MOVE_SPEED_CAP,
+	## Recarga de item consumível, separada da recarga de habilidade.
+	ITEM_COOLDOWN_REDUCTION,
+
+	## Regeneração fora de combate. Num battle royale isso é o que decide se
+	## dá para escapar e voltar, ou se a luta perdida é definitiva.
+	OUT_OF_COMBAT_HEALTH_REGEN,
+	OUT_OF_COMBAT_MANA_REGEN,
+
+	## Massa. Resiste a empurrão e puxão proporcionalmente.
+	WEIGHT,
 }
 
 const NAMES: Dictionary = {
@@ -55,14 +128,47 @@ const NAMES: Dictionary = {
 	Id.ARMOR_PEN_PERCENT: &"armor_pen_percent",
 	Id.MAGIC_PEN_FLAT: &"magic_pen_flat",
 	Id.MAGIC_PEN_PERCENT: &"magic_pen_percent",
+	Id.MAX_MANA: &"max_mana",
+	Id.MANA_REGEN: &"mana_regen",
+	Id.SHIELD_CAP: &"shield_cap",
+	Id.SHIELD_REGEN: &"shield_regen",
+	Id.SHIELD_RECEIVED_AMP: &"shield_received_amp",
+	Id.PHYSICAL_DAMAGE_AMP: &"physical_damage_amp",
+	Id.MAGIC_DAMAGE_AMP: &"magic_damage_amp",
+	Id.ACCURACY: &"accuracy",
+	Id.DODGE: &"dodge",
+	Id.CRIT_AVOIDANCE: &"crit_avoidance",
+	Id.CRIT_DAMAGE_REDUCTION: &"crit_damage_reduction",
+	Id.SLOW_RESIST: &"slow_resist",
+	Id.TENACITY: &"tenacity",
+	Id.HEAL_POWER: &"heal_power",
+	Id.HEAL_RECEIVED_AMP: &"heal_received_amp",
+	Id.HEALTH_REGEN_AMP: &"health_regen_amp",
+	Id.SIGHT_RANGE: &"sight_range",
+	Id.MAX_STAGGER: &"max_stagger",
+	Id.COOLDOWN_REDUCTION_CAP: &"cooldown_reduction_cap",
+	Id.ATTACK_SPEED_CAP: &"attack_speed_cap",
+	Id.MOVE_SPEED_CAP: &"move_speed_cap",
+	Id.ITEM_COOLDOWN_REDUCTION: &"item_cooldown_reduction",
+	Id.OUT_OF_COMBAT_HEALTH_REGEN: &"out_of_combat_health_regen",
+	Id.OUT_OF_COMBAT_MANA_REGEN: &"out_of_combat_mana_regen",
+	Id.WEIGHT: &"weight",
 }
 
 ## Valores neutros. Um personagem sem nenhum atributo definido não deve morrer
 ## de divisão por zero nem crititar sempre.
+##
+## `ACCURACY` começa em 1: o padrão é acertar, e esquiva é que tira disso.
+## `COOLDOWN_REDUCTION_CAP` em 0.9 repete o teto que `Ability.cooldown_for`
+## já aplicava fixo — agora o número mora num lugar só.
 const DEFAULTS: Dictionary = {
 	Id.MAX_HEALTH: 100.0,
 	Id.CRIT_DAMAGE: 1.75,
 	Id.ATTACK_SPEED: 1.0,
+	Id.ACCURACY: 1.0,
+	Id.COOLDOWN_REDUCTION_CAP: 0.9,
+	Id.WEIGHT: 1.0,
+	Id.SIGHT_RANGE: 12.0,
 }
 
 static func name_of(id: Id) -> StringName:
@@ -80,3 +186,12 @@ static func from_name(stat_name: StringName) -> int:
 ## Valor de um atributo quando ninguém o definiu.
 static func default_of(id: Id) -> float:
 	return DEFAULTS.get(id, 0.0)
+
+## Todo identificador do catálogo, em ordem. Um teste usa isto para provar que
+## `NAMES` não esqueceu ninguém — o modo mais barato de pegar um atributo novo
+## que entrou no enum e não ganhou nome.
+static func all_ids() -> Array[Id]:
+	var ids: Array[Id] = []
+	for id: Id in Id.values():
+		ids.append(id)
+	return ids

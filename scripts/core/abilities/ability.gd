@@ -88,8 +88,13 @@ enum Form {
 func cooldown_for(caster: Unit) -> float:
 	if caster == null:
 		return cooldown
+	# O teto sai do atributo, não de uma constante: o original tem
+	# `MaxCDReductionRatio` como atributo próprio, e isso permite um item
+	# ELEVAR o teto em vez de só chegar mais perto dele. O padrão continua
+	# sendo 0.9, agora declarado em `Stat.DEFAULTS`.
+	var cap: float = maxf(caster.stats.get_value(Stat.Id.COOLDOWN_REDUCTION_CAP), 0.0)
 	var reduction: float = clampf(
-		caster.stats.get_value(Stat.Id.COOLDOWN_REDUCTION), 0.0, 0.9
+		caster.stats.get_value(Stat.Id.COOLDOWN_REDUCTION), 0.0, cap
 	)
 	return cooldown * (1.0 - reduction)
 

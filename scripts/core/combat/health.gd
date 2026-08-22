@@ -87,12 +87,29 @@ func heal(amount: float) -> float:
 
 ## Adiciona uma camada de escudo. `duration <= 0` é escudo sem prazo, que só
 ## sai quando consumido.
+##
+## O valor recebido é amplificado por `shield_received_amp` do DONO do escudo,
+## não de quem concedeu — é o lado que recebe que decide, igual a cura.
+## `shield_cap` limita o total acumulado; a camada nova entra pelo que couber.
 func add_shield(amount: float, duration: float = 0.0) -> void:
 	if amount <= 0.0:
 		return
-	_shields.append({"amount": amount, "remaining": duration})
+	var granted: float = amount * (1.0 + _stats.get_value(Stat.Id.SHIELD_RECEIVED_AMP))
+	granted = _fits_under_cap(granted)
+	if granted <= 0.0:
+		return
+	_shields.append({"amount": granted, "remaining": duration})
 	_sort_shields()
 	changed.emit(current, maximum())
+
+## Corta o que passar do teto. Teto 0 é ausência de teto, não teto zero — do
+## contrário todo combatente sem o atributo definido seria incapaz de receber
+## escudo, e o padrão silencioso quebraria o jogo inteiro.
+func _fits_under_cap(amount: float) -> float:
+	var cap: float = _stats.get_value(Stat.Id.SHIELD_CAP)
+	if cap <= 0.0:
+		return amount
+	return clampf(cap - shield, 0.0, amount)
 
 ## Avança o prazo das camadas e descarta as vencidas.
 ## Devolve quanto de escudo expirou sem ser usado.
@@ -125,6 +142,18 @@ func _sort_shields() -> void:
 			return not a_perm
 		return a["remaining"] < b["remaining"]
 	)
+
+## Tira todo o escudo de uma vez. Devolve quanto sumiu.
+##
+## Só a dissipação hostil usa isto — escudo não some por purificação comum, e
+## o padrão de `CleanseEffect` deixa isso desligado de propósito.
+func strip_shields() -> float:
+	var lost: float = shield
+	if lost <= 0.0:
+		return 0.0
+	_shields.clear()
+	changed.emit(current, maximum())
+	return lost
 
 ## Devolve ao estado inicial. Usado pelo boneco de treino ao renascer.
 func reset() -> void:

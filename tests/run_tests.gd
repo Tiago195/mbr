@@ -11,8 +11,10 @@ extends SceneTree
 const SUITES: Array[String] = [
 	"res://tests/test_stats.gd",
 	"res://tests/test_damage.gd",
+	"res://tests/test_mitigacao.gd",
 	"res://tests/test_health.gd",
 	"res://tests/test_effects.gd",
+	"res://tests/test_efeitos_novos.gd",
 	"res://tests/test_abilities.gd",
 	"res://tests/test_zone.gd",
 	"res://tests/test_inventory.gd",

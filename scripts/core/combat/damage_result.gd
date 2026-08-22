@@ -26,10 +26,19 @@ var health_after: float = 0.0
 var was_critical: bool = false
 var killed: bool = false
 
+## Verdadeiro quando a esquiva do alvo anulou a instância inteira. Nada de
+## crítico, nada de escudo gasto, nada de roubo de vida. Existe porque
+## `Agility` (esquiva) e `Accuracy` (acerto) são atributos do original e não
+## têm como ser expressos em cima do dano final — errar não é dano zero, é
+## dano nenhum, e a camada visual mostra as duas coisas diferente.
+var missed: bool = false
+
 ## Cura devolvida ao atacante por roubo de vida ou spell vamp.
 var lifesteal_healed: float = 0.0
 
 func _to_string() -> String:
+	if missed:
+		return "DamageResult(%.1f ERROU)" % raw_damage
 	var crit: String = " CRIT" if was_critical else ""
 	var kill: String = " KILL" if killed else ""
 	return "DamageResult(%.1f -> %.1f%s, escudo %.1f, vida %.1f%s)" % [

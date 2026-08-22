@@ -53,6 +53,17 @@ static func resolve(
 
 	var amount: float = raw_damage
 
+	# --- 1. Esquiva -------------------------------------------------------
+	# Antes de tudo: errar não é dano zero. Um ataque esquivado não gasta
+	# escudo, não critita e não devolve roubo de vida — por isso sai aqui, e
+	# não como um multiplicador de 0 lá embaixo.
+	#
+	# Só ataque básico pode ser esquivado. Habilidade que acerta a área acerta:
+	# esquivar de skillshot é sair do caminho, não sortear.
+	if source == Source.BASIC_ATTACK and _dodges(attacker, target, rng):
+		result.missed = true
+		return result
+
 	# --- 2. Crítico -------------------------------------------------------
 	# Convenção fixada: só ataque básico critita. Habilidade que deva crititar
 	# é exceção declarada no efeito, não regra geral. É a convenção do LoL, e
@@ -60,16 +71,24 @@ static func resolve(
 	# contra a variância do crítico.
 	if attacker != null and source == Source.BASIC_ATTACK:
 		var chance: float = attacker.get_value(Stat.Id.CRIT_CHANCE)
+		chance -= target.get_value(Stat.Id.CRIT_AVOIDANCE)
 		if chance > 0.0:
 			var roll: float = rng.randf() if rng != null else randf()
 			if roll < chance:
 				result.was_critical = true
-				amount *= attacker.get_value(Stat.Id.CRIT_DAMAGE)
+				amount *= _crit_multiplier(attacker, target)
 
 	# --- 3 e 4. Penetração e redução por defesa ---------------------------
 	if type != Type.TRUE:
 		var defense: float = _effective_defense(attacker, target, type)
 		amount *= _defense_multiplier(defense)
+
+	# --- 5. Amplificação --------------------------------------------------
+	# Multiplica DEPOIS da defesa, de propósito. Amplificação que incidisse
+	# antes seria indistinguível de mais poder de ataque, e o original mantém
+	# `PhysicalDamageAmp` separado de `PhysicalDamage` justamente porque ela
+	# não é diluída pela armadura do alvo.
+	amount *= _amplification(attacker, type)
 
 	result.final_damage = amount
 
@@ -91,6 +110,45 @@ static func resolve(
 	result.lifesteal_healed = _lifesteal_for(attacker, source, amount)
 
 	return result
+
+## Sorteia a esquiva. `Agility` do alvo contra `Accuracy` do atacante — o
+## padrão de `Accuracy` é 1, então um atacante sem nada anula 100 pontos
+## percentuais de esquiva antes de começar a errar.
+##
+## O teto de 0.9 existe pelo mesmo motivo do teto de recarga: imunidade total
+## a ataque básico não é um estado que o jogo deva conseguir alcançar por
+## acúmulo de item.
+static func _dodges(attacker: Stats, target: Stats, rng: RandomNumberGenerator) -> bool:
+	var dodge: float = target.get_value(Stat.Id.DODGE)
+	if dodge <= 0.0:
+		return false
+	var accuracy: float = attacker.get_value(Stat.Id.ACCURACY) if attacker != null else 1.0
+	var chance: float = clampf(dodge - (accuracy - 1.0), 0.0, 0.9)
+	if chance <= 0.0:
+		return false
+	var roll: float = rng.randf() if rng != null else randf()
+	return roll < chance
+
+## Multiplicador do crítico já descontada a resistência do alvo.
+##
+## `CriticalDamageDefense` corta o EXCESSO sobre 1, não o multiplicador
+## inteiro: senão resistência suficiente faria o crítico bater menos que um
+## acerto normal, o que é absurdo. O piso é 1.
+static func _crit_multiplier(attacker: Stats, target: Stats) -> float:
+	var multiplier: float = attacker.get_value(Stat.Id.CRIT_DAMAGE)
+	var reduction: float = target.get_value(Stat.Id.CRIT_DAMAGE_REDUCTION)
+	return maxf(1.0, 1.0 + (multiplier - 1.0) * (1.0 - reduction))
+
+## Amplificação de dano causado, por tipo. Dano verdadeiro não amplifica: ele
+## já ignora defesa, e deixá-lo amplificar daria uma via sem contrajogo
+## nenhum.
+static func _amplification(attacker: Stats, type: Type) -> float:
+	if attacker == null or type == Type.TRUE:
+		return 1.0
+	var amp: float = attacker.get_value(
+		Stat.Id.PHYSICAL_DAMAGE_AMP if type == Type.PHYSICAL else Stat.Id.MAGIC_DAMAGE_AMP
+	)
+	return maxf(0.0, 1.0 + amp)
 
 ## Defesa que sobra depois da penetração do atacante.
 ## Percentual primeiro, flat depois, sem descer abaixo de zero — a ordem

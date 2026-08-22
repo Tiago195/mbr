@@ -39,7 +39,20 @@ func apply(cast: AbilityCast, target: Unit) -> void:
 		return
 	if not ignores_root and not target.can_move():
 		return
-	target.pending_displacement += _direction(cast, target) * distance
+	target.pending_displacement += _direction(cast, target) * _distance_for(target)
+
+## Massa resiste a deslocamento IMPOSTO, não ao próprio.
+##
+## O critério é o destinatário, não o modo: `recipient == CASTER` é o dash, e
+## dash é movimento que o personagem escolheu — pesar mais não deve encurtá-lo.
+## `recipient == TARGETS` é empurrão, puxão ou vendaval sofrido, e aí peso é
+## exatamente o que deve segurar. O original tem `Weight` como atributo, e é
+## esta a leitura que dá a ele um contrajogo.
+func _distance_for(target: Unit) -> float:
+	if recipient == Recipient.CASTER:
+		return distance
+	var weight: float = maxf(target.stats.get_value(Stat.Id.WEIGHT), 0.1)
+	return distance / weight
 
 func _direction(cast: AbilityCast, target: Unit) -> Vector3:
 	match mode:

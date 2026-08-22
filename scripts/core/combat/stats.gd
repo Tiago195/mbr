@@ -103,6 +103,33 @@ func remove_source(source: StringName) -> int:
 	_modifiers = kept
 	return removed
 
+## Remove tudo cuja origem comece com um prefixo. Serve para "tire todas as
+## lentidões" sem que quem purifica precise saber de que habilidade cada uma
+## veio — as origens são `slow:<tag>`, e a tag é de quem aplicou.
+func remove_prefixed(prefix: StringName) -> int:
+	var kept: Array[StatModifier] = []
+	var removed: int = 0
+	for mod: StatModifier in _modifiers:
+		if String(mod.source).begins_with(String(prefix)):
+			removed += 1
+		else:
+			kept.append(mod)
+	_modifiers = kept
+	return removed
+
+## Remove só o que tem prazo. Bônus de item equipado é permanente e fica —
+## purificar não pode desequipar ninguém.
+func remove_temporary() -> int:
+	var kept: Array[StatModifier] = []
+	var removed: int = 0
+	for mod: StatModifier in _modifiers:
+		if mod.is_permanent():
+			kept.append(mod)
+		else:
+			removed += 1
+	_modifiers = kept
+	return removed
+
 func modifiers_from(source: StringName) -> Array[StatModifier]:
 	var found: Array[StatModifier] = []
 	for mod: StatModifier in _modifiers:
