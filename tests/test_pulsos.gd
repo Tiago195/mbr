@@ -3,11 +3,11 @@ extends TestCase
 ## Habilidade de vários golpes — a mudança estrutural que a tradução do
 ## original exigiu.
 ##
-## Uma `Skill` de lá referencia até 8 `Impact`, cada um com `StartTime`,
-## `StartPosition`, raio e alvos próprios. Antes disso, `Ability` tinha uma
-## forma só, e traduzir obrigaria a descartar impactos ou fundi-los — e fundir
-## está errado, porque o segundo golpe sai depois, noutro lugar, e só pega
-## quem ficou.
+## Uma `Skill` de lá referencia até 12 `Impact`, cada um com `StartTime`,
+## `StartPosition`, raio e alvos próprios — e cada impacto ainda pode encadear
+## outro. Antes disso, `Ability` tinha uma forma só, e traduzir obrigaria a
+## descartar impactos ou fundi-los — e fundir está errado, porque o segundo
+## golpe sai depois, noutro lugar, e só pega quem ficou.
 
 func _unit(position: Vector3 = Vector3.ZERO, team: int = 0) -> Unit:
 	var stats := Stats.new()
@@ -268,6 +268,72 @@ func test_morrer_limpa_os_pulsos_marcados() -> void:
 	book.advance_time(1.0, caster)
 	AbilityEngine.resolve_scheduled(book, [alvo])
 	assert_almost_eq(alvo.health.current, 1000.0)
+
+# ---------------------------------------------------------------- âncora deslocada
+
+func test_deslocamento_para_a_frente_move_a_area() -> void:
+	# `StartPositionZ` do original: a explosão que nasce adiante dos pés.
+	# Sem o deslocamento, o alvo a 6m ficaria fora de um raio de 2.
+	var caster: Unit = _unit()
+	var alvo: Unit = _unit(Vector3(0, 0, -6), 1)
+
+	var ability := Ability.new()
+	ability.id = &"adiante"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var pulse: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 40.0)
+	pulse.origin = AbilityPulse.Origin.CASTER
+	pulse.radius = 2.0
+	pulse.forward_offset = 6.0
+	ability.pulses = [pulse]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)), [alvo]
+	)
+	assert_almost_eq(alvo.health.current, 960.0, "a área andou 6m para a frente")
+
+func test_sem_deslocamento_a_area_fica_nos_pes() -> void:
+	var caster: Unit = _unit()
+	var alvo: Unit = _unit(Vector3(0, 0, -6), 1)
+	var ability := Ability.new()
+	ability.id = &"nos_pes"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var pulse: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 40.0)
+	pulse.origin = AbilityPulse.Origin.CASTER
+	pulse.radius = 2.0
+	ability.pulses = [pulse]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)), [alvo]
+	)
+	assert_almost_eq(alvo.health.current, 1000.0, "sem deslocamento, não alcança")
+
+func test_deslocamento_lateral_e_perpendicular_a_mira() -> void:
+	var caster: Unit = _unit()
+	# Positivo é à DIREITA de quem conjura. Mirando para -Z (a frente da Godot),
+	# a direita é +X: `frente.cross(UP)` de (0,0,-1) dá (1,0,0).
+	var alvo: Unit = _unit(Vector3(5, 0, 0), 1)
+	var esquerda: Unit = _unit(Vector3(-5, 0, 0), 1)
+	var ability := Ability.new()
+	ability.id = &"lado"
+	ability.aim = Ability.Aim.DIRECTION
+	ability.cast_range = 0.0
+	var pulse: AbilityPulse = _pulso(AbilityPulse.Form.CIRCLE, 40.0)
+	pulse.origin = AbilityPulse.Origin.CASTER
+	pulse.radius = 1.5
+	pulse.side_offset = 5.0
+	ability.pulses = [pulse]
+
+	var book := AbilityBook.new()
+	AbilityEngine.cast(
+		book, ability, AbilityCast.toward(caster, Vector3(0, 0, -1)),
+		[alvo, esquerda]
+	)
+	assert_almost_eq(alvo.health.current, 960.0, "a área foi para a direita")
+	assert_almost_eq(esquerda.health.current, 1000.0, "e não para os dois lados")
 
 # ---------------------------------------------------------------- trapézio
 

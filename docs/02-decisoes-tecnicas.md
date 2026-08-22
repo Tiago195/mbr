@@ -363,9 +363,10 @@ bate na parede. Resolver colisão em `core/` exigiria conhecer a engine.
 `Ability` passou a ser *ativação + mira + `Array[AbilityPulse]`*. Forma, filtro
 e efeitos moram no pulso.
 
-**Por quê:** uma `Skill` do original referencia até oito `Impact`, cada um com
-`StartTime`, `StartPosition`, raio e alvos próprios. 330 das habilidades
-traduzidas usam mais de um. Com uma forma só, traduzir obrigaria a descartar
+**Por quê:** uma `Skill` do original referencia até doze `Impact`, cada um com
+`StartTime`, `StartPosition`, raio e alvos próprios — e cada impacto ainda pode
+encadear outro, com geometria própria. 422 das habilidades traduzidas usam mais
+de um pulso. Com uma forma só, traduzir obrigaria a descartar
 golpes ou a fundi-los — e fundir muda a habilidade.
 
 **Custa caro reverter?** Sim, e por isso está registrado. Todo `.tres` de

@@ -196,7 +196,8 @@ Uma habilidade **não** tem uma forma: tem uma lista de `AbilityPulse`, e cada
 pulso tem forma, tempo, âncora, filtro e efeitos próprios.
 
 Isso veio de medição, não de gosto: uma habilidade do original referencia até
-oito impactos, e 330 delas usam mais de um. Uma forma só obrigaria a descartar
+doze impactos — que ainda encadeiam outros — e 422 delas viram mais de um
+pulso. Uma forma só obrigaria a descartar
 golpes ou a fundi-los, e fundir muda a habilidade — o segundo golpe sai depois,
 noutro raio, e só pega quem ficou.
 

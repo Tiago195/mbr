@@ -572,6 +572,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -586,14 +587,14 @@
        "value": 0.2
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4100400",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -619,12 +620,11 @@
        "value": -0.06
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4100500",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -656,6 +656,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -670,12 +671,11 @@
        "value": -0.2
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4100100",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -705,16 +705,20 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
          "base_damage": 60.0,
          "damage_type": "PHYSICAL",
+         "drain_factor": 1.0,
          "monster_damage_cap": 0.0,
          "percent_of_target_max_health": 0.0,
+         "pierces_invulnerability": false,
          "recipient": "TARGETS",
          "restriction": "ANY",
          "scaling_ratio": 0.4,
@@ -732,20 +736,18 @@
          "type": "mark"
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "TARGETS",
-       "refreshes": true,
        "source_tag": "rc_buff_4100201",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4100200",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {
@@ -892,36 +894,27 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
+     "duration": 3.0,
      "effects": [
       {
-       "duration": 3.0,
-       "effects": [
-        {
-         "base_damage": 0.0,
-         "damage_type": "PHYSICAL",
-         "monster_damage_cap": 0.0,
-         "percent_of_target_max_health": 0.0,
-         "recipient": "TARGETS",
-         "restriction": "ANY",
-         "scaling_ratio": 0.1,
-         "scaling_stat": "attack_damage",
-         "scaling_stat_alt": "attack_damage",
-         "type": "damage"
-        }
-       ],
-       "interval": 1.0,
+       "base_damage": 0.0,
+       "damage_type": "PHYSICAL",
+       "drain_factor": 1.0,
+       "monster_damage_cap": 0.0,
+       "percent_of_target_max_health": 0.0,
+       "pierces_invulnerability": false,
        "recipient": "TARGETS",
-       "refreshes": true,
-       "source_tag": "rc_buff_4101101",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "restriction": "ANY",
+       "scaling_ratio": 0.1,
+       "scaling_stat": "attack_damage",
+       "scaling_stat_alt": "attack_damage",
+       "type": "damage"
       }
      ],
      "interval": 1.0,
-     "recipient": "CASTER",
+     "recipient": "TARGETS",
      "refreshes": true,
-     "source_tag": "rc_buff_4101100",
+     "source_tag": "rc_buff_4101101",
      "ticks_on_apply": false,
      "type": "periodic"
     }
@@ -956,6 +949,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -970,12 +964,11 @@
        "value": 0.1
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4101200",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -1390,26 +1383,15 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "duration": 6.0,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4101301",
-       "stacks": false,
-       "stat": "mana_regen",
-       "type": "stat_mod",
-       "value": 6.0
-      }
-     ],
-     "interval": 1.0,
+     "duration": 6.0,
+     "kind": "FLAT",
+     "max_stacks": 0,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4101300",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4101301",
+     "stacks": false,
+     "stat": "mana_regen",
+     "type": "stat_mod",
+     "value": 6.0
     }
    ],
    "percent_bonuses": {},
@@ -1438,26 +1420,15 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "duration": 6.0,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4101301",
-       "stacks": false,
-       "stat": "mana_regen",
-       "type": "stat_mod",
-       "value": 6.0
-      }
-     ],
-     "interval": 1.0,
+     "duration": 6.0,
+     "kind": "FLAT",
+     "max_stacks": 0,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4101300",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4101301",
+     "stacks": false,
+     "stat": "mana_regen",
+     "type": "stat_mod",
+     "value": 6.0
     }
    ],
    "percent_bonuses": {},
@@ -1487,26 +1458,15 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "duration": 6.0,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4101301",
-       "stacks": false,
-       "stat": "mana_regen",
-       "type": "stat_mod",
-       "value": 6.0
-      }
-     ],
-     "interval": 1.0,
+     "duration": 6.0,
+     "kind": "FLAT",
+     "max_stacks": 0,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4101300",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4101301",
+     "stacks": false,
+     "stat": "mana_regen",
+     "type": "stat_mod",
+     "value": 6.0
     }
    ],
    "percent_bonuses": {},
@@ -4740,6 +4700,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -4765,12 +4726,11 @@
        "value": -15.0
       }
      ],
-     "interval": 1.0,
+     "event": "DAMAGE_TAKEN",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4100600",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -4830,9 +4790,11 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
@@ -4845,13 +4807,16 @@
          "type": "mark"
         },
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
            "base_damage": 0.0,
            "damage_type": "MAGIC",
+           "drain_factor": 1.0,
            "monster_damage_cap": 0.0,
            "percent_of_target_max_health": 0.0,
+           "pierces_invulnerability": false,
            "recipient": "TARGETS",
            "restriction": "ANY",
            "scaling_ratio": 0.6,
@@ -4878,28 +4843,25 @@
            "type": "mark"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4100703",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4100701",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4100700",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -4931,9 +4893,11 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 5.0,
        "effects": [
         {
@@ -4948,20 +4912,18 @@
          "value": -0.4
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4100801",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4100800",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {
@@ -4991,41 +4953,30 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "base_shield": 300.0,
+     "duration": -1.0,
+     "recipient": "CASTER",
+     "scaling_ratio": 0.0,
+     "scaling_stat": "ability_power",
+     "type": "shield"
+    },
+    {
+     "charges": 1,
      "duration": -1.0,
      "effects": [
       {
-       "base_shield": 300.0,
-       "duration": -1.0,
+       "only_source": "rc_buff_4100901",
        "recipient": "CASTER",
-       "scaling_ratio": 0.0,
-       "scaling_stat": "ability_power",
-       "type": "shield"
-      },
-      {
-       "charges": 1,
-       "duration": -1.0,
-       "effects": [
-        {
-         "only_source": "rc_buff_4100901",
-         "recipient": "CASTER",
-         "scope": "BUFFS",
-         "strips_shield": false,
-         "type": "cleanse"
-        }
-       ],
-       "event": "SHIELD_BROKEN",
-       "on_expire": [],
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4100901_fim",
-       "type": "trigger"
+       "scope": "BUFFS",
+       "strips_shield": false,
+       "type": "cleanse"
       }
      ],
-     "interval": 1.0,
+     "event": "SHIELD_BROKEN",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4100900",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4100901_fim",
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -5113,19 +5064,24 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
            "base_damage": 0.0,
            "damage_type": "MAGIC",
+           "drain_factor": 1.0,
            "monster_damage_cap": 0.0,
            "percent_of_target_max_health": 0.0,
+           "pierces_invulnerability": false,
            "recipient": "TARGETS",
            "restriction": "ANY",
            "scaling_ratio": 0.6,
@@ -5134,14 +5090,14 @@
            "type": "damage"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4101002",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         },
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
@@ -5154,28 +5110,25 @@
            "type": "mark"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4101002",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4101001",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4101000",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {
@@ -5461,6 +5414,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -5486,12 +5440,11 @@
        "value": -25.0
       }
      ],
-     "interval": 1.0,
+     "event": "DAMAGE_TAKEN",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4100610",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -5570,6 +5523,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -5584,12 +5538,11 @@
        "value": 0.2
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300000",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -5615,6 +5568,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -5629,12 +5583,11 @@
        "value": 0.3
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300010",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -5661,6 +5614,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -5675,12 +5629,11 @@
        "value": 0.4
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300020",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -5706,6 +5659,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -5731,12 +5685,11 @@
        "value": 0.025
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300100",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -5762,6 +5715,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -5787,12 +5741,11 @@
        "value": 0.0375
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300110",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -5819,6 +5772,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -5844,12 +5798,11 @@
        "value": 0.05
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300120",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -5875,9 +5828,11 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
@@ -5890,13 +5845,16 @@
          "type": "mark"
         },
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
            "base_damage": 0.0,
            "damage_type": "PHYSICAL",
+           "drain_factor": 1.0,
            "monster_damage_cap": 0.0,
            "percent_of_target_max_health": 0.0,
+           "pierces_invulnerability": false,
            "recipient": "TARGETS",
            "restriction": "ANY",
            "scaling_ratio": 0.4,
@@ -5923,28 +5881,25 @@
            "type": "mark"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4300203",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4300201",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300200",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -5970,9 +5925,11 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
@@ -5985,13 +5942,16 @@
          "type": "mark"
         },
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
            "base_damage": 0.0,
            "damage_type": "PHYSICAL",
+           "drain_factor": 1.0,
            "monster_damage_cap": 0.0,
            "percent_of_target_max_health": 0.0,
+           "pierces_invulnerability": false,
            "recipient": "TARGETS",
            "restriction": "ANY",
            "scaling_ratio": 0.6,
@@ -6018,28 +5978,25 @@
            "type": "mark"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4300213",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4300211",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300210",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -6066,9 +6023,11 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
@@ -6081,13 +6040,16 @@
          "type": "mark"
         },
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
            "base_damage": 0.0,
            "damage_type": "PHYSICAL",
+           "drain_factor": 1.0,
            "monster_damage_cap": 0.0,
            "percent_of_target_max_health": 0.0,
+           "pierces_invulnerability": false,
            "recipient": "TARGETS",
            "restriction": "ANY",
            "scaling_ratio": 0.8,
@@ -6114,28 +6076,25 @@
            "type": "mark"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4300223",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4300221",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300220",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -6161,19 +6120,24 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
            "base_damage": 0.0,
            "damage_type": "MAGIC",
+           "drain_factor": 1.0,
            "monster_damage_cap": 0.0,
            "percent_of_target_max_health": 0.0,
+           "pierces_invulnerability": false,
            "recipient": "TARGETS",
            "restriction": "ANY",
            "scaling_ratio": 0.3,
@@ -6182,14 +6146,14 @@
            "type": "damage"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4300302",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         },
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
@@ -6202,28 +6166,25 @@
            "type": "mark"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4300302",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4300301",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300300",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -6249,19 +6210,24 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
            "base_damage": 0.0,
            "damage_type": "MAGIC",
+           "drain_factor": 1.0,
            "monster_damage_cap": 0.0,
            "percent_of_target_max_health": 0.0,
+           "pierces_invulnerability": false,
            "recipient": "TARGETS",
            "restriction": "ANY",
            "scaling_ratio": 0.45,
@@ -6270,14 +6236,14 @@
            "type": "damage"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4300312",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         },
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
@@ -6290,28 +6256,25 @@
            "type": "mark"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4300312",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4300311",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300310",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -6338,19 +6301,24 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
            "base_damage": 0.0,
            "damage_type": "MAGIC",
+           "drain_factor": 1.0,
            "monster_damage_cap": 0.0,
            "percent_of_target_max_health": 0.0,
+           "pierces_invulnerability": false,
            "recipient": "TARGETS",
            "restriction": "ANY",
            "scaling_ratio": 0.6,
@@ -6359,14 +6327,14 @@
            "type": "damage"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4300322",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         },
         {
+         "charges": 0,
          "duration": 3.0,
          "effects": [
           {
@@ -6379,28 +6347,25 @@
            "type": "mark"
           }
          ],
-         "interval": 1.0,
+         "event": "BASIC_ATTACK_HIT",
+         "on_expire": [],
          "recipient": "CASTER",
-         "refreshes": true,
          "source_tag": "rc_buff_4300322",
-         "ticks_on_apply": false,
-         "type": "periodic"
+         "type": "trigger"
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4300321",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300320",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -6426,6 +6391,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -6473,12 +6439,11 @@
        "value": -0.25
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300500",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -6504,6 +6469,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -6551,12 +6517,11 @@
        "value": -0.375
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300510",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -6583,6 +6548,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -6630,12 +6596,11 @@
        "value": -0.5
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4300520",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -6683,52 +6648,30 @@
      "value": 5.0
     },
     {
-     "duration": -1.0,
+     "amount": 1,
+     "duration": 8.0,
+     "mark": "rc_line_4300601",
+     "max_stacks": 1,
+     "mode": "APPLY",
+     "recipient": "TARGETS",
+     "type": "mark"
+    },
+    {
+     "duration": 3.0,
      "effects": [
       {
-       "duration": -1.0,
-       "effects": [
-        {
-         "amount": 1,
-         "duration": 8.0,
-         "mark": "rc_line_4300601",
-         "max_stacks": 1,
-         "mode": "APPLY",
-         "recipient": "TARGETS",
-         "type": "mark"
-        },
-        {
-         "duration": 3.0,
-         "effects": [
-          {
-           "base_heal": 0.0,
-           "percent_of_max_health": 0.01,
-           "recipient": "CASTER",
-           "scaling_ratio": 0.0,
-           "scaling_stat": "ability_power",
-           "type": "heal"
-          }
-         ],
-         "interval": 1.0,
-         "recipient": "TARGETS",
-         "refreshes": true,
-         "source_tag": "rc_buff_4300603",
-         "ticks_on_apply": false,
-         "type": "periodic"
-        }
-       ],
-       "interval": 1.0,
-       "recipient": "TARGETS",
-       "refreshes": true,
-       "source_tag": "rc_buff_4300601",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "base_heal": 0.0,
+       "percent_of_max_health": 0.01,
+       "recipient": "CASTER",
+       "scaling_ratio": 0.0,
+       "scaling_stat": "ability_power",
+       "type": "heal"
       }
      ],
      "interval": 1.0,
-     "recipient": "CASTER",
+     "recipient": "TARGETS",
      "refreshes": true,
-     "source_tag": "rc_buff_4300600",
+     "source_tag": "rc_buff_4300603",
      "ticks_on_apply": false,
      "type": "periodic"
     }
@@ -6778,52 +6721,30 @@
      "value": 7.5
     },
     {
-     "duration": -1.0,
+     "amount": 1,
+     "duration": 8.0,
+     "mark": "rc_line_4300611",
+     "max_stacks": 1,
+     "mode": "APPLY",
+     "recipient": "TARGETS",
+     "type": "mark"
+    },
+    {
+     "duration": 3.0,
      "effects": [
       {
-       "duration": -1.0,
-       "effects": [
-        {
-         "amount": 1,
-         "duration": 8.0,
-         "mark": "rc_line_4300611",
-         "max_stacks": 1,
-         "mode": "APPLY",
-         "recipient": "TARGETS",
-         "type": "mark"
-        },
-        {
-         "duration": 3.0,
-         "effects": [
-          {
-           "base_heal": 0.0,
-           "percent_of_max_health": 0.015,
-           "recipient": "CASTER",
-           "scaling_ratio": 0.0,
-           "scaling_stat": "ability_power",
-           "type": "heal"
-          }
-         ],
-         "interval": 1.0,
-         "recipient": "TARGETS",
-         "refreshes": true,
-         "source_tag": "rc_buff_4300613",
-         "ticks_on_apply": false,
-         "type": "periodic"
-        }
-       ],
-       "interval": 1.0,
-       "recipient": "TARGETS",
-       "refreshes": true,
-       "source_tag": "rc_buff_4300611",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "base_heal": 0.0,
+       "percent_of_max_health": 0.015,
+       "recipient": "CASTER",
+       "scaling_ratio": 0.0,
+       "scaling_stat": "ability_power",
+       "type": "heal"
       }
      ],
      "interval": 1.0,
-     "recipient": "CASTER",
+     "recipient": "TARGETS",
      "refreshes": true,
-     "source_tag": "rc_buff_4300610",
+     "source_tag": "rc_buff_4300613",
      "ticks_on_apply": false,
      "type": "periodic"
     }
@@ -6874,52 +6795,30 @@
      "value": 10.0
     },
     {
-     "duration": -1.0,
+     "amount": 1,
+     "duration": 8.0,
+     "mark": "rc_line_4300621",
+     "max_stacks": 1,
+     "mode": "APPLY",
+     "recipient": "TARGETS",
+     "type": "mark"
+    },
+    {
+     "duration": 3.0,
      "effects": [
       {
-       "duration": -1.0,
-       "effects": [
-        {
-         "amount": 1,
-         "duration": 8.0,
-         "mark": "rc_line_4300621",
-         "max_stacks": 1,
-         "mode": "APPLY",
-         "recipient": "TARGETS",
-         "type": "mark"
-        },
-        {
-         "duration": 3.0,
-         "effects": [
-          {
-           "base_heal": 0.0,
-           "percent_of_max_health": 0.02,
-           "recipient": "CASTER",
-           "scaling_ratio": 0.0,
-           "scaling_stat": "ability_power",
-           "type": "heal"
-          }
-         ],
-         "interval": 1.0,
-         "recipient": "TARGETS",
-         "refreshes": true,
-         "source_tag": "rc_buff_4300623",
-         "ticks_on_apply": false,
-         "type": "periodic"
-        }
-       ],
-       "interval": 1.0,
-       "recipient": "TARGETS",
-       "refreshes": true,
-       "source_tag": "rc_buff_4300621",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "base_heal": 0.0,
+       "percent_of_max_health": 0.02,
+       "recipient": "CASTER",
+       "scaling_ratio": 0.0,
+       "scaling_stat": "ability_power",
+       "type": "heal"
       }
      ],
      "interval": 1.0,
-     "recipient": "CASTER",
+     "recipient": "TARGETS",
      "refreshes": true,
-     "source_tag": "rc_buff_4300620",
+     "source_tag": "rc_buff_4300623",
      "ticks_on_apply": false,
      "type": "periodic"
     }
@@ -6958,52 +6857,30 @@
      "value": 0.1
     },
     {
-     "duration": -1.0,
+     "amount": 1,
+     "duration": 3.0,
+     "mark": "rc_line_4300701",
+     "max_stacks": 1,
+     "mode": "APPLY",
+     "recipient": "TARGETS",
+     "type": "mark"
+    },
+    {
+     "duration": 3.0,
      "effects": [
       {
-       "duration": -1.0,
-       "effects": [
-        {
-         "amount": 1,
-         "duration": 3.0,
-         "mark": "rc_line_4300701",
-         "max_stacks": 1,
-         "mode": "APPLY",
-         "recipient": "TARGETS",
-         "type": "mark"
-        },
-        {
-         "duration": 3.0,
-         "effects": [
-          {
-           "base_heal": 0.0,
-           "percent_of_max_health": 0.01,
-           "recipient": "CASTER",
-           "scaling_ratio": 0.0,
-           "scaling_stat": "ability_power",
-           "type": "heal"
-          }
-         ],
-         "interval": 1.0,
-         "recipient": "TARGETS",
-         "refreshes": true,
-         "source_tag": "rc_buff_4300703",
-         "ticks_on_apply": false,
-         "type": "periodic"
-        }
-       ],
-       "interval": 1.0,
-       "recipient": "TARGETS",
-       "refreshes": true,
-       "source_tag": "rc_buff_4300701",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "base_heal": 0.0,
+       "percent_of_max_health": 0.01,
+       "recipient": "CASTER",
+       "scaling_ratio": 0.0,
+       "scaling_stat": "ability_power",
+       "type": "heal"
       }
      ],
      "interval": 1.0,
-     "recipient": "CASTER",
+     "recipient": "TARGETS",
      "refreshes": true,
-     "source_tag": "rc_buff_4300700",
+     "source_tag": "rc_buff_4300703",
      "ticks_on_apply": false,
      "type": "periodic"
     }
@@ -7042,52 +6919,30 @@
      "value": 0.15
     },
     {
-     "duration": -1.0,
+     "amount": 1,
+     "duration": 3.0,
+     "mark": "rc_line_4300711",
+     "max_stacks": 1,
+     "mode": "APPLY",
+     "recipient": "TARGETS",
+     "type": "mark"
+    },
+    {
+     "duration": 3.0,
      "effects": [
       {
-       "duration": -1.0,
-       "effects": [
-        {
-         "amount": 1,
-         "duration": 3.0,
-         "mark": "rc_line_4300711",
-         "max_stacks": 1,
-         "mode": "APPLY",
-         "recipient": "TARGETS",
-         "type": "mark"
-        },
-        {
-         "duration": 3.0,
-         "effects": [
-          {
-           "base_heal": 0.0,
-           "percent_of_max_health": 0.015,
-           "recipient": "CASTER",
-           "scaling_ratio": 0.0,
-           "scaling_stat": "ability_power",
-           "type": "heal"
-          }
-         ],
-         "interval": 1.0,
-         "recipient": "TARGETS",
-         "refreshes": true,
-         "source_tag": "rc_buff_4300713",
-         "ticks_on_apply": false,
-         "type": "periodic"
-        }
-       ],
-       "interval": 1.0,
-       "recipient": "TARGETS",
-       "refreshes": true,
-       "source_tag": "rc_buff_4300711",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "base_heal": 0.0,
+       "percent_of_max_health": 0.015,
+       "recipient": "CASTER",
+       "scaling_ratio": 0.0,
+       "scaling_stat": "ability_power",
+       "type": "heal"
       }
      ],
      "interval": 1.0,
-     "recipient": "CASTER",
+     "recipient": "TARGETS",
      "refreshes": true,
-     "source_tag": "rc_buff_4300710",
+     "source_tag": "rc_buff_4300713",
      "ticks_on_apply": false,
      "type": "periodic"
     }
@@ -7127,52 +6982,30 @@
      "value": 0.2
     },
     {
-     "duration": -1.0,
+     "amount": 1,
+     "duration": 3.0,
+     "mark": "rc_line_4300721",
+     "max_stacks": 1,
+     "mode": "APPLY",
+     "recipient": "TARGETS",
+     "type": "mark"
+    },
+    {
+     "duration": 3.0,
      "effects": [
       {
-       "duration": -1.0,
-       "effects": [
-        {
-         "amount": 1,
-         "duration": 3.0,
-         "mark": "rc_line_4300721",
-         "max_stacks": 1,
-         "mode": "APPLY",
-         "recipient": "TARGETS",
-         "type": "mark"
-        },
-        {
-         "duration": 3.0,
-         "effects": [
-          {
-           "base_heal": 0.0,
-           "percent_of_max_health": 0.02,
-           "recipient": "CASTER",
-           "scaling_ratio": 0.0,
-           "scaling_stat": "ability_power",
-           "type": "heal"
-          }
-         ],
-         "interval": 1.0,
-         "recipient": "TARGETS",
-         "refreshes": true,
-         "source_tag": "rc_buff_4300723",
-         "ticks_on_apply": false,
-         "type": "periodic"
-        }
-       ],
-       "interval": 1.0,
-       "recipient": "TARGETS",
-       "refreshes": true,
-       "source_tag": "rc_buff_4300721",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "base_heal": 0.0,
+       "percent_of_max_health": 0.02,
+       "recipient": "CASTER",
+       "scaling_ratio": 0.0,
+       "scaling_stat": "ability_power",
+       "type": "heal"
       }
      ],
      "interval": 1.0,
-     "recipient": "CASTER",
+     "recipient": "TARGETS",
      "refreshes": true,
-     "source_tag": "rc_buff_4300720",
+     "source_tag": "rc_buff_4300723",
      "ticks_on_apply": false,
      "type": "periodic"
     }
@@ -7823,32 +7656,21 @@
      "value": 0.075
     },
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "base_heal": 0.0,
-       "percent_of_max_health": 0.1,
-       "recipient": "CASTER",
-       "scaling_ratio": 0.0,
-       "scaling_stat": "ability_power",
-       "type": "heal"
-      },
-      {
-       "amount": 1,
-       "duration": 0.1,
-       "mark": "rc_line_4301301",
-       "max_stacks": 1,
-       "mode": "APPLY",
-       "recipient": "CASTER",
-       "type": "mark"
-      }
-     ],
-     "interval": 1.0,
+     "base_heal": 0.0,
+     "percent_of_max_health": 0.1,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4301300",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "scaling_ratio": 0.0,
+     "scaling_stat": "ability_power",
+     "type": "heal"
+    },
+    {
+     "amount": 1,
+     "duration": 0.1,
+     "mark": "rc_line_4301301",
+     "max_stacks": 1,
+     "mode": "APPLY",
+     "recipient": "CASTER",
+     "type": "mark"
     }
    ],
    "percent_bonuses": {},
@@ -7893,32 +7715,21 @@
      "value": 0.1125
     },
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "base_heal": 0.0,
-       "percent_of_max_health": 0.1,
-       "recipient": "CASTER",
-       "scaling_ratio": 0.0,
-       "scaling_stat": "ability_power",
-       "type": "heal"
-      },
-      {
-       "amount": 1,
-       "duration": 0.1,
-       "mark": "rc_line_4301301",
-       "max_stacks": 1,
-       "mode": "APPLY",
-       "recipient": "CASTER",
-       "type": "mark"
-      }
-     ],
-     "interval": 1.0,
+     "base_heal": 0.0,
+     "percent_of_max_health": 0.1,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4301310",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "scaling_ratio": 0.0,
+     "scaling_stat": "ability_power",
+     "type": "heal"
+    },
+    {
+     "amount": 1,
+     "duration": 0.1,
+     "mark": "rc_line_4301301",
+     "max_stacks": 1,
+     "mode": "APPLY",
+     "recipient": "CASTER",
+     "type": "mark"
     }
    ],
    "percent_bonuses": {},
@@ -7963,32 +7774,21 @@
      "value": 0.15
     },
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "base_heal": 0.0,
-       "percent_of_max_health": 0.1,
-       "recipient": "CASTER",
-       "scaling_ratio": 0.0,
-       "scaling_stat": "ability_power",
-       "type": "heal"
-      },
-      {
-       "amount": 1,
-       "duration": 0.1,
-       "mark": "rc_line_4301301",
-       "max_stacks": 1,
-       "mode": "APPLY",
-       "recipient": "CASTER",
-       "type": "mark"
-      }
-     ],
-     "interval": 1.0,
+     "base_heal": 0.0,
+     "percent_of_max_health": 0.1,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4301320",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "scaling_ratio": 0.0,
+     "scaling_stat": "ability_power",
+     "type": "heal"
+    },
+    {
+     "amount": 1,
+     "duration": 0.1,
+     "mark": "rc_line_4301301",
+     "max_stacks": 1,
+     "mode": "APPLY",
+     "recipient": "CASTER",
+     "type": "mark"
     }
    ],
    "percent_bonuses": {},
@@ -8011,6 +7811,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -8058,12 +7859,11 @@
        "value": -0.25
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4301400",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -8086,6 +7886,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -8133,12 +7934,11 @@
        "value": -0.375
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4301410",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -8161,6 +7961,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -8208,12 +8009,11 @@
        "value": -0.5
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4301420",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -8342,6 +8142,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -8378,12 +8179,11 @@
        "value": 1.0
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_CAST",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302200",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -8409,6 +8209,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -8445,12 +8246,11 @@
        "value": 1.5
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_CAST",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302210",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -8477,6 +8277,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -8513,12 +8314,11 @@
        "value": 2.0
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_CAST",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302220",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -8555,6 +8355,7 @@
      "value": 0.05
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -8580,12 +8381,11 @@
        "value": 0.025
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_CAST",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302300",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -8622,6 +8422,7 @@
      "value": 0.075
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -8647,12 +8448,11 @@
        "value": 0.0375
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_CAST",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302310",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -8690,6 +8490,7 @@
      "value": 0.1
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -8715,12 +8516,11 @@
        "value": 0.05
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_CAST",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302320",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -8746,59 +8546,48 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302401",
-       "stacks": false,
-       "stat": "physical_damage_amp",
-       "type": "stat_mod",
-       "value": 0.075
-      },
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302401",
-       "stacks": false,
-       "stat": "magic_damage_amp",
-       "type": "stat_mod",
-       "value": 0.075
-      },
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302402",
-       "stacks": false,
-       "stat": "armor",
-       "type": "stat_mod",
-       "value": 7.5
-      },
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302402",
-       "stacks": false,
-       "stat": "magic_resist",
-       "type": "stat_mod",
-       "value": 7.5
-      }
-     ],
-     "interval": 1.0,
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4302400",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4302401",
+     "stacks": false,
+     "stat": "physical_damage_amp",
+     "type": "stat_mod",
+     "value": 0.075
+    },
+    {
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4302401",
+     "stacks": false,
+     "stat": "magic_damage_amp",
+     "type": "stat_mod",
+     "value": 0.075
+    },
+    {
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4302402",
+     "stacks": false,
+     "stat": "armor",
+     "type": "stat_mod",
+     "value": 7.5
+    },
+    {
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4302402",
+     "stacks": false,
+     "stat": "magic_resist",
+     "type": "stat_mod",
+     "value": 7.5
     }
    ],
    "percent_bonuses": {},
@@ -8824,59 +8613,48 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302411",
-       "stacks": false,
-       "stat": "physical_damage_amp",
-       "type": "stat_mod",
-       "value": 0.1125
-      },
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302411",
-       "stacks": false,
-       "stat": "magic_damage_amp",
-       "type": "stat_mod",
-       "value": 0.1125
-      },
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302412",
-       "stacks": false,
-       "stat": "armor",
-       "type": "stat_mod",
-       "value": 11.25
-      },
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302412",
-       "stacks": false,
-       "stat": "magic_resist",
-       "type": "stat_mod",
-       "value": 11.25
-      }
-     ],
-     "interval": 1.0,
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4302410",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4302411",
+     "stacks": false,
+     "stat": "physical_damage_amp",
+     "type": "stat_mod",
+     "value": 0.1125
+    },
+    {
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4302411",
+     "stacks": false,
+     "stat": "magic_damage_amp",
+     "type": "stat_mod",
+     "value": 0.1125
+    },
+    {
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4302412",
+     "stacks": false,
+     "stat": "armor",
+     "type": "stat_mod",
+     "value": 11.25
+    },
+    {
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4302412",
+     "stacks": false,
+     "stat": "magic_resist",
+     "type": "stat_mod",
+     "value": 11.25
     }
    ],
    "percent_bonuses": {},
@@ -8903,59 +8681,48 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302421",
-       "stacks": false,
-       "stat": "physical_damage_amp",
-       "type": "stat_mod",
-       "value": 0.15
-      },
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302421",
-       "stacks": false,
-       "stat": "magic_damage_amp",
-       "type": "stat_mod",
-       "value": 0.15
-      },
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302422",
-       "stacks": false,
-       "stat": "armor",
-       "type": "stat_mod",
-       "value": 15.0
-      },
-      {
-       "duration": 1.5,
-       "kind": "FLAT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4302422",
-       "stacks": false,
-       "stat": "magic_resist",
-       "type": "stat_mod",
-       "value": 15.0
-      }
-     ],
-     "interval": 1.0,
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4302420",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4302421",
+     "stacks": false,
+     "stat": "physical_damage_amp",
+     "type": "stat_mod",
+     "value": 0.15
+    },
+    {
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4302421",
+     "stacks": false,
+     "stat": "magic_damage_amp",
+     "type": "stat_mod",
+     "value": 0.15
+    },
+    {
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4302422",
+     "stacks": false,
+     "stat": "armor",
+     "type": "stat_mod",
+     "value": 15.0
+    },
+    {
+     "duration": 1.5,
+     "kind": "FLAT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4302422",
+     "stacks": false,
+     "stat": "magic_resist",
+     "type": "stat_mod",
+     "value": 15.0
     }
    ],
    "percent_bonuses": {},
@@ -9003,6 +8770,7 @@
      "value": 0.05
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -9028,14 +8796,14 @@
        "value": 0.05
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302500",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -9061,12 +8829,11 @@
        "value": -0.25
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302500",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9114,6 +8881,7 @@
      "value": 0.075
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -9139,14 +8907,14 @@
        "value": 0.075
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302510",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -9172,12 +8940,11 @@
        "value": -0.375
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302510",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9226,6 +8993,7 @@
      "value": 0.1
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -9251,14 +9019,14 @@
        "value": 0.1
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302520",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -9284,12 +9052,11 @@
        "value": -0.5
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302520",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9315,6 +9082,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -9351,12 +9119,11 @@
        "value": 0.0125
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302600",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9382,6 +9149,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -9418,12 +9186,11 @@
        "value": 0.01875
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302610",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9450,6 +9217,7 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -9486,12 +9254,11 @@
        "value": 0.025
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302620",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9528,9 +9295,11 @@
      "value": 0.25
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 5.0,
        "effects": [
         {
@@ -9545,20 +9314,18 @@
          "value": -0.25
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4302701",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302700",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9595,9 +9362,11 @@
      "value": 0.375
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 5.0,
        "effects": [
         {
@@ -9612,20 +9381,18 @@
          "value": -0.375
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4302711",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302710",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9663,9 +9430,11 @@
      "value": 0.5
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 5.0,
        "effects": [
         {
@@ -9680,20 +9449,18 @@
          "value": -0.5
         }
        ],
-       "interval": 1.0,
+       "event": "MARK_MAXED",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4302721",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302720",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9888,16 +9655,20 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
          "base_damage": 0.0,
          "damage_type": "MAGIC",
+         "drain_factor": 1.0,
          "monster_damage_cap": 0.0,
          "percent_of_target_max_health": 0.0,
+         "pierces_invulnerability": false,
          "recipient": "TARGETS",
          "restriction": "ANY",
          "scaling_ratio": 0.3,
@@ -9915,20 +9686,18 @@
          "type": "mark"
         }
        ],
-       "interval": 1.0,
+       "event": "BASIC_ATTACK_HIT",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4302901",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_CAST",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302900",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -9954,16 +9723,20 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
          "base_damage": 0.0,
          "damage_type": "MAGIC",
+         "drain_factor": 1.0,
          "monster_damage_cap": 0.0,
          "percent_of_target_max_health": 0.0,
+         "pierces_invulnerability": false,
          "recipient": "TARGETS",
          "restriction": "ANY",
          "scaling_ratio": 0.45,
@@ -9981,20 +9754,18 @@
          "type": "mark"
         }
        ],
-       "interval": 1.0,
+       "event": "BASIC_ATTACK_HIT",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4302911",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_CAST",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302910",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -10021,16 +9792,20 @@
    "max_stack": 1,
    "passive_effects": [
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
+       "charges": 0,
        "duration": 3.0,
        "effects": [
         {
          "base_damage": 0.0,
          "damage_type": "MAGIC",
+         "drain_factor": 1.0,
          "monster_damage_cap": 0.0,
          "percent_of_target_max_health": 0.0,
+         "pierces_invulnerability": false,
          "recipient": "TARGETS",
          "restriction": "ANY",
          "scaling_ratio": 0.6,
@@ -10048,20 +9823,18 @@
          "type": "mark"
         }
        ],
-       "interval": 1.0,
+       "event": "BASIC_ATTACK_HIT",
+       "on_expire": [],
        "recipient": "CASTER",
-       "refreshes": true,
        "source_tag": "rc_buff_4302921",
-       "ticks_on_apply": false,
-       "type": "periodic"
+       "type": "trigger"
       }
      ],
-     "interval": 1.0,
+     "event": "ABILITY_CAST",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4302920",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -10245,6 +10018,7 @@
      "value": 6.0
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -10270,12 +10044,11 @@
        "value": -0.25
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4303100",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -10323,6 +10096,7 @@
      "value": 9.0
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -10348,12 +10122,11 @@
        "value": -0.375
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4303110",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -10402,6 +10175,7 @@
      "value": 12.0
     },
     {
+     "charges": 0,
      "duration": -1.0,
      "effects": [
       {
@@ -10427,12 +10201,11 @@
        "value": -0.5
       }
      ],
-     "interval": 1.0,
+     "event": "BASIC_ATTACK_HIT",
+     "on_expire": [],
      "recipient": "CASTER",
-     "refreshes": true,
      "source_tag": "rc_buff_4303120",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "type": "trigger"
     }
    ],
    "percent_bonuses": {},
@@ -10458,37 +10231,26 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "duration": 2.0,
-       "kind": "PERCENT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4303201",
-       "stacks": false,
-       "stat": "attack_speed",
-       "type": "stat_mod",
-       "value": 0.1
-      },
-      {
-       "duration": 2.0,
-       "kind": "PERCENT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4303201",
-       "stacks": false,
-       "stat": "move_speed",
-       "type": "stat_mod",
-       "value": 0.05
-      }
-     ],
-     "interval": 1.0,
+     "duration": 2.0,
+     "kind": "PERCENT",
+     "max_stacks": 0,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4303200",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4303201",
+     "stacks": false,
+     "stat": "attack_speed",
+     "type": "stat_mod",
+     "value": 0.1
+    },
+    {
+     "duration": 2.0,
+     "kind": "PERCENT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4303201",
+     "stacks": false,
+     "stat": "move_speed",
+     "type": "stat_mod",
+     "value": 0.05
     }
    ],
    "percent_bonuses": {},
@@ -10514,37 +10276,26 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "duration": 2.0,
-       "kind": "PERCENT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4303211",
-       "stacks": false,
-       "stat": "attack_speed",
-       "type": "stat_mod",
-       "value": 0.15
-      },
-      {
-       "duration": 2.0,
-       "kind": "PERCENT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4303211",
-       "stacks": false,
-       "stat": "move_speed",
-       "type": "stat_mod",
-       "value": 0.075
-      }
-     ],
-     "interval": 1.0,
+     "duration": 2.0,
+     "kind": "PERCENT",
+     "max_stacks": 0,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4303210",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4303211",
+     "stacks": false,
+     "stat": "attack_speed",
+     "type": "stat_mod",
+     "value": 0.15
+    },
+    {
+     "duration": 2.0,
+     "kind": "PERCENT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4303211",
+     "stacks": false,
+     "stat": "move_speed",
+     "type": "stat_mod",
+     "value": 0.075
     }
    ],
    "percent_bonuses": {},
@@ -10571,37 +10322,26 @@
    "max_stack": 1,
    "passive_effects": [
     {
-     "duration": -1.0,
-     "effects": [
-      {
-       "duration": 2.0,
-       "kind": "PERCENT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4303221",
-       "stacks": false,
-       "stat": "attack_speed",
-       "type": "stat_mod",
-       "value": 0.2
-      },
-      {
-       "duration": 2.0,
-       "kind": "PERCENT",
-       "max_stacks": 0,
-       "recipient": "CASTER",
-       "source_tag": "rc_buff_4303221",
-       "stacks": false,
-       "stat": "move_speed",
-       "type": "stat_mod",
-       "value": 0.1
-      }
-     ],
-     "interval": 1.0,
+     "duration": 2.0,
+     "kind": "PERCENT",
+     "max_stacks": 0,
      "recipient": "CASTER",
-     "refreshes": true,
-     "source_tag": "rc_buff_4303220",
-     "ticks_on_apply": false,
-     "type": "periodic"
+     "source_tag": "rc_buff_4303221",
+     "stacks": false,
+     "stat": "attack_speed",
+     "type": "stat_mod",
+     "value": 0.2
+    },
+    {
+     "duration": 2.0,
+     "kind": "PERCENT",
+     "max_stacks": 0,
+     "recipient": "CASTER",
+     "source_tag": "rc_buff_4303221",
+     "stacks": false,
+     "stat": "move_speed",
+     "type": "stat_mod",
+     "value": 0.1
     }
    ],
    "percent_bonuses": {},

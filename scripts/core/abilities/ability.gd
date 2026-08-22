@@ -12,8 +12,8 @@ extends Resource
 ## **O que mudou na tradução:** forma, filtro e efeitos saíram daqui e foram
 ## para `AbilityPulse`. Uma habilidade agora é *ativação + mira + uma lista de
 ## pulsos*. O motivo está em `ability_pulse.gd`: uma habilidade do original tem
-## até 8 golpes com tempo, forma e alvos independentes, e uma forma só não
-## expressa isso.
+## até 12 golpes com tempo, forma e alvos independentes — e cada golpe ainda
+## pode encadear outro. Uma forma só não expressa isso.
 ##
 ## Habilidade de golpe único continua sendo um `.tres` com um pulso. Não ficou
 ## mais cara — ficou capaz.

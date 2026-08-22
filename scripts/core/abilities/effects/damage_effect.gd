@@ -63,13 +63,26 @@ enum Restriction {
 
 @export var restriction: Restriction = Restriction.ANY
 
+## Quanto do roubo de vida do conjurador esta instância devolve. 0 = nenhum.
+##
+## `DrainFactor` do original, por impacto: 0 em 743, 0,3 em 735, 1 em 122.
+## Nem toda habilidade devolve vida na mesma proporção, e aplicar o atributo
+## cheio em todas transformaria qualquer conjurador num tanque.
+@export var drain_factor: float = 1.0
+
+## Se atravessa invulnerabilidade. `IgnoreInvincibility` do original, em 11
+## impactos. Existe porque invulnerabilidade sem exceção nenhuma vira um botão
+## de "não perco esta luta", e o original guardou a resposta.
+@export var pierces_invulnerability: bool = false
+
 func apply(cast: AbilityCast, target: Unit) -> void:
 	if target == null or not target.is_alive():
 		return
 	if not _allows(target):
 		return
 	target.receive_damage(
-		cast.caster, _raw_for(cast.caster, target), damage_type, Damage.Source.ABILITY
+		cast.caster, _raw_for(cast.caster, target), damage_type,
+		Damage.Source.ABILITY, drain_factor, pierces_invulnerability
 	)
 
 func _allows(target: Unit) -> bool:

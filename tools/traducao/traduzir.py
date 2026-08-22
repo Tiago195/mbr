@@ -281,6 +281,20 @@ CONTROLE = {
 ## Controles que a tenacidade não encurta.
 CONTROLE_DURO = {"HardStun", "ThrowUp", "Airborne", "KnockBack"}
 
+## `TriggerTiming` de `impact_xml` -> evento do nosso `TriggerSet`.
+##
+## Só entram os que a camada `core/` sabe emitir sozinha. `Start` é ausência de
+## gatilho: o impacto sai junto com a habilidade.
+GATILHO = {
+    "MaxStack": "MARK_MAXED",
+    "DoAttackDamage": "BASIC_ATTACK_HIT",
+    "DoSkillDamage": "ABILITY_HIT",
+    "DoSkillDamageOnce": "ABILITY_HIT",
+    "OnHitDamage": "DAMAGE_TAKEN",
+    "Expire": "EXPIRED",
+    "ActivateActiveSkill": "ABILITY_CAST",
+}
+
 ## `Type` de `equipment_xml` -> (nossa espécie, nosso espaço).
 ITEM_TIPO = {
     "Weapon": ("EQUIPMENT", "WEAPON"),
@@ -328,6 +342,9 @@ class Relatorio:
         self.lacunas: collections.Counter[str] = collections.Counter()
         self.usos: collections.Counter[str] = collections.Counter()
         self.exemplos: dict[str, list[str]] = collections.defaultdict(list)
+        ## Colunas presentes no XML que ninguém consulta nem declara ignorar.
+        ## `{tabela: {coluna: quantas linhas a têm}}`
+        self.nao_consultadas: dict[str, collections.Counter] = {}
 
     def usou(self, chave: str) -> None:
         self.usos[chave] += 1
@@ -337,6 +354,225 @@ class Relatorio:
         if onde and len(self.exemplos[chave]) < 5:
             self.exemplos[chave].append(onde)
 
+    def censo(self, tabelas: Tabelas) -> None:
+        """Varre as colunas do XML e acha as que ninguém olhou.
+
+        Existe porque `lacuna()` só registra o que o tradutor **tentou**
+        mapear. Uma coluna que o código nunca menciona não gera lacuna
+        nenhuma — ela some, e a ausência é indistinguível de uma decisão.
+        Este censo transforma "não sei o que estou perdendo" em uma lista.
+        """
+        fontes = {
+            "skill": tabelas.skills,
+            "impact": tabelas.impacts,
+            "buff": tabelas.buffs,
+            "crowd_control": tabelas.ccs,
+            "equipment": tabelas.equipment,
+        }
+        for nome, tabela in fontes.items():
+            presentes: collections.Counter = collections.Counter()
+            for registro in tabela.values():
+                for coluna in registro:
+                    presentes[coluna] += 1
+            sobrando = collections.Counter()
+            for coluna, quantas in presentes.items():
+                if coluna in CONSULTADAS.get(nome, set()):
+                    continue
+                if coluna in IGNORADAS:
+                    continue
+                if coluna in ORFAS_QUE_SAO_LACUNA:
+                    # Vira lacuna nomeada, com a contagem real de linhas.
+                    self.lacunas[
+                        f"{ORFAS_QUE_SAO_LACUNA[coluna]} (`{coluna}` em {nome})"
+                    ] += quantas
+                    continue
+                sobrando[coluna] = quantas
+            self.nao_consultadas[nome] = sobrando
+
+
+## Colunas que o tradutor CONSULTA, por tabela. Mantida à mão e conferida pelo
+## censo: se uma coluna sai do código e fica aqui, o censo não acusa nada — mas
+## se uma coluna nova aparece no XML e não está nem aqui nem em
+## `IGNORADAS`, o relatório grita.
+CONSULTADAS = {
+    "skill": {
+        "Id", "SkillGroupID", "Rank", "LevelRequirement", "CoolTime", "CostValue",
+        "UI_Type", "UI_Params", "AI_SkillRange", "MovingOnSkill",
+        "SkillCancelableTime", "AtlasName", "ButtonIconPath", "CastingTime",
+        "RemoveCC", "RemoveDebuff", "UseChainBreak", "__tabela",
+    } | {f"Impact{n}" for n in range(1, 13)},
+    "impact": {
+        "Id", "TriggerTiming", "TargetType", "StartPosition", "StartTime",
+        "ColliderActiveDelay", "ActiveDuration", "Radius", "LoopInterval",
+        "ImpactCount", "ProjectileEffectId", "MoveDistance", "MoveSpeedZ",
+        "SummonActorId", "SummonPersistTime", "DrainFactor",
+        "IgnoreInvincibility", "StartPositionX", "StartPositionZ", "__tabela",
+    } | {f"StatType{n}" for n in range(1, 5)}
+      | {f"StatValue{n}" for n in range(1, 5)}
+      | {f"ImpactStatType{n}" for n in range(1, 9)}
+      | {f"ImpactStatValue{n}" for n in range(1, 9)}
+      | {f"ImpactStatTargetType{n}" for n in range(1, 9)},
+    "buff": {
+        "Id", "Duration", "MaxStackCount", "Line", "AdjustCDSkillIds",
+        "AdjustCDTime", "BuffReleaseCondition", "AffectType", "IsInvincibility",
+        "DamageImmunity", "Impact1", "Impact2", "__tabela",
+    } | {f"StatType{n}" for n in range(1, 5)}
+      | {f"StatValue{n}" for n in range(1, 5)},
+    "crowd_control": {
+        "Id", "Type", "Duration", "Distance", "Direction", "ApplyToughness",
+        "Impact1", "__tabela",
+    } | {f"StatType_{n}" for n in range(1, 5)}
+      | {f"StatValue_{n}" for n in range(1, 5)},
+    "equipment": {
+        "Id", "Type", "Rarity", "MaxStackCount", "EquipLine", "Socket",
+        "UsableItemCount", "PassiveBuffs", "SkillId", "RecoverDataType",
+        "IconPath", "Enable", "__tabela",
+    } | {f"StatType_{n}" for n in range(1, 9)}
+      | {f"StatValue_{n}" for n in range(1, 9)},
+}
+
+## Colunas que o tradutor NÃO lê **de propósito**, com o motivo. Estar aqui é
+## uma decisão registrada; não estar em lugar nenhum é perda silenciosa.
+IGNORADAS = {
+    # --- apresentação: som, animação, efeito visual, ícone --------------
+    "Sound": "som", "SoundOnHit1": "som", "SoundOnHit2": "som",
+    "InteractionSound": "som",
+    "Animation": "animação", "UseLoopAni": "animação",
+    "SkillSpeed": "animação", "Duration": "animação (duração do clipe)",
+    "UseEquipModel": "modelo", "HideAttachmentSlots": "modelo",
+    "ShowAttachmentSlots": "modelo", "UsePolymorphSkin": "modelo",
+    "PolymorphActorId": "modelo",
+    "AtlasName": "ícone", "IconAtlasName": "ícone", "IconPath": "ícone",
+    "ShowIcon": "ícone", "EffectTexturePath": "efeito visual",
+    "HitEffectId1": "efeito visual", "HitEffectId2": "efeito visual",
+    "EffectOnDestroy": "efeito visual", "Release_Effects_Id1": "efeito visual",
+    "UseHitRim": "efeito visual", "HitCamera": "câmera",
+    "UseFakeBeaten": "reação visual", "HitOrientation1": "reação visual",
+    "HitTarget1": "reação visual", "HitTarget2": "reação visual",
+    "TargetDummy": "reação visual", "ColliderPath": "colisor de cena",
+    "InheritanceParentScale": "escala visual",
+    "StartScaleX": "escala visual", "EndScaleX": "escala visual",
+    "StartScaleZ": "escala visual", "EndScaleZ": "escala visual",
+    "Angle": "orientação visual", "FollowDirection": "orientação visual",
+    "Desc": "texto localizado", "DescParam": "texto localizado",
+    "Name": "texto localizado", "StatText": "texto localizado",
+    "ConditionMessageID": "texto localizado",
+    "ColorCode": "cor de interface", "DataFormat": "formato de interface",
+    "Mobile_UI_Type": "interface de celular",
+    "UI_BoundHUDRadius": "interface", "ShowMiniMap": "interface",
+    "ShowWorldMap": "interface", "IsHiding": "interface",
+    "ShowGuidebook": "interface", "GuidebookOrder": "interface",
+    "GuidebookGroupActorId": "interface",
+    # --- economia e progressão fora de partida --------------------------
+    "BuyGoldCost": "economia", "LootPriority": "tabela de loot",
+    "DropTableExtraCondition": "tabela de loot", "DropCount": "tabela de loot",
+    "UseDropAssetData": "tabela de loot", "DropItemTableIDs": "tabela de loot",
+    "DropItemRate": "tabela de loot", "Consume": "regra de consumo",
+    "AcquisitionActorIDs": "onde se acha", "EtcAcquisitionActorIDs": "onde se acha",
+    "HuntAcquisitionActorIDs": "onde se acha",
+    "AcquisitionMapiconIDs": "onde se acha",
+    "ValidVersionData": "versionamento", "Enable": "liga/desliga do original",
+    "Order": "ordenação de tabela", "Tier": "ordenação de tabela",
+    # --- infraestrutura do motor do original ----------------------------
+    "CoolTimeLine": "agrupamento de recarga do original",
+    "ComboLine": "agrupamento de combo do original",
+    "IsSeedSkill": "marcador interno", "Socket": "encaixe (lido em equipment)",
+    "PersistRankOnCC": "marcador interno", "PersistStartTime": "marcador interno",
+    "PersistEndTime": "marcador interno", "Persistence": "marcador interno",
+    "ImpactTargetLayer": "camada de física do original",
+    "SummonProperPosition": "ajuste de posição da invocação",
+    "ForceUltimateCharge": "carga de suprema (lacuna registrada)",
+    "UltimateCharge": "carga de suprema (lacuna registrada)",
+    "ApplyOnKnockOut": "regra de nocaute", "ReleaseOnKnockout": "regra de nocaute",
+    "ReleaseOnDie": "regra de morte", "ReleaseAutoAttack": "cadência de ataque",
+    "ResetAttackCoolTime": "cadência de ataque",
+    "AttackCancelableTime": "janela de cancelamento (lacuna registrada)",
+    "MoveCancelableTime": "janela de cancelamento (lacuna registrada)",
+    "TrackCancelableTime": "janela de cancelamento (lacuna registrada)",
+    "CancelForbidStartTime": "janela de cancelamento (lacuna registrada)",
+    "CancelForbidEndTime": "janela de cancelamento (lacuna registrada)",
+    "ComboSkillInfo_SkillID": "corrente de combo (lacuna registrada)",
+    "ComboSkillInfo_StartTime": "corrente de combo (lacuna registrada)",
+    "ComboSkillInfo_LimitTime": "corrente de combo (lacuna registrada)",
+    "ZMoveCurvePath": "curva de deslocamento (lacuna registrada)",
+    "YMoveCurvePath": "curva de deslocamento (lacuna registrada)",
+    "MoveCurvePath": "curva de deslocamento (lacuna registrada)",
+    "ParabolaCurvePath": "curva de deslocamento (lacuna registrada)",
+    "TransverseParabolaCurvePath": "curva de deslocamento (lacuna registrada)",
+    "AdjustCDSkillIds": "lido em buff", "AdjustCDTime": "lido em buff",
+    "ApplyCDReductionRatio": "recarga do próprio buff — sem consumidor ainda",
+    "StackType": "acúmulo entre linhas de buff — sem consumidor ainda",
+    "ChangeMode": "postura — vira marca",
+    "BuffType": "rótulo de buff/debuff, sem efeito mecânico",
+    "AlwaysMaintain": "persistência entre partidas",
+    "AimDuration": "tempo de mira, ligado à interface",
+    "FixedDirection": "trava de direção durante a animação",
+    "LookAtTargetDirection": "trava de direção durante a animação",
+    "TrackingMode": "perseguição de alvo pelo projétil",
+    "StopCondition": "condição de parada do dash",
+    "SkillType": "rótulo Moving/Haste do original",
+    "SightRange": "lido como atributo em actor",
+    "LimitSourceDistance": "limite de distância do controle",
+    "IgnoreEnableSkillOnCC": "exceção de controle",
+    "IgnoreMiss": "acerto garantido — sem consumidor ainda",
+    "ArriveTime": "tempo de voo, aproximado por MoveSpeedZ",
+    "StartPositionY": "altura, ignorada como o resto da altura",
+    "MaxHeight": "altura do arremesso, visual",
+    "MoveSpeed": "velocidade do arremesso, visual",
+    "FollowTarget": "impacto que segue o alvo — sem consumidor ainda",
+    "FollowSpawnerDirection": "orientação ao nascer",
+    "SourceType": "origem do controle, redundante com StartPosition",
+    "BeAbleToAttackBush": "arbusto — sem sistema de arbusto ainda",
+    "SkillCancelableTime": "lido em skill",
+    "MaxSlot": "interface de inventário",
+    # --- fechadas depois do primeiro censo -----------------------------
+    # Cada uma abaixo apareceu como órfã na primeira varredura. Estar aqui é
+    # uma decisão registrada; não estar em lugar nenhum era perda silenciosa.
+    "ActivationType": "quando a recarga começa no original (OnStart / "
+                      "OnFirstImpact / OnLastImpact). Nós começamos sempre ao "
+                      "conjurar — decisão da Fase 3.2, e mudá-la por "
+                      "habilidade daria dois comportamentos para a mesma coisa",
+    "CostType": "sempre `ManaCost` nas 684 ocorrências; o valor é lido",
+    "CostReq": "requisito de custo do original, sem equivalente",
+    "TargetType": "em skill é redundante: quem resolve quem é atingido é o "
+                  "`TargetType` de cada impacto, que é lido",
+    "UsableDataType": "redundante com `SkillId` e `RecoverDataType`, os dois lidos",
+    "Effects_Id1": "efeito visual", "Effects_Id2": "efeito visual",
+    "Effects_Id3": "efeito visual", "Effects_Id4": "efeito visual",
+    "Effects_Id5": "efeito visual", "Effects_Id6": "efeito visual",
+    "Effects_Id7": "efeito visual",
+    "SoundDelay": "som", "SoundOnDestroy": "som",
+    "EndPosition": "destino do projétil; aproximado por `MoveDistance`, que é lido",
+    "ImpactType": "taxonomia de colisor do motor do original",
+    "UseCollider": "taxonomia de colisor do motor do original",
+    "TriggingRatio": "limiar interno do original: 9999 em 126 casos e 1 em 9. "
+                     "Não é chance percentual, e não há leitura que faça sentido",
+    "AccFactor": "fator de acúmulo de carga de suprema — cai na lacuna de "
+                 "`UltimateCharge`, registrada",
+    "Rank": "em buff é o degrau dentro da `Line`; a linha vira marca e o "
+            "acúmulo dela cobre o degrau",
+    "PersistRank": "marcador interno do original",
+    "ZActionCurvePath": "curva de deslocamento (lacuna registrada)",
+    "MoveCancelableEndTime": "janela de cancelamento (lacuna registrada)",
+    "Overlap": "corrente de combo (lacuna registrada)",
+    "ChainType": "corrente de combo (lacuna registrada)",
+    "ChainCondition": "corrente de combo (lacuna registrada)",
+    "IgnoreActivateTrigger": "corrente de combo (lacuna registrada)",
+    "TrackDistanceForMovingSkill": "perseguição de alvo pelo dash",
+    "TrackPersistTime": "perseguição de alvo pelo dash",
+    "MoveType": "rótulo de tipo de movimento do original",
+    "EnableSkillOnVehicle": "veículo (lacuna registrada)",
+}
+
+## Colunas órfãs que viram LACUNA em vez de decisão: o original tem um sistema
+## ali e nós não. Diferente de `IGNORADAS`, que são coisas que decidimos não
+## precisar. `{coluna: descrição}`.
+ORFAS_QUE_SAO_LACUNA = {
+    "ThroughObstacle": "atravessar parede (não há sistema de obstáculo em core/)",
+    "EnableSkillOnCC": "conjurar mesmo sob controle",
+    "TargetCondition": "ricochete para outro inimigo",
+    "TargetRange": "alcance do ricochete",
+}
 
 # --------------------------------------------------------------------------
 # Tradução de efeitos
@@ -385,12 +621,22 @@ class Tradutor:
             nosso = CONTROLE[tipo]
             if nosso is not None:
                 self.r.usou(f"cc:{nosso}")
+                # `ApplyToughness` responde DIRETO se a tenacidade se aplica.
+                # Antes isto era inferido por `CONTROLE_DURO`, e a inferência
+                # discordava do dado em quatro entradas. Palpite perde para
+                # coluna quando a coluna existe.
+                aplica = cc.get("ApplyToughness")
+                if aplica is not None:
+                    duro = aplica.strip().lower() != "true"
+                else:
+                    duro = tipo in CONTROLE_DURO
+                    self.r.usou("tenacidade inferida (sem ApplyToughness)")
                 efeito = {
                     "type": "crowd_control",
                     "recipient": alvo,
                     "control": nosso,
                     "duration": num(cc.get("Duration")),
-                    "ignores_tenacity": tipo in CONTROLE_DURO,
+                    "ignores_tenacity": duro,
                     "source_tag": f"rc_cc_{cc_id}",
                 }
                 if nosso == "SLOW":
@@ -404,6 +650,15 @@ class Tradutor:
         empurrao = self._empurrao(cc, alvo, onde)
         if empurrao:
             efeitos.append(empurrao)
+
+        # O controle pode carregar um impacto próprio — 7 entradas fazem isso.
+        # Sem ler, o dano da parede que arremessa some junto com a parede.
+        impacto_do_cc = cc.get("Impact1")
+        if impacto_do_cc:
+            internos = self._efeitos_de_impacto(impacto_do_cc, onde)
+            if internos:
+                self.r.usou("impacto dentro de controle")
+                efeitos.extend(internos)
 
         # Um controle pode carregar atributos além da lentidão — `SightRange`
         # reduzido é a cegueira parcial do original.
@@ -504,8 +759,9 @@ class Tradutor:
                 "source_tag": tag,
             })
 
-        # Buff que carrega impacto é dano-ao-longo-do-tempo, aura ou
-        # regeneração — os três são o mesmo periódico com efeitos diferentes.
+        # Buff que carrega impacto é uma de TRÊS coisas, e `TriggerTiming` diz
+        # qual. Tratar as três como periódico — que era o que se fazia — dava
+        # veneno a coisas que na verdade esperam um evento.
         for indice in (1, 2):
             impact_id = registro.get(f"Impact{indice}")
             if not impact_id:
@@ -514,18 +770,38 @@ class Tradutor:
             if not internos:
                 continue
             impacto = self.t.impacts.get(impact_id, {})
-            intervalo = num(impacto.get("LoopInterval"), 0.0) or 1.0
-            self.r.usou("periodic")
-            efeitos.append({
-                "type": "periodic",
-                "recipient": alvo,
-                "interval": intervalo,
-                "duration": duracao,
-                "ticks_on_apply": False,
-                "refreshes": True,
-                "source_tag": tag,
-                "effects": internos,
-            })
+            laco = num(impacto.get("LoopInterval"), 0.0)
+            evento = self._evento_de(impacto, onde)
+
+            if evento is not None:
+                self.r.usou(f"gatilho {evento}")
+                efeitos.append({
+                    "type": "trigger",
+                    "recipient": alvo,
+                    "event": evento,
+                    "charges": 0,
+                    "duration": duracao,
+                    "source_tag": tag,
+                    "effects": internos,
+                    "on_expire": [],
+                })
+            elif laco > 0.0:
+                self.r.usou("periodic")
+                efeitos.append({
+                    "type": "periodic",
+                    "recipient": alvo,
+                    "interval": laco,
+                    "duration": duracao,
+                    "ticks_on_apply": False,
+                    "refreshes": True,
+                    "source_tag": tag,
+                    "effects": internos,
+                })
+            else:
+                # Sem laço e sem gatilho: o impacto sai uma vez, quando o buff
+                # é aplicado. Envolvê-lo num periódico faria bater repetido.
+                self.r.usou("impacto de buff, imediato")
+                efeitos.extend(internos)
 
         if registro.get("AffectType") == "Aura":
             # Aura no original é um buff que se propaga a quem está perto. Nós
@@ -553,6 +829,18 @@ class Tradutor:
                 "amount": 1,
             })
         return efeitos
+
+    ## `TriggerTiming` -> evento, ou `None` quando é `Start` (sem gatilho).
+    ## Timing que existe e não temos vira lacuna, não silêncio.
+    def _evento_de(self, impacto: dict, onde: str) -> str | None:
+        bruto = impacto.get("TriggerTiming", "Start")
+        for parte in [t.strip() for t in bruto.split(",") if t.strip()]:
+            if parte == "Start":
+                continue
+            if parte in GATILHO:
+                return GATILHO[parte]
+            self.r.lacuna(f"TriggerTiming={parte}", onde)
+        return None
 
     def _ajuste_de_recarga(
         self, registro: dict, alvo: str, onde: str
@@ -715,8 +1003,24 @@ class Tradutor:
         return self._traduzir_stats(registro, onde, visitados | {marca})
 
     def _traduzir_stats(
-        self, impacto: dict[str, str], onde: str, visitados: frozenset
+        self,
+        impacto: dict[str, str],
+        onde: str,
+        visitados: frozenset,
+        encadeados: list | None = None,
     ) -> list[dict]:
+        """Traduz as colunas `ImpactStat*` de um impacto.
+
+        `encadeados`, quando dado, RECOLHE os ids de `ImpactStatType: Impact`
+        em vez de fundir os efeitos deles aqui. É a diferença entre "o golpe
+        seguinte vira um pulso com o tempo e o raio dele" e "os efeitos dos
+        dois viram um só" — e fundir está errado pelo mesmo motivo que o doc
+        da tradução dá para não fundir impactos irmãos.
+
+        Sem `encadeados` (contexto de buff, onde não há forma a resolver), o
+        comportamento antigo continua: funde, porque não existe pulso onde
+        pendurar o filho.
+        """
         efeitos: list[dict] = []
         # Dano e cura são acumulados antes de virar efeito: o original separa a
         # parte que escala da parte fixa em duas linhas (`PhysicalAttack` e
@@ -736,6 +1040,13 @@ class Tradutor:
             ) == "User" else "TARGETS"
 
             for parte in [p.strip() for p in tipo.split(",") if p.strip()]:
+                if parte == "Impact" and encadeados is not None:
+                    # Recolhe para virar pulso próprio lá em cima.
+                    filho, _ = id_e_pilha(bruto)
+                    if filho and filho not in encadeados:
+                        encadeados.append(filho)
+                    self.r.usou("impacto encadeado como pulso")
+                    continue
                 self._uma_coluna(
                     parte, bruto, alvo, dano, cura, efeitos, onde, visitados
                 )
@@ -757,10 +1068,52 @@ class Tradutor:
                 "explicit_team": 0,
             })
 
+        self._modificadores_do_impacto(impacto, onde)
+
+        # `DrainFactor` e `IgnoreInvincibility` são do IMPACTO, não da coluna
+        # de stat: valem para todo dano que ele causar. Aplicados aqui, uma vez,
+        # em vez de repetidos em cada `case` do dano.
+        dreno = impacto.get("DrainFactor")
+        fura = booleano(impacto.get("IgnoreInvincibility"))
+        if dreno is not None or fura:
+            for bloco in dano.values():
+                if dreno is not None:
+                    bloco["drain_factor"] = num(dreno, 1.0)
+                bloco["pierces_invulnerability"] = fura
+            if dreno is not None:
+                self.r.usou("drain_factor")
+            if fura:
+                self.r.usou("fura invulnerabilidade")
+
         # Ordem: dano e cura primeiro, depois controle e buff. É a ordem em que
         # o jogador percebe, e importa de verdade num caso — executar antes de
         # atordoar torna o atordoamento irrelevante.
         return list(dano.values()) + list(cura.values()) + efeitos
+
+    ## `StatType1..4` do IMPACTO: modificadores que valem só para aquele golpe.
+    ##
+    ## Dois deles não são lacuna nenhuma — são as nossas próprias convenções,
+    ## escritas por eles. `Accuracy: 1` diz "este golpe sempre acerta", que é o
+    ## que `Damage.resolve` já faz com habilidade. `CriticalRatio: -9999` diz
+    ## "este golpe não critica", que é a decisão 8 palavra por palavra.
+    ##
+    ## Achar isso foi a melhor confirmação de que as convenções fechadas na
+    ## Fase 2.2 sem consultar o original bateram com ele.
+    def _modificadores_do_impacto(self, impacto: dict, onde: str) -> None:
+        for indice in range(1, 5):
+            nome = impacto.get(f"StatType{indice}")
+            if not nome:
+                continue
+            valor = num(impacto.get(f"StatValue{indice}"))
+            if nome == "Accuracy":
+                self.r.usou("acerto garantido (já é a nossa convenção)")
+            elif nome == "CriticalRatio" and valor < 0:
+                self.r.usou("habilidade não critica (já é a nossa convenção)")
+            else:
+                self.r.lacuna(
+                    f"modificador só deste golpe: {nome} "
+                    "(temos modificador por personagem, não por golpe)", onde
+                )
 
     def _uma_coluna(
         self,
@@ -785,6 +1138,8 @@ class Tradutor:
                     "scaling_stat_alt": escala,
                     "scaling_ratio": 0.0,
                     "damage_type": tipo_dano,
+                    "drain_factor": 1.0,
+                    "pierces_invulnerability": False,
                     "percent_of_target_max_health": 0.0,
                     "monster_damage_cap": 0.0,
                     "restriction": "ANY",
@@ -913,32 +1268,87 @@ class Tradutor:
 
     # ---------------------------------------------------------- pulso
 
-    def pulso(
-        self, impact_id: str, skill: dict[str, str], onde: str
-    ) -> dict | None:
+    def pulsos(
+        self,
+        impact_id: str,
+        skill: dict[str, str],
+        onde: str,
+        visitados: frozenset = frozenset(),
+        atraso_herdado: float = 0.0,
+        ancora_pai: str | None = None,
+    ) -> list[dict]:
+        """Um impacto e seus encadeados, cada um como pulso próprio.
+
+        O impacto filho de `ImpactStatType: Impact` tem `StartTime`, `Radius` e
+        `StartPosition` PRÓPRIOS — 300 das 320 referências encadeadas diferem
+        do pai em pelo menos um dos três. Fundir os efeitos dele no pai
+        descartaria essa geometria, que é exatamente o erro que a estrutura de
+        pulsos existe para não cometer.
+
+        O atraso do filho acumula o do pai: ele nasce quando o pai sai.
+        `ParentImpactPosition` vira `Origin.PREVIOUS`, que é o pulso do pai —
+        e quando o pai não gerou pulso (só encadeava), o filho herda a âncora
+        que o pai teria tido.
+        """
+        marca = f"i{impact_id}"
+        if marca in visitados:
+            return []
+        visitados = visitados | {marca}
+
         impacto = self.t.impacts.get(impact_id)
         if impacto is None:
             self.r.lacuna("impacto ausente", f"{onde} -> {impact_id}")
-            return None
+            return []
 
-        efeitos = self._traduzir_stats(impacto, onde, frozenset({f"i{impact_id}"}))
-        if not efeitos:
-            return None
+        encadeados: list[str] = []
+        efeitos = self._traduzir_stats(impacto, onde, visitados, encadeados)
 
+        atraso_proprio = (
+            atraso_herdado
+            + num(impacto.get("StartTime"))
+            + num(impacto.get("ColliderActiveDelay"))
+        )
+        ancora = ANCORA.get(impacto.get("StartPosition", "User"), "CASTER")
+        if ancora == "PREVIOUS" and ancora_pai is not None:
+            # O pai não virou pulso: não há "anterior" para apontar.
+            ancora = ancora_pai
+
+        saida: list[dict] = []
+        if efeitos:
+            saida.append(self._montar_pulso(
+                impacto, skill, efeitos, atraso_proprio, ancora
+            ))
+
+        for filho in encadeados:
+            saida.extend(self.pulsos(
+                filho, skill, onde, visitados, atraso_proprio,
+                None if efeitos else ancora,
+            ))
+        return saida
+
+    def _montar_pulso(
+        self,
+        impacto: dict[str, str],
+        skill: dict[str, str],
+        efeitos: list[dict],
+        atraso: float,
+        ancora: str,
+    ) -> dict:
         forma, geometria = self._forma(impacto, skill)
         alvos = self._filtro(impacto.get("TargetType", ""))
-        atraso = num(impacto.get("StartTime")) + num(impacto.get("ColliderActiveDelay"))
         laco = num(impacto.get("LoopInterval"))
 
         pulso = {
             "form": forma,
-            "origin": ANCORA.get(impacto.get("StartPosition", "User"), "CASTER"),
+            "origin": ancora,
             "delay": round(atraso, 3),
             # `ActiveDuration` só vira duração de área quando há laço: sem
             # laço ela é o tempo que o colisor fica ligado, que para nós é
             # instantâneo — quem entrar depois não é atingido de novo.
             "duration": num(impacto.get("ActiveDuration")) if laco > 0 else 0.0,
             "loop_interval": laco,
+            "forward_offset": num(impacto.get("StartPositionZ")),
+            "side_offset": num(impacto.get("StartPositionX")),
             "max_targets": inteiro(impacto.get("ImpactCount"), 0),
             "effects": efeitos,
         }
@@ -1037,19 +1447,34 @@ class Tradutor:
         dono = _quem(skill)
         icone = _slug(skill.get("ButtonIconPath", ""))
 
+        # `Impact1` a `Impact12`. Parava em 8 e perdia 13 impactos inteiros de
+        # 8 habilidades, com dano e cura de verdade — e sem virar lacuna,
+        # porque o laço nem chegava a olhar a coluna.
         pulsos: list[dict] = []
-        for indice in range(1, 9):
+        for indice in range(1, 13):
             impact_id = skill.get(f"Impact{indice}")
             if not impact_id:
                 continue
-            pulso = self.pulso(impact_id, skill, onde)
-            if pulso is not None:
-                pulsos.append(pulso)
+            pulsos.extend(self.pulsos(impact_id, skill, onde))
+
+        # `RemoveCC` é purificação, e `CleanseEffect` já existia. Sai como um
+        # pulso no próprio conjurador, antes dos outros: purificar depois de
+        # apanhar de novo não faria sentido.
+        limpeza = self._purificacao(skill, onde)
+        if limpeza is not None:
+            pulsos.insert(0, limpeza)
 
         ui = skill.get("UI_Type", "None")
         if ui not in MIRA:
             self.r.lacuna(f"UI_Type={ui}", onde)
         mira = MIRA.get(ui, "POINT")
+
+        # `CastingTime` existe em 61 habilidades, com valores de 0,3 a 5
+        # segundos. A afirmação de que "o original não trava a conjuração"
+        # estava errada: ele trava, só não em toda habilidade.
+        tempo_de_conjuracao = num(skill.get("CastingTime"), 0.0)
+        if tempo_de_conjuracao > 0.0:
+            self.r.usou("cast_time")
 
         if skill.get("ComboSkillInfo_SkillID"):
             self.r.lacuna("ComboSkillInfo (corrente de combo)", onde)
@@ -1080,18 +1505,68 @@ class Tradutor:
             "rank": inteiro(skill.get("Rank"), 1),
             "level_requirement": inteiro(skill.get("LevelRequirement"), 0),
             "cooldown": num(skill.get("CoolTime")),
-            # O original não trava a conjuração como um MOBA clássico: ele usa
-            # a animação, com janelas de cancelamento. O que corresponde ao
-            # nosso `cast_time` é o atraso do PRIMEIRO impacto, e esse já está
-            # no `delay` do pulso. Deixar `cast_time` em zero e o atraso no
-            # pulso é o que preserva o timing sem inventar um travamento.
-            "cast_time": 0.0,
+            # `CastingTime` quando existe; zero quando não. A maioria das
+            # habilidades do original NÃO trava a conjuração — ela usa a
+            # animação com janelas de cancelamento, e o timing do golpe vem do
+            # `StartTime` de cada impacto, que virou o `delay` do pulso. As 61
+            # que travam trazem a coluna, e agora ela é lida.
+            "cast_time": tempo_de_conjuracao,
             "can_move_while_casting": booleano(skill.get("MovingOnSkill")),
             "cancelable": skill.get("SkillCancelableTime") is not None,
             "mana_cost": num(skill.get("CostValue")),
             "aim": mira,
             "cast_range": num(skill.get("AI_SkillRange"), 0.0),
             "pulses": pulsos,
+        }
+
+    def _purificacao(self, skill: dict[str, str], onde: str) -> dict | None:
+        """`RemoveCC` e `RemoveDebuff` -> um pulso de purificação no conjurador."""
+        bruto = skill.get("RemoveCC")
+        limpa_buff = booleano(skill.get("RemoveDebuff"))
+        if not bruto and not limpa_buff:
+            return None
+        if not bruto:
+            # Só `RemoveDebuff`: tira efeito negativo, não controle.
+            self.r.usou("cleanse (RemoveDebuff)")
+            return {
+                "form": "SINGLE", "origin": "CASTER", "delay": 0.0,
+                "duration": 0.0, "loop_interval": 0.0, "radius": 0.0,
+                "max_targets": 0, "hits_enemies": False, "hits_allies": False,
+                "hits_self": True,
+                "effects": [{
+                    "type": "cleanse", "recipient": "CASTER",
+                    "scope": "BUFFS", "only_source": "",
+                    "strips_shield": False,
+                }],
+            }
+        tipos = [t.strip() for t in bruto.split(",") if t.strip()]
+        # Lista com Stun e companhia é purificação ampla; só `Slow` é a
+        # estreita. Nosso `CleanseEffect` de escopo CROWD_CONTROL cobre as
+        # duas — ele tira controle e lentidão juntos, e separar exigiria um
+        # escopo por tipo que nenhuma outra habilidade usaria.
+        self.r.usou("cleanse (RemoveCC)")
+        if len(tipos) == 1 and tipos[0] == "Slow":
+            self.r.lacuna(
+                "RemoveCC só de Slow traduzido como purificação ampla", onde
+            )
+        return {
+            "form": "SINGLE",
+            "origin": "CASTER",
+            "delay": 0.0,
+            "duration": 0.0,
+            "loop_interval": 0.0,
+            "radius": 0.0,
+            "max_targets": 0,
+            "hits_enemies": False,
+            "hits_allies": False,
+            "hits_self": True,
+            "effects": [{
+                "type": "cleanse",
+                "recipient": "CASTER",
+                "scope": "CROWD_CONTROL",
+                "only_source": "",
+                "strips_shield": False,
+            }],
         }
 
     # ---------------------------------------------------------- item
@@ -1289,6 +1764,30 @@ def escrever_relatorio(
         linhas.append(f"| `{chave}` | {quantas} |")
     linhas.append("")
 
+    linhas.append("## Censo de colunas — o que nunca foi olhado")
+    linhas.append("")
+    linhas.append(
+        "A tabela de lacunas abaixo só sabe do que o tradutor **tentou** "
+        "mapear. Uma coluna que o código nunca menciona não gera lacuna "
+        "nenhuma — ela some, e a ausência fica indistinguível de uma decisão. "
+        "Este censo varre as colunas presentes no XML e lista as que não estão "
+        "nem em `CONSULTADAS` nem em `IGNORADAS`."
+    )
+    linhas.append("")
+    total_orfas = sum(len(c) for c in r.nao_consultadas.values())
+    if total_orfas == 0:
+        linhas.append(
+            "**Nenhuma.** Toda coluna das cinco tabelas ou é lida, ou está "
+            "declarada em `IGNORADAS` com o motivo."
+        )
+    else:
+        linhas.append("| Tabela | Coluna | Linhas que a têm |")
+        linhas.append("|---|---|---|")
+        for tabela, colunas in r.nao_consultadas.items():
+            for coluna, quantas in colunas.most_common():
+                linhas.append(f"| `{tabela}` | `{coluna}` | {quantas} |")
+    linhas.append("")
+
     linhas.append("## Lacunas — o que o original diz e nós ainda não")
     linhas.append("")
     if not r.lacunas:
@@ -1341,6 +1840,7 @@ def main() -> int:
         for equip in sorted(tabelas.equipment.values(), key=lambda e: int(e["Id"]))
     ]
     ligar_receitas(itens, tabelas, relatorio)
+    relatorio.censo(tabelas)
 
     args.saida.mkdir(parents=True, exist_ok=True)
     _escrever_json(args.saida / "habilidades.json", {

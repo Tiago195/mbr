@@ -37,6 +37,15 @@ enum Kind {
 	## mesma habilidade — aqui só entra o estado, o empurrão é do outro efeito.
 	AIRBORNE,
 	POLYMORPH,
+	## Imune a dano. Não é controle — é o oposto — mas vive aqui pelo mesmo
+	## motivo que vive em `StatusSet`: é um estado booleano com prazo, e um
+	## segundo caminho para aplicá-lo seria duplicação.
+	##
+	## Faltava, e a falta era pior que uma lacuna: o tradutor emitia
+	## `INVULNERABLE`, a fábrica não reconhecia, caía no padrão, e "fica
+	## invulnerável 1,6s" virava "fica atordoado 1,6s" — no próprio conjurador.
+	## Silêncio que inverte o sentido é o pior tipo de silêncio.
+	INVULNERABLE,
 }
 
 @export var control: Kind = Kind.STUN
@@ -82,7 +91,9 @@ func _apply_slow(target: Unit) -> void:
 ## de recarga: imunidade completa a controle não é um estado que o jogo deva
 ## alcançar por acúmulo de item.
 func _reduced_duration(target: Unit) -> float:
-	if ignores_tenacity:
+	# Invulnerabilidade é benefício, não controle: tenacidade do ALVO cortá-la
+	# seria punir quem se defende de controle por se defender de dano.
+	if ignores_tenacity or control == Kind.INVULNERABLE:
 		return duration
 	var tenacity: float = clampf(target.stats.get_value(Stat.Id.TENACITY), 0.0, 0.8)
 	return duration * (1.0 - tenacity)
@@ -105,6 +116,8 @@ func _status_kind() -> StatusSet.Kind:
 			return StatusSet.Kind.AIRBORNE
 		Kind.POLYMORPH:
 			return StatusSet.Kind.POLYMORPH
+		Kind.INVULNERABLE:
+			return StatusSet.Kind.INVULNERABLE
 		_:
 			return StatusSet.Kind.STUN
 

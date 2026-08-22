@@ -33,6 +33,8 @@ func load_from(
 	loaded = 0
 	skipped = 0
 	unresolved_actives = 0
+	# Zerar antes de carregar: o contador é da carga, não da sessão.
+	EffectFactory.clear_unknown()
 
 	if not FileAccess.file_exists(path):
 		push_warning("ItemCatalog: %s não existe. Rode tools/traducao/traduzir.py" % path)
@@ -132,11 +134,16 @@ static func _bonuses(raw: Variant) -> Dictionary:
 		return saida
 	for nome: Variant in (raw as Dictionary):
 		var id: int = Stat.from_name(StringName(nome))
-		if id >= 0:
-			saida[id] = float((raw as Dictionary)[nome])
+		if id < 0:
+			EffectFactory.note_unknown("bonus", nome)
+			continue
+		saida[id] = float((raw as Dictionary)[nome])
 	return saida
 
 static func _enum(names: Dictionary, value: Variant, fallback: int) -> int:
 	if value == null:
 		return fallback
-	return int(names.get(String(value), fallback))
+	if not names.has(String(value)):
+		EffectFactory.note_unknown("enum", value)
+		return fallback
+	return int(names[String(value)])

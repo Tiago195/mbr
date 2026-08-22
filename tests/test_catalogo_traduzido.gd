@@ -4,9 +4,13 @@ extends TestCase
 ##
 ## Este é o teste que dá sentido ao Passo 4. Verificar que o JSON existe e tem
 ## 1126 entradas provaria pouco: um tradutor quebrado também produz 1126
-## entradas. O que prova é conjurar cada uma delas contra um alvo e ver que a
-## engine resolve — mesma `AbilityEngine`, mesmo `AbilityBook`, mesmos efeitos
-## que as três habilidades feitas à mão.
+## entradas. O que prova é conjurar cada uma **das que têm pulso** — 964 das
+## 1126 — contra um alvo e ver que a engine resolve. Mesma `AbilityEngine`,
+## mesmo `AbilityBook`, mesmos efeitos que as três habilidades feitas à mão.
+##
+## As 162 restantes não são conjuráveis por construção (linha-modelo de ranque
+## 0, marcador de quebra de combo) ou caem em lacuna registrada; a contagem
+## de cada caso está em `data/traducao/RELATORIO.md`.
 ##
 ## Também é o teste que pega regressão de vocabulário: se alguém renomear um
 ## `Stat.Id` ou reordenar um enum, milhares de efeitos param de montar aqui,
@@ -128,6 +132,91 @@ func test_nenhum_efeito_se_perdeu_na_montagem() -> void:
 
 	assert_true(esperados > 3000, "o corpus encolheu: só %d efeitos no JSON" % esperados)
 	assert_eq(montados, esperados, "efeitos perdidos entre o JSON e os objetos")
+
+func test_nada_ficou_desconhecido_na_carga() -> void:
+	# O teste que faltava. `test_nenhum_efeito_se_perdeu_na_montagem` conta
+	# OBJETOS, e por isso passava enquanto `INVULNERABLE` virava `STUN`: o
+	# objeto existia, com o sentido invertido. Este conta o que a fábrica não
+	# reconheceu — e um valor não reconhecido que cai no padrão é exatamente
+	# como um efeito troca de significado sem ninguém ver.
+	_abilities()
+	var desconhecidos: PackedStringArray = []
+	for chave: String in EffectFactory.unknown_values:
+		desconhecidos.append("%s x%d" % [chave, EffectFactory.unknown_values[chave]])
+	assert_eq(
+		desconhecidos.size(), 0,
+		"a fábrica não reconheceu: %s" % ", ".join(desconhecidos)
+	)
+
+func test_nada_ficou_desconhecido_nos_itens() -> void:
+	var catalogo := ItemCatalog.new()
+	catalogo.load_from(ItemCatalog.CAMINHO_PADRAO, null)
+	assert_true(catalogo.loaded > 0)
+	assert_eq(
+		EffectFactory.unknown_values.size(), 0,
+		"desconhecidos nos itens: %s" % str(EffectFactory.unknown_values.keys())
+	)
+
+func test_invulnerabilidade_do_corpus_e_invulnerabilidade() -> void:
+	# O corpus emite `INVULNERABLE`, e por um tempo ele caía em `STUN`:
+	# "fica invulnerável 1,6s" virava "fica atordoado 1,6s", no conjurador.
+	var achados: int = 0
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			for effect: AbilityEffect in pulse.effects:
+				var cc := effect as CrowdControlEffect
+				if cc != null and cc.control == CrowdControlEffect.Kind.INVULNERABLE:
+					achados += 1
+	assert_true(achados > 0, "o corpus tinha invulnerabilidade e ela sumiu")
+
+	var alvo: Unit = _unit()
+	var efeito := CrowdControlEffect.new()
+	efeito.control = CrowdControlEffect.Kind.INVULNERABLE
+	efeito.duration = 2.0
+	efeito.apply(AbilityCast.on_self(alvo), alvo)
+	assert_true(alvo.is_invulnerable())
+	assert_false(alvo.status.has(StatusSet.Kind.STUN), "não pode virar atordoamento")
+
+func test_impacto_encadeado_virou_pulso_proprio() -> void:
+	# 320 referências encadeadas, 300 delas com tempo, raio ou âncora
+	# diferentes do pai. Fundir descartaria isso — é o mesmo erro que a
+	# estrutura de pulsos existe para não cometer.
+	var com_ancora_anterior: int = 0
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			if pulse.origin == AbilityPulse.Origin.PREVIOUS:
+				com_ancora_anterior += 1
+	assert_true(
+		com_ancora_anterior > 20,
+		"`ParentImpactPosition` existe em 68 impactos e só %d viraram PREVIOUS"
+			% com_ancora_anterior
+	)
+
+func test_o_corpus_usa_deslocamento_de_ancora() -> void:
+	var deslocados: int = 0
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			if not is_zero_approx(pulse.forward_offset) 					or not is_zero_approx(pulse.side_offset):
+				deslocados += 1
+	assert_true(deslocados > 50, "só %d pulsos com âncora deslocada" % deslocados)
+
+func test_o_corpus_usa_fator_de_roubo_de_vida() -> void:
+	var sem_dreno: int = 0
+	var com_dreno: int = 0
+	for id: StringName in _abilities().by_id:
+		for pulse: AbilityPulse in (_abilities().by_id[id] as Ability).pulses:
+			for effect: AbilityEffect in pulse.effects:
+				var dano := effect as DamageEffect
+				if dano == null:
+					continue
+				if is_zero_approx(dano.drain_factor):
+					sem_dreno += 1
+				else:
+					com_dreno += 1
+	# 73 no corpus: a maioria dos impactos com DrainFactor 0 não causa dano
+	# nenhum, então o zero só aparece onde há golpe para não devolver vida.
+	assert_true(sem_dreno > 50, "só %d golpes sem roubo de vida" % sem_dreno)
+	assert_true(com_dreno > 100)
 
 func test_nenhum_efeito_ficou_nulo() -> void:
 	var nulos: int = 0

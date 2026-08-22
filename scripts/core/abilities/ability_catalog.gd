@@ -40,6 +40,8 @@ func load_from(path: String = CAMINHO_PADRAO) -> bool:
 	by_group.clear()
 	loaded = 0
 	skipped = 0
+	# Zerar antes de carregar: o contador é da carga, não da sessão.
+	EffectFactory.clear_unknown()
 
 	if not FileAccess.file_exists(path):
 		push_warning("AbilityCatalog: %s não existe. Rode tools/traducao/traduzir.py" % path)
@@ -156,6 +158,8 @@ static func build_pulse(data: Dictionary) -> AbilityPulse:
 	pulse.cone_angle = float(data.get("cone_angle", 60.0))
 	pulse.projectile_speed = float(data.get("projectile_speed", 18.0))
 	pulse.pierces = bool(data.get("pierces", false))
+	pulse.forward_offset = float(data.get("forward_offset", 0.0))
+	pulse.side_offset = float(data.get("side_offset", 0.0))
 	pulse.near_distance = float(data.get("near_distance", 1.0))
 	pulse.near_width = float(data.get("near_width", 1.0))
 	pulse.far_width = float(data.get("far_width", 4.0))
@@ -166,7 +170,12 @@ static func build_pulse(data: Dictionary) -> AbilityPulse:
 	pulse.effects = EffectFactory.build_all(data.get("effects", []))
 	return pulse
 
+## Valor presente e irreconhecível é REGISTRADO, não engolido. Ver o comentário
+## de `EffectFactory`: silêncio que cai no padrão pode inverter o sentido.
 static func _enum(names: Dictionary, value: Variant, fallback: int) -> int:
 	if value == null:
 		return fallback
-	return int(names.get(String(value), fallback))
+	if not names.has(String(value)):
+		EffectFactory.note_unknown("enum", value)
+		return fallback
+	return int(names[String(value)])

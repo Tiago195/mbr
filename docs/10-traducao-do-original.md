@@ -37,8 +37,14 @@ escreve em `data/traducao/`:
 
 `AbilityCatalog` e `ItemCatalog` carregam esses arquivos e devolvem `Ability` e
 `Item` de verdade. **A tradução é executável**: `tests/test_catalogo_traduzido.gd`
-conjura todas as 1126 pela mesma `AbilityEngine` das habilidades feitas à mão,
-e equipa e desequipa os 421 conferindo que nenhum modificador fica para trás.
+conjura as **964 que têm pulso** pela mesma `AbilityEngine` das habilidades
+feitas à mão, e equipa e desequipa os 421 itens conferindo que nenhum
+modificador fica para trás.
+
+As outras 162 não são conjuráveis **por construção** — 115 são linha-modelo de
+ranque 0, 2 são marcador de quebra de combo, e 45 caem em lacuna registrada. A
+contagem de cada caso está no `RELATORIO.md`, e a tabela de cobertura mais
+abaixo explica cada uma.
 
 ### Por que JSON e não 948 arquivos `.tres`
 
@@ -59,12 +65,14 @@ só. Ele espalha em quatro tabelas, e a forma dessa divisão é boa.
 Skill  (948)   ativação, mira, recarga, custo
   └─ Impact (1602)   uma região que aparece num lugar e num tempo
        ├─ ImpactStat*   o que ela faz com quem pegou
+       ├─ Impact        outro impacto, com geometria e tempo PRÓPRIOS
        ├─ Buff (487)         atributo, escudo, periódico, marcador
        └─ CrowdControl (283)  atordoar, prender, arremessar, lentidão
 ```
 
 Um `Impact` é exatamente o que passamos a chamar de **pulso**: forma, tempo,
-âncora e alvos próprios. Uma `Skill` referencia até oito deles.
+âncora e alvos próprios. Uma `Skill` referencia até **doze** deles
+(`Impact1`..`Impact12`), e cada impacto ainda pode **encadear** outro.
 
 ---
 
@@ -134,19 +142,36 @@ existiam:
 | `ResourceEffect` | `Mana` | Devolve e queima recurso |
 | `CleanseEffect` | `Release_Effects_Id` | Purificação e dissipação hostil |
 | `MarkEffect` | Buff só com `Line` e `Rank` | **Marcador**: estado sem efeito próprio. 30 buffs do original são só isso |
-| `CooldownEffect` | `AdjustCDSkillIds` | Acertar X reduz a recarga de Y. 100 buffs usam |
+| `CooldownEffect` | `AdjustCDSkillIds` | Acertar X reduz a recarga de Y. **21 buffs** o declaram, e o tradutor o emite 100 vezes porque esses buffs são referenciados por várias habilidades |
+
+Mais um valor de controle que faltava: **`INVULNERABLE`**. Ele existia em
+`StatusSet` e **não** em `CrowdControlEffect`, então o corpus o emitia, a
+fábrica não reconhecia e caía no padrão — "fica invulnerável 1,6 s" virava
+"fica atordoado 1,6 s", no próprio conjurador. Achado na revalidação, e a
+lição virou regra: **valor de enum não reconhecido é contado e falha teste**,
+nunca cai no padrão calado.
 
 Mais campos nos que já existiam: `percent_of_target_max_health` e
 `monster_damage_cap` (e o teto contra mob **precisa** existir junto do dano
 percentual, senão farmar selva vira o caminho mais rápido de escalar),
 `restriction` (o `SiegeDamage`), `scaling_stat_alt` (`BetterAtkStat`, escala
-pelo maior entre os dois ataques) e `DisplacementEffect.TO_AIM_POINT` (`Warp`).
+pelo maior entre os dois ataques), `DisplacementEffect.TO_AIM_POINT` (`Warp`),
+`drain_factor` (`DrainFactor`: nem toda habilidade devolve vida na mesma
+proporção — 0 em 743 impactos, 0,3 em 735, 1 em 122) e
+`pierces_invulnerability` (`IgnoreInvincibility`, 11 impactos: a resposta do
+original a "invulnerabilidade sem exceção vira um botão de não perco esta
+luta").
+
+E no pulso: **deslocamento da âncora**. `StartPositionZ` é diferente de zero em
+293 impactos e `StartPositionX` em 28 — é a explosão que nasce um pouco à
+frente dos pés, e o golpe que sai da mão direita.
 
 ### Habilidade vira lista de pulsos
 
 **A mudança estrutural.** Até aqui `Ability` tinha **uma** forma, **um** filtro
-e **uma** lista de efeitos. Uma `Skill` do original referencia até oito
-`Impact`, e 330 das traduzidas usam mais de um.
+e **uma** lista de efeitos. Uma `Skill` do original referencia até doze
+`Impact`, cada um podendo encadear outros, e 422 das traduzidas viram mais de
+um pulso.
 
 Traduzir sem isso obrigaria a escolher entre descartar impactos ou fundi-los —
 e fundir está errado: o segundo golpe sai meio segundo depois, num raio menor,
@@ -198,21 +223,64 @@ Números da última execução (o `RELATORIO.md` gerado tem o detalhe):
 | | |
 |---|---|
 | Habilidades traduzidas | **1126** — as 948 de `skill_xml` + 178 das tabelas de continuação |
-| ...com pelo menos um pulso | 963 |
-| ...com mais de um pulso | 330 |
-| Pulsos | 1501 |
-| Efeitos | 3197 |
+| ...com pelo menos um pulso | 964 |
+| ...com mais de um pulso | 422 |
+| Pulsos | 1703 |
+| Efeitos | 3244 |
 | Itens | **421**, em 257 linhas de melhoria |
 
-Das 163 sem pulso:
+Das 162 sem pulso:
 
-- **116 são linha-modelo** (`Rank 0`): a entrada de interface da habilidade
+- **115 são linha-modelo** (`Rank 0`): a entrada de interface da habilidade
   ainda não aprendida. Não referencia impacto **por definição**.
 - **2 são quebra de combo**: marcador que cancela uma corrente. Não ter efeito
   é o efeito.
 - **45 não têm tradução**, e todas caem nas lacunas abaixo.
 
 ---
+
+## O censo de colunas — como sabemos que não estamos perdendo nada
+
+A lista de lacunas abaixo tem um limite que não é óbvio: **ela só sabe do que o
+tradutor tentou mapear.** Uma coluna que o código nunca menciona não gera
+lacuna nenhuma — ela some, e a ausência fica indistinguível de uma decisão.
+
+Foi exatamente o que aconteceu na primeira versão: `Impact9`..`Impact12`,
+`CastingTime`, `RemoveCC`, `ApplyToughness`, `DrainFactor` e mais uma dúzia de
+colunas eram perdidas sem aparecer em lugar nenhum. Só a revalidação
+adversarial pegou.
+
+O conserto foi estrutural: o tradutor mantém duas listas explícitas —
+`CONSULTADAS` (o que ele lê) e `IGNORADAS` (o que ele decide não ler, **com o
+motivo**) — e o relatório varre as cinco tabelas do original atrás de colunas
+que não estejam em nenhuma das duas.
+
+**Hoje o censo sai vazio.** Toda coluna de `skill`, `impact`, `buff`,
+`crowd_control` e `equipment` ou é lida, ou está declarada com uma justificativa
+como "som", "efeito visual", "texto localizado" ou "lacuna registrada".
+
+Isso é o que transforma "traduzimos tudo" de afirmação em medição — e é o que
+faz a próxima coluna que aparecer numa tabela nova gritar em vez de sumir.
+
+### `TriggerTiming` — a tabela que faltava
+
+`trigger_set.gd` prometia esta tabela e ela não existia. Os 18 valores de
+`TriggerTiming` que o original usa, e o que cada um virou:
+
+| Original | Nosso `TriggerSet.Event` | Observação |
+|---|---|---|
+| `Start` | *(nenhum)* | Ausência de gatilho: sai junto com a habilidade |
+| `MaxStack` | `MARK_MAXED` | O que fez `MarkSet` existir |
+| `DoAttackDamage` | `BASIC_ATTACK_HIT` | |
+| `DoSkillDamage`, `DoSkillDamageOnce` | `ABILITY_HIT` | |
+| `OnHitDamage` | `DAMAGE_TAKEN` | |
+| `Expire` | `EXPIRED` | |
+| `ActivateActiveSkill` | `ABILITY_CAST` | |
+| `Arrived`, `ImpactFinish` | *(lacuna)* | Momento de voo do projétil; nosso `delay` aproxima |
+| `OnEvasion`, `DoCriticalDamage`, `OnCrowdControl` | *(lacuna)* | Eventos de combate que `core/` não emite |
+| `InCombat`, `OutCombat` | *(lacuna)* | Não há estado de combate |
+| `OnHitWall`, `OnHitActorObject` | *(lacuna)* | Não há colisão com cenário em `core/` |
+| `DoDropOut`, `ActivateActiveSkillByMoving`, `ActivateActiveSkillByHaste` | *(lacuna)* | |
 
 ## Lacunas — o que o original diz e nós ainda não
 
@@ -248,10 +316,13 @@ Onde o original não documenta e a escolha foi nossa:
   valores e nenhuma explicação de eixo. Assumimos `Backward` = puxa, o resto
   empurra. Se estiver invertido, o conserto é uma linha e vale para as 20
   entradas de uma vez.
-- **`cast_time` fica em zero.** O original não trava a conjuração como um MOBA
-  clássico; ele usa a animação com janelas de cancelamento. O que corresponde
-  ao nosso tempo de conjuração é o atraso do primeiro impacto, e esse virou o
-  `delay` do pulso. Preserva o timing sem inventar um travamento.
+- **`cast_time` vem de `CastingTime`, quando existe.** A afirmação anterior
+  aqui — "o original não trava a conjuração" — estava **errada**, e foi
+  corrigida na revalidação: existe uma coluna `CastingTime` com valor em 61
+  habilidades, de 0,3 a 5 segundos, e o tradutor a ignorava. Agora ela é lida.
+  O que continua verdadeiro é que a **maioria** não trava: essas usam a
+  animação com janelas de cancelamento, e o timing do golpe vem do `StartTime`
+  de cada impacto, que virou o `delay` do pulso.
 - **`ActiveDuration` só vira duração de área quando há laço.** Sem laço ela é o
   tempo que o colisor fica ligado, que para nós é instantâneo.
 
@@ -269,6 +340,26 @@ Ambos silenciosos, ambos achados por medir a cobertura em vez de confiar nela:
    profundidade 3 descartava 66 habilidades inteiras. Virou conjunto de
    visitados, que é o correto: o que não pode é voltar ao mesmo nó.
 
+3. **`Impact9`..`Impact12` nunca eram lidos.** O laço parava em 8 porque oito
+   parecia bastante. Oito habilidades perdiam treze impactos inteiros, com dano
+   e cura de verdade — e sem virar lacuna, porque o laço nem chegava a olhar a
+   coluna.
+4. **Impacto encadeado era fundido no pai.** O filho de `ImpactStatType: Impact`
+   tem `StartTime`, `Radius` e `StartPosition` próprios, e 300 das 320
+   referências diferem do pai em pelo menos um. Fundir descartava a geometria —
+   o mesmo erro que a estrutura de pulsos existe para não cometer, cometido 300
+   vezes dentro dela. Agora o filho vira pulso próprio, e é por isso que
+   `Origin.PREVIOUS` finalmente aparece no corpus.
+5. **`ApplyToughness` era inferido em vez de lido.** A coluna diz literalmente
+   se a tenacidade se aplica, e o tradutor usava um palpite que discordava do
+   dado em quatro entradas. Palpite perde para coluna quando a coluna existe.
+
+Os três primeiros bugs foram achados pelo relatório de cobertura. Os últimos
+dois, e mais quatro colunas ignoradas, só apareceram numa **revalidação
+adversarial** — um segundo par de olhos com a instrução explícita de tentar
+reprovar o trabalho.
+
 A lição vale além do tradutor: **cobertura silenciosa é indistinguível de
-cobertura errada.** O relatório existe por isso, e é o que transformou "1126
-habilidades traduzidas" de afirmação em medição.
+cobertura errada.** O relatório existe por isso, o censo de colunas existe por
+isso, e o contador de valores desconhecidos da `EffectFactory` existe por isso.
+Juntos, eles transformam "1126 habilidades traduzidas" de afirmação em medição.

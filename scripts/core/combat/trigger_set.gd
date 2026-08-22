@@ -14,9 +14,10 @@ extends RefCounted
 ## entra como `WeakRef`, e o dono é passado em `fire()`.
 
 ## O que pode disparar. Nem todo `TriggerTiming` do original tem equivalente
-## aqui — a tabela do que virou o quê está em
-## `docs/10-traducao-do-original.md`. O critério: só entra evento que a
-## camada `core/` consegue emitir sozinha, sem depender de cena.
+## aqui — a tabela completa dos 18 valores, com o que cada um virou e por que
+## sete deles ficaram de fora, está na seção "TriggerTiming" de
+## `docs/10-traducao-do-original.md`. O critério: só entra evento que a camada
+## `core/` consegue emitir sozinha, sem depender de cena.
 ##
 ## Valor novo entra no FIM: isto é exportado para `.tres` como inteiro.
 enum Event {

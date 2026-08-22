@@ -203,9 +203,11 @@ func receive_damage(
 		attacker: Unit,
 		raw_damage: float,
 		type: Damage.Type,
-		source: Damage.Source
+		source: Damage.Source,
+		drain_factor: float = 1.0,
+		pierces_invulnerability: bool = false
 ) -> DamageResult:
-	if is_invulnerable():
+	if is_invulnerable() and not pierces_invulnerability:
 		var blocked := DamageResult.new()
 		blocked.raw_damage = raw_damage
 		blocked.health_after = health.current
@@ -217,7 +219,7 @@ func receive_damage(
 	var had_shield: bool = health.shield > 0.0
 	var result: DamageResult = Damage.resolve(
 		attacker_stats, stats, health.current, health.shield,
-		raw_damage, type, source
+		raw_damage, type, source, null, drain_factor
 	)
 	health.apply(result)
 	if attacker != null and result.lifesteal_healed > 0.0:

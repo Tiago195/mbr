@@ -328,6 +328,64 @@ func test_massa_padrao_nao_muda_nada() -> void:
 	effect.apply(AbilityCast.on_self(caster), target)
 	assert_almost_eq(target.pending_displacement.length(), 4.0)
 
+# ---------------------------------------------------------------- roubo por golpe
+
+func test_fator_zero_nao_devolve_vida() -> void:
+	var atacante: Unit = _unit({Stat.Id.SPELL_VAMP: 1.0, Stat.Id.MAX_HEALTH: 500.0})
+	atacante.health.current = 100.0
+	var alvo: Unit = _unit({Stat.Id.MAX_HEALTH: 1000.0}, 1)
+	var efeito := DamageEffect.new()
+	efeito.base_damage = 200.0
+	efeito.damage_type = Damage.Type.TRUE
+	efeito.drain_factor = 0.0
+	efeito.apply(AbilityCast.on_unit(atacante, alvo), alvo)
+	assert_almost_eq(alvo.health.current, 800.0, "o dano sai igual")
+	assert_almost_eq(atacante.health.current, 100.0, "e não devolve nada")
+
+func test_fator_parcial_devolve_a_fracao() -> void:
+	var atacante: Unit = _unit({Stat.Id.SPELL_VAMP: 1.0, Stat.Id.MAX_HEALTH: 500.0})
+	atacante.health.current = 100.0
+	var alvo: Unit = _unit({Stat.Id.MAX_HEALTH: 1000.0}, 1)
+	var efeito := DamageEffect.new()
+	efeito.base_damage = 200.0
+	efeito.damage_type = Damage.Type.TRUE
+	efeito.drain_factor = 0.3
+	efeito.apply(AbilityCast.on_unit(atacante, alvo), alvo)
+	assert_almost_eq(atacante.health.current, 160.0, "30% de 200")
+
+func test_fator_padrao_devolve_tudo() -> void:
+	var atacante: Unit = _unit({Stat.Id.SPELL_VAMP: 0.5, Stat.Id.MAX_HEALTH: 500.0})
+	atacante.health.current = 100.0
+	var alvo: Unit = _unit({Stat.Id.MAX_HEALTH: 1000.0}, 1)
+	var efeito := DamageEffect.new()
+	efeito.base_damage = 200.0
+	efeito.damage_type = Damage.Type.TRUE
+	efeito.apply(AbilityCast.on_unit(atacante, alvo), alvo)
+	assert_almost_eq(atacante.health.current, 200.0, "50% de 200, sem fator declarado")
+
+# ---------------------------------------------------------------- furar imunidade
+
+func test_dano_normal_nao_passa_por_invulnerabilidade() -> void:
+	var atacante: Unit = _unit()
+	var imune: Unit = _unit({Stat.Id.MAX_HEALTH: 1000.0}, 1)
+	imune.status.apply(StatusSet.Kind.INVULNERABLE, 2.0)
+	var efeito := DamageEffect.new()
+	efeito.base_damage = 300.0
+	efeito.damage_type = Damage.Type.TRUE
+	efeito.apply(AbilityCast.on_unit(atacante, imune), imune)
+	assert_almost_eq(imune.health.current, 1000.0)
+
+func test_golpe_que_fura_passa() -> void:
+	var atacante: Unit = _unit()
+	var imune: Unit = _unit({Stat.Id.MAX_HEALTH: 1000.0}, 1)
+	imune.status.apply(StatusSet.Kind.INVULNERABLE, 2.0)
+	var efeito := DamageEffect.new()
+	efeito.base_damage = 300.0
+	efeito.damage_type = Damage.Type.TRUE
+	efeito.pierces_invulnerability = true
+	efeito.apply(AbilityCast.on_unit(atacante, imune), imune)
+	assert_almost_eq(imune.health.current, 700.0, "invulnerabilidade sem exceção não teria contrajogo")
+
 # ---------------------------------------------------------------- catálogo
 
 func test_todo_atributo_tem_nome() -> void:

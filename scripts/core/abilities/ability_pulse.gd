@@ -6,9 +6,10 @@ extends Resource
 ##
 ## Até aqui, `Ability` tinha **uma** forma, **um** filtro e **uma** lista de
 ## efeitos. Isso cobre "meteoro cai num círculo" e não cobre nada do que o
-## original faz de interessante: uma `Skill` de lá referencia até 8 `Impact`,
-## e cada impacto tem tempo, posição, raio e alvos próprios. 284 habilidades
-## têm um segundo impacto, 111 têm um terceiro.
+## original faz de interessante: uma `Skill` de lá referencia até 12 `Impact`,
+## e cada impacto tem tempo, posição, raio e alvos próprios. Um impacto ainda
+## pode encadear outro, com geometria e tempo próprios. Depois de traduzido,
+## **422 das habilidades do original têm mais de um pulso**.
 ##
 ## Sem esta peça, traduzir uma habilidade de vários golpes obrigaria a
 ## escolher entre descartar impactos ou fundi-los num só — e fundir está
@@ -80,6 +81,18 @@ enum Origin {
 ## PROJECTILE. Se falso, para no primeiro atingido.
 @export var pierces: bool = false
 
+@export_group("Deslocamento da âncora")
+## Metros à frente, na direção da mira. `StartPositionZ` do original, diferente
+## de zero em 293 impactos: é a explosão que nasce um pouco adiante dos pés, e
+## sem isso ela nasce em cima deles.
+@export var forward_offset: float = 0.0
+## Metros para o lado, **positivo à direita** de quem conjura. `StartPositionX`,
+## em 28 impactos — o golpe que sai da mão direita.
+##
+## Mirando para -Z, que é a frente na convenção da Godot, a direita é +X:
+## `frente.cross(UP)` de (0,0,-1) dá (1,0,0).
+@export var side_offset: float = 0.0
+
 @export_group("Trapézio")
 ## Distância onde o trapézio começa. Antes disso, não pega ninguém.
 @export var near_distance: float = 1.0
@@ -101,6 +114,9 @@ enum Origin {
 ## Onde a forma se planta. `previous` é a âncora do pulso anterior — quem
 ## encadeia é a engine, porque só ela conhece a ordem.
 func anchor_for(cast: AbilityCast, previous: Vector3) -> Vector3:
+	return _base_anchor(cast, previous) + _offset(cast)
+
+func _base_anchor(cast: AbilityCast, previous: Vector3) -> Vector3:
 	match origin:
 		Origin.CASTER:
 			return cast.caster.position if cast.caster != null else previous
@@ -110,6 +126,19 @@ func anchor_for(cast: AbilityCast, previous: Vector3) -> Vector3:
 			return previous
 		_:
 			return cast.point
+
+## Frente é a direção da mira; lado é perpendicular a ela, no plano do chão.
+## Sem deslocamento declarado, devolve zero e nada muda — o caso de 1300 dos
+## 1602 impactos do original.
+func _offset(cast: AbilityCast) -> Vector3:
+	if is_zero_approx(forward_offset) and is_zero_approx(side_offset):
+		return Vector3.ZERO
+	var frente: Vector3 = Vector3(cast.direction.x, 0.0, cast.direction.z)
+	if frente.length_squared() <= 0.000001:
+		frente = Vector3.FORWARD
+	frente = frente.normalized()
+	var lado: Vector3 = frente.cross(Vector3.UP)
+	return frente * forward_offset + lado * side_offset
 
 ## Se um projétil que não atravessa, o teto de alvos é 1 por construção.
 func effective_max_targets() -> int:

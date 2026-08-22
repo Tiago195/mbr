@@ -33,6 +33,11 @@ enum Source {
 ## `attacker` pode ser nulo — é o caso do dano de zona, que não tem dono.
 ## `rng` só é usado para o sorteio de crítico; passar um RNG semeado torna a
 ## simulação reproduzível.
+##
+## `drain_factor` escala o roubo de vida DESTA instância. Existe porque o
+## original tem `DrainFactor` por impacto (0, 0,3 ou 1): nem toda habilidade
+## devolve vida na mesma proporção, e aplicar `spell_vamp` cheio em todas
+## transformaria qualquer conjurador num tanque.
 static func resolve(
 		attacker: Stats,
 		target: Stats,
@@ -41,7 +46,8 @@ static func resolve(
 		raw_damage: float,
 		type: Type,
 		source: Source = Source.BASIC_ATTACK,
-		rng: RandomNumberGenerator = null
+		rng: RandomNumberGenerator = null,
+		drain_factor: float = 1.0
 ) -> DamageResult:
 	var result := DamageResult.new()
 	result.raw_damage = raw_damage
@@ -113,7 +119,7 @@ static func resolve(
 	# escudo. `03-sistemas-de-jogo.md` diz "sobre o dano final aplicado, não
 	# sobre o bruto" — o contraste que ele estabelece é com o bruto, e a
 	# convenção de MOBA é que bater num escudo ainda cura.
-	result.lifesteal_healed = _lifesteal_for(attacker, source, amount)
+	result.lifesteal_healed = _lifesteal_for(attacker, source, amount) * maxf(drain_factor, 0.0)
 
 	return result
 

@@ -13,10 +13,16 @@ extends RefCounted
 ## traduzido. Se um nome do original aparecesse aqui, seria sinal de que a
 ## tradução vazou para dentro do jogo.
 ##
-## Campo que falta usa o padrão da classe. Campo desconhecido é ignorado em
-## silêncio de propósito: o corpus é gerado por ferramenta e pode ganhar
-## colunas antes de o carregador aprender a lê-las, e derrubar o jogo por isso
-## seria pior que ignorar.
+## Campo que falta usa o padrão da classe. Campo desconhecido é ignorado de
+## propósito: o corpus é gerado por ferramenta e pode ganhar colunas antes de o
+## carregador aprender a lê-las, e derrubar o jogo por isso seria pior.
+##
+## **Mas "ignorado" não é "em silêncio".** Um VALOR de enum que a fábrica não
+## reconhece cai no padrão, e cair no padrão pode inverter o sentido: já
+## aconteceu de `INVULNERABLE` virar `STUN`, transformando "fica invulnerável"
+## em "fica atordoado". Por isso todo desconhecido é contado em
+## `unknown_values`, e um teste exige que o contador esteja zerado depois de
+## carregar o corpus inteiro.
 
 ## Nome do tipo -> construtor.
 ##
@@ -45,8 +51,10 @@ static func build(data: Dictionary) -> AbilityEffect:
 		&"cleanse": effect = _cleanse(data)
 		&"mark": effect = _mark(data)
 		&"cooldown": effect = _cooldown(data)
-	if effect != null:
-		effect.recipient = _recipient(data)
+	if effect == null:
+		_unknown("type", data.get("type", ""))
+		return null
+	effect.recipient = _recipient(data)
 	return effect
 
 ## Monta uma lista, descartando o que não soube montar. Devolve também quantos
@@ -90,15 +98,43 @@ static func _stat(data: Dictionary, key: String, fallback: Stat.Id) -> Stat.Id:
 	if value == null:
 		return fallback
 	var id: int = Stat.from_name(StringName(value))
-	return id as Stat.Id if id >= 0 else fallback
+	if id < 0:
+		_unknown(key, value)
+		return fallback
+	return id as Stat.Id
+
+## Tudo que a fábrica leu e não soube converter, contado por ocorrência.
+## Chave no formato `"campo=valor"`. Zerar com `clear_unknown()`.
+static var unknown_values: Dictionary = {}
+
+static func clear_unknown() -> void:
+	unknown_values.clear()
+
+## Público de propósito: `AbilityCatalog` e `ItemCatalog` também convertem
+## enum por nome, e o contador precisa ser um só. Dois contadores dariam dois
+## lugares para esquecer de olhar.
+static func note_unknown(key: String, value: Variant) -> void:
+	_unknown(key, value)
+
+static func _unknown(key: String, value: Variant) -> void:
+	var marca: String = "%s=%s" % [key, value]
+	unknown_values[marca] = int(unknown_values.get(marca, 0)) + 1
+	push_warning("EffectFactory: valor desconhecido %s" % marca)
 
 ## Chave de enum -> valor. `Damage.Type` e companhia são dicionários em tempo
 ## de execução, então a busca é direta.
+##
+## Valor ausente usa o padrão sem alarde — é campo opcional. Valor PRESENTE e
+## irreconhecível é registrado: significa que o corpus fala de algo que o
+## vocabulário não tem, e cair no padrão calado inverteria o sentido.
 static func _enum(names: Dictionary, data: Dictionary, key: String, fallback: int) -> int:
 	var value: Variant = data.get(key)
 	if value == null:
 		return fallback
-	return int(names.get(String(value), fallback))
+	if not names.has(String(value)):
+		_unknown(key, value)
+		return fallback
+	return int(names[String(value)])
 
 # ---------------------------------------------------------------- construtores
 
@@ -116,6 +152,8 @@ static func _damage(data: Dictionary) -> AbilityEffect:
 	effect.restriction = _enum(
 		DamageEffect.Restriction, data, "restriction", DamageEffect.Restriction.ANY
 	) as DamageEffect.Restriction
+	effect.drain_factor = _f(data, "drain_factor", 1.0)
+	effect.pierces_invulnerability = _b(data, "pierces_invulnerability")
 	return effect
 
 static func _heal(data: Dictionary) -> AbilityEffect:
