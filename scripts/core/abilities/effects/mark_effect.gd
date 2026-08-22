@@ -11,9 +11,12 @@ extends AbilityEffect
 ## `MarkEffect` mais um `TriggerEffect` esperando `MARK_MAXED` — duas peças do
 ## vocabulário, zero código novo.
 ##
-## Veio de 30 buffs do original que só têm `Line`, `Rank` e `Duration`: nem
-## atributo, nem dano, nem controle. Eram invisíveis para o tradutor e
-## desapareciam.
+## Veio dos buffs do original que não concedem nada: nem atributo, nem dano,
+## nem controle. **62 deles têm literalmente só `Line`, `Rank` e `Duration`**, e
+## 114 caem no caso mais amplo (sem atributo, sem escudo, sem impacto). Depois
+## de traduzidos viram **30 marcas distintas**, em 260 aplicações.
+##
+## Eram invisíveis para o tradutor e desapareciam.
 
 enum Mode {
 	## Põe a marca, ou soma uma pilha se já houver.

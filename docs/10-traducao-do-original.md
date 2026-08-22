@@ -151,7 +151,7 @@ existiam:
 | `ExecuteEffect` | `Die` | Mata na hora. Não é dano grande: escudo absorveria e resistência reduziria |
 | `ResourceEffect` | `Mana` | Devolve e queima recurso |
 | `CleanseEffect` | `Release_Effects_Id` | Purificação e dissipação hostil |
-| `MarkEffect` | Buff só com `Line` e `Rank` | **Marcador**: estado sem efeito próprio. 30 buffs do original são só isso |
+| `MarkEffect` | Buff só com `Line` e `Rank` | **Marcador**: estado sem efeito próprio. 114 buffs do original caem nesse caso — 62 deles têm literalmente só `Line`, `Rank` e `Duration` — e o corpus acaba com 30 marcas distintas |
 | `CooldownEffect` | `AdjustCDSkillIds` | Acertar X reduz a recarga de Y. **21 buffs** o declaram, e o efeito sai mais vezes que isso porque esses buffs são referenciados por várias habilidades — a contagem exata está no `RELATORIO.md`, que é gerado |
 
 Mais um valor de controle que faltava: **`INVULNERABLE`**. Ele existia em
@@ -403,11 +403,6 @@ explícita de tentar reprovar o trabalho.
 5. **`ApplyToughness` era inferido em vez de lido.** A coluna diz literalmente
    se a tenacidade se aplica, e o tradutor usava um palpite que discordava do
    dado em quatro entradas. Palpite perde para coluna quando a coluna existe.
-
-Os três primeiros bugs foram achados pelo relatório de cobertura. Os últimos
-dois, e mais quatro colunas ignoradas, só apareceram numa **revalidação
-adversarial** — um segundo par de olhos com a instrução explícita de tentar
-reprovar o trabalho.
 
 A lição vale além do tradutor: **cobertura silenciosa é indistinguível de
 cobertura errada.** O relatório existe por isso, o censo de colunas existe por

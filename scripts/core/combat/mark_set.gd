@@ -3,9 +3,9 @@ extends RefCounted
 
 ## Marcas com nome, prazo e acúmulo — o substrato de "estado sem efeito".
 ##
-## A tradução do original topou com 30 buffs que não concedem atributo nenhum,
-## não causam dano e não controlam. Eles só têm `Line`, `Rank`, `Duration` e um
-## efeito visual: são **marcadores**. O jogo consulta a marca em outro lugar —
+## A tradução do original topou com 114 buffs que não concedem atributo nenhum,
+## não causam dano e não controlam — **62 deles têm literalmente só `Line`,
+## `Rank` e `Duration`**, mais um efeito visual. São **marcadores**. O jogo consulta a marca em outro lugar —
 ## "já está marcado?", "acumulou três?", "está em qual postura?".
 ##
 ## Sem esta peça, esses buffs viravam nada na tradução, e com eles sumia uma

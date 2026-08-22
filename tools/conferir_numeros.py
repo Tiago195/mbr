@@ -75,6 +75,112 @@ class Conferencia:
             self.falhas.append("%s: esperava encontrar %r" % (onde, agulha))
 
 
+def _contar_testes() -> int:
+    """Quantos métodos `test_` existem em `tests/`.
+
+    É exatamente o que o arnês descobre por reflexão: um método sem argumentos
+    cujo nome começa com `test_`. Contar estaticamente evita ter que rodar a
+    Godot só para conferir um número de documento.
+    """
+    total = 0
+    for arquivo in (RAIZ / "tests").glob("test_*.gd"):
+        total += len(re.findall(
+            r"^func (test_\w+)\(", arquivo.read_text(encoding="utf-8"), re.M
+        ))
+    return total
+
+
+def _marcas_distintas(habilidades: list) -> int:
+    marcas: set[str] = set()
+
+    def varre(efeitos: list) -> None:
+        for efeito in efeitos:
+            if efeito.get("type") == "mark":
+                marcas.add(efeito["mark"])
+            for chave in ("effects", "on_expire"):
+                if isinstance(efeito.get(chave), list):
+                    varre(efeito[chave])
+
+    for h in habilidades:
+        for pulso in h["pulses"]:
+            varre(pulso["effects"])
+    return len(marcas)
+
+
+def _sem_offset_no_corpus(habilidades: list) -> int:
+    return sum(
+        1
+        for h in habilidades
+        for pulso in h["pulses"]
+        if not pulso.get("forward_offset") and not pulso.get("side_offset")
+    )
+
+
+def _emissoes(relatorio: str, peca: str) -> int:
+    achado = re.search(r"\| `%s` \| (\d+) \|" % re.escape(peca), relatorio)
+    return int(achado.group(1)) if achado else -1
+
+
+def _medir_no_original() -> dict | None:
+    """Mede direto no XML do original. `None` se ele não estiver por perto.
+
+    As tabelas vivem FORA do repositório de propósito, então quem clonar sem
+    elas ainda roda o resto da conferência. O que se perde nesse caso está
+    dito na saída, para a ausência não parecer aprovação.
+    """
+    import xml.etree.ElementTree as ET
+
+    xml = Path(r"C:\Godot\rc-referencia\xml")
+    if not xml.exists():
+        return None
+
+    def linhas(*nomes: str) -> list[dict]:
+        saida: list[dict] = []
+        for nome in nomes:
+            caminho = xml / ("%s.xml" % nome)
+            if not caminho.exists():
+                continue
+            for linha in ET.parse(caminho).getroot():
+                saida.append({
+                    f.tag.strip(): (f.text or "").strip() for f in linha
+                })
+        return saida
+
+    impactos_todos = linhas(
+        "impact_xml", "impact_2_xml", "impact_3_xml", "impact_4_xml"
+    )
+    impactos_um = linhas("impact_xml")
+    buffs = linhas("buff_xml", "buff_2_xml", "buff_3_xml", "buff_4_xml")
+
+    timings: set[str] = set()
+    for r in impactos_todos:
+        for parte in (r.get("TriggerTiming") or "").split(","):
+            if parte.strip():
+                timings.add(parte.strip())
+
+    def marcador(r: dict) -> bool:
+        tem_stat = any(r.get("StatType%d" % n) for n in range(1, 5))
+        tem_impacto = r.get("Impact1") or r.get("Impact2")
+        return bool(r.get("Line")) and not tem_stat and not tem_impacto
+
+    ruido = {
+        "Id", "Name", "Desc", "DescParam", "AtlasName", "IconPath",
+        "ShowIcon", "Sound", "Line", "Rank", "Duration", "MaxStackCount",
+    }
+    return {
+        "timings": len(timings),
+        "marcadores": sum(1 for r in buffs if marcador(r)),
+        "so_linha": sum(1 for r in buffs if not set(r) - ruido),
+        "ajuste_cd": sum(1 for r in buffs if r.get("AdjustCDSkillIds")),
+        "impactos": len(impactos_um),
+        "sem_offset": sum(
+            1 for r in impactos_um
+            if r.get("StartPositionX", "0") in ("", "0")
+            and r.get("StartPositionZ", "0") in ("", "0")
+        ),
+    }
+
+
 def main() -> int:
     c = Conferencia()
 
@@ -154,12 +260,85 @@ def main() -> int:
         )
     c.conferidas += 1
 
-    # `TriggerSet.Event` cresceu? A tabela do doc precisa acompanhar.
-    c.afirma("docs/10 eventos de gatilho", doc10,
-             r"São \*\*(\d+) valores", 22)
     if eventos < 9:
         c.falhas.append("TriggerSet.Event encolheu para %d" % eventos)
     c.conferidas += 1
+
+    # ------------------------------------------- números medidos no original
+    #
+    # A primeira versão comparava "São **22 valores" com o literal 22 — ou
+    # seja, detectava o TEXTO mudar, não o FATO mudar. Conferência tautológica
+    # passa sempre, e passar sempre é justamente o que se quer evitar aqui.
+    medido = _medir_no_original()
+    if medido is None:
+        print(
+            "[números] AVISO: as tabelas do original não estão em "
+            "C:\\Godot\\rc-referencia\\xml; 8 afirmações ficaram sem conferir"
+        )
+    else:
+        mark_effect = ler("scripts/core/abilities/effects/mark_effect.gd")
+        cooldown_effect = ler("scripts/core/abilities/effects/cooldown_effect.gd")
+        pulse = ler("scripts/core/abilities/ability_pulse.gd")
+
+        c.afirma("docs/10 valores de TriggerTiming", doc10,
+                 r"São \*\*(\d+) valores", medido["timings"])
+        c.afirma("docs/10 buffs marcadores", doc10,
+                 r"(\d+) buffs do original caem nesse caso", medido["marcadores"])
+        c.afirma("docs/02 buffs marcadores", ler("docs/02-decisoes-tecnicas.md"),
+                 r"\*\*Por quê:\*\* (\d+) buffs do original", medido["marcadores"])
+        c.afirma("mark_set.gd buffs marcadores",
+                 ler("scripts/core/combat/mark_set.gd"),
+                 r"topou com (\d+) buffs", medido["marcadores"])
+        c.afirma("mark_effect.gd só Line/Rank/Duration", mark_effect,
+                 r"\*\*(\d+) deles têm literalmente", medido["so_linha"])
+        c.afirma("cooldown_effect.gd buffs", cooldown_effect,
+                 r"\*\*(\d+) buffs\*\* do original", medido["ajuste_cd"])
+        c.afirma("ability_pulse.gd impactos sem deslocamento", pulse,
+                 r"o caso de (\d+) dos", medido["sem_offset"])
+        c.afirma("ability_pulse.gd total de impactos", pulse,
+                 r"(\d+) impactos de `impact_xml`", medido["impactos"])
+
+    # ----------------------------------------------- números vindos do corpus
+    mark_effect = ler("scripts/core/abilities/effects/mark_effect.gd")
+    cooldown_effect = ler("scripts/core/abilities/effects/cooldown_effect.gd")
+    pulse = ler("scripts/core/abilities/ability_pulse.gd")
+    marcas = _marcas_distintas(habilidades)
+
+    c.afirma("mark_effect.gd marcas distintas", mark_effect,
+             r"\*\*(\d+) marcas distintas\*\*", marcas)
+    c.afirma("docs/10 marcas distintas", doc10,
+             r"corpus acaba com (\d+) marcas distintas", marcas)
+    c.afirma("cooldown_effect.gd emissões", cooldown_effect,
+             r"efeito sai (\d+)", _emissoes(relatorio, "cooldown"))
+    c.afirma("ability_pulse.gd pulsos sem deslocamento", pulse,
+             r"e de (\d+) dos", _sem_offset_no_corpus(habilidades))
+    c.afirma("ability_pulse.gd total de pulsos", pulse,
+             r"dos (\d+) pulsos traduzidos", total_pulsos)
+    c.afirma("ability_pulse.gd habilidades com vários pulsos", pulse,
+             r"\*\*(\d+) das habilidades do original têm mais de um pulso\*\*",
+             len(varios))
+
+    # ------------------------------------------------- contagem de testes
+    c.afirma("CLAUDE.md testes", claude,
+             r"\*\*(\d+) testes, \d+ asserções\*\*", _contar_testes())
+
+    # ------------------------------------------------- cabeçalho x lista
+    #
+    # Já foi falso: uma seção intitulada "Dois bugs do tradutor" com cinco
+    # itens na lista. Contar os itens é mais barato que confiar no cabeçalho.
+    c.conferidas += 1
+    cabecalho = re.search(r"## (Dois|Três|Quatro|Cinco|Seis) bugs do tradutor", doc10)
+    if cabecalho is None:
+        c.falhas.append("docs/10: a seção de bugs do tradutor sumiu")
+    else:
+        por_extenso = {"Dois": 2, "Três": 3, "Quatro": 4, "Cinco": 5, "Seis": 6}
+        dito = por_extenso[cabecalho.group(1)]
+        itens = len(re.findall(r"^\d+\. \*\*", doc10, re.M))
+        if dito != itens:
+            c.falhas.append(
+                "docs/10: o cabeçalho diz %d bugs e a lista tem %d itens"
+                % (dito, itens)
+            )
 
     # ---------------------------------------------------------- veredito
     print("[números] %d afirmações conferidas" % c.conferidas)

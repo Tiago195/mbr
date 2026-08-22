@@ -858,7 +858,8 @@ class Tradutor:
         efeitos.extend(self._dissipar_no_evento(registro, alvo, tag, onde))
 
         # Buff sem atributo, sem impacto e sem controle é MARCADOR: o jogo
-        # consulta a marca em outro lugar. 30 buffs do original são só isso, e
+        # consulta a marca em outro lugar. 114 buffs caem aqui — 62 deles têm
+        # literalmente só `Line`, `Rank` e `Duration` —, e
         # sem `MarkEffect` eles traduziam para nada — a marca do caçador, o
         # passo do combo e a postura da arma sumiam juntos.
         if not efeitos and registro.get("Line"):

@@ -128,8 +128,8 @@ func _base_anchor(cast: AbilityCast, previous: Vector3) -> Vector3:
 			return cast.point
 
 ## Frente é a direção da mira; lado é perpendicular a ela, no plano do chão.
-## Sem deslocamento declarado, devolve zero e nada muda — o caso de 1300 dos
-## 1602 impactos do original.
+## Sem deslocamento declarado, devolve zero e nada muda — o caso de 1376 dos
+## 1602 impactos de `impact_xml`, e de 1403 dos 1687 pulsos traduzidos.
 func _offset(cast: AbilityCast) -> Vector3:
 	if is_zero_approx(forward_offset) and is_zero_approx(side_offset):
 		return Vector3.ZERO

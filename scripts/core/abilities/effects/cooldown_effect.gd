@@ -3,10 +3,13 @@ extends AbilityEffect
 
 ## RECARGA — encurta (ou estende) a recarga de habilidades.
 ##
-## O original usa em 100 buffs, por `AdjustCDSkillIds` + `AdjustCDTime`: acertar
-## a habilidade tal reduz 2 segundos da investida. É um dos laços de decisão
-## mais fortes que ele tem, e sem esta peça ele desaparecia inteiro na
-## tradução.
+## **21 buffs** do original o declaram, por `AdjustCDSkillIds` + `AdjustCDTime`:
+## acertar a habilidade tal reduz 2 segundos da investida. O efeito sai 104
+## vezes na tradução, porque vários desses buffs são referenciados por mais de
+## uma habilidade.
+##
+## É um dos laços de decisão mais fortes que o original tem, e sem esta peça ele
+## desaparecia inteiro na tradução.
 ##
 ## **Pede, não executa.** O `AbilityBook` não mora no `Unit` — é decisão da
 ## Fase 3.2, e por bom motivo: mob e estrutura têm vida e atributos sem ter

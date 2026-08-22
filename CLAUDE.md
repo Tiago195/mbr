@@ -199,8 +199,10 @@ Classificação honesta do conteúdo:
 - ~~"o processo de extração depende de o build ser Mono ou IL2CPP"~~ — o build
   é IL2CPP, e não importou: os dados saíram sem tocar em código. Ver
   `docs/05-extracao-dados-apk.md`
-- ~~"nenhum código deste repositório foi executado"~~ — tudo roda, com 154
-  testes automatizados
+- ~~"nenhum código deste repositório foi executado"~~ — tudo roda, com suíte
+  automatizada. O número de testes muda a cada sessão e vive na seção
+  "Estado atual", que é conferida por `tools/conferir_numeros.py`; repeti-lo
+  aqui só criaria um segundo lugar para ficar desatualizado — e ficou
 
 **Opinião de engenharia, não fato:** arquitetura, roadmap, ordem das fases,
 design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.

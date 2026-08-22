@@ -407,9 +407,9 @@ continuam `.tres`, editáveis no Inspector, uma por arquivo (decisão 9). O JSON
 `MarkSet` guarda estados com nome, prazo e pilhas, e não sabe o que eles
 significam. Quem dá sentido é quem consulta.
 
-**Por quê:** 30 buffs do original não concedem atributo, não causam dano e não
-controlam — só têm `Line`, `Rank` e `Duration`. São marcadores, e o jogo os
-consulta em outro lugar. Sem esta peça, a marca do caçador, o passo do combo e
+**Por quê:** 114 buffs do original não concedem atributo, não causam dano e não
+controlam; **62 deles têm literalmente só `Line`, `Rank` e `Duration`**. São
+marcadores, e o jogo os consulta em outro lugar. Sem esta peça, a marca do caçador, o passo do combo e
 a postura da arma traduziam para nada.
 
 Uma marca que soubesse o que significa seria um sistema paralelo ao de efeitos,
