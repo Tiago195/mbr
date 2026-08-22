@@ -303,6 +303,22 @@ Lentidão **é** um atributo reduzido por um tempo. Modelá-la como estado
 próprio duplicaria stacking e expiração sem ganhar nada — e o doc é explícito
 sobre não construir um segundo sistema paralelo.
 
+### Cada efeito declara quem recebe
+
+Descoberto ao escrever o teste do critério da Fase 3.3, antes de a fase
+começar: a terceira habilidade que `03-sistemas-de-jogo.md` sugere é **"um dash
+com escudo"**, e o vocabulário não sabia expressá-la. O escudo ia para quem a
+forma pegou — o inimigo.
+
+`AbilityEffect.recipient` resolve: `TARGETS` (cada atingido) ou `CASTER` (o
+conjurador, uma vez só, mesmo em área vazia). Foi a regra do projeto operando
+como devia — generalizar em vez de escrever classe nova.
+
+De quebra, isso separou dois eixos que estavam grudados no deslocamento:
+**quem** é movido (`recipient`) e **para onde** (`mode`). Dash, empurrão e
+puxão viraram combinações dos dois, e apareceu uma quarta de graça — empurrar
+todos os alvos na direção da mira, em vez de para longe do conjurador.
+
 ### Deslocamento é pedido, não executado
 
 `DisplacementEffect` não move ninguém: acumula em `pending_displacement`. Quem

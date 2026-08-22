@@ -12,18 +12,35 @@ extends Resource
 ## genuinamente inédito entra aqui — e quando entra, passa a fazer parte do
 ## vocabulário para todas as habilidades seguintes.
 
-## Aplica o efeito a um alvo. `target` pode ser o próprio conjurador.
+## Quem recebe este efeito.
+##
+## Sem isto, "dash com escudo" — a terceira habilidade que
+## `03-sistemas-de-jogo.md` sugere — seria inexpressável: o escudo cairia em
+## quem a forma pegou, ou seja, no inimigo. Declarar o destinatário por efeito
+## é o que permite uma habilidade só machucar quem está na frente e proteger
+## quem a conjurou.
+enum Recipient {
+	## Cada combatente que a forma atingiu.
+	TARGETS,
+	## O conjurador, uma vez só, mesmo que a forma não pegue ninguém.
+	CASTER,
+}
+
+@export var recipient: Recipient = Recipient.TARGETS
+
+## Aplica o efeito a um combatente. Quem é esse combatente vem de `recipient`,
+## e quem decide isso é a engine — não este método.
 ##
 ## Sobrescrever. A base não faz nada de propósito: efeito não implementado
 ## deve ser inofensivo, não estourar no meio de uma luta.
 func apply(_cast: AbilityCast, _target: Unit) -> void:
 	push_warning("AbilityEffect.apply() não sobrescrito em %s" % _script_name())
 
-## Falso para efeitos que agem no ponto do chão em vez de num combatente —
-## invocação, armadilha. A engine usa isto para não descartar a conjuração
-## quando a forma não pegou ninguém.
+## Verdadeiro quando o efeito depende da forma ter pegado alguém. A engine usa
+## isto para decidir se uma conjuração que não acertou ninguém é recusada ou
+## sai assim mesmo — um dash não pode ser recusado por não acertar ninguém.
 func needs_target() -> bool:
-	return true
+	return recipient == Recipient.TARGETS
 
 ## Texto curto para log de combate e para depuração.
 func describe() -> String:

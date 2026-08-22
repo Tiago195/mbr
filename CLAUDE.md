@@ -224,8 +224,17 @@ Barra de vida e número de dano. Não estava no roadmap original; entrou porque
 estados e posição fora da árvore de cena; `Combatant` virou ponte. 71 testes.
 Formato de dado fechado na decisão 9: `Resource` em `.tres`.
 
-**Próximo: Fase 3.2** — motor de habilidade (cooldown, conjuração, alvo,
-forma, filtro).
+**Fase 3.2 — concluída (21/08/2026).** `Ability` (Resource), `AbilityShape`,
+`AbilityBook`, `AbilityEngine`. 99 testes, 255 asserções.
+
+Regras de estado definidas **uma vez no sistema**, em `ability_engine.gd`:
+stun e silêncio impedem conjurar; stun no meio corta a conjuração; habilidade
+nova NÃO cancela a anterior (recusa com BUSY); recarga começa ao **iniciar** a
+conjuração, então cortar a conjuração de alguém não devolve a habilidade.
+
+**Próximo: Fase 3.3** — três habilidades reais e o feedback visual da 3.4. O
+critério da 3.3 ("quarta habilidade só com configuração") já passa em teste,
+mas escolher as três e sentir se são divertidas precisa de humano.
 
 ## Testes
 

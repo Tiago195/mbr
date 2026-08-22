@@ -292,4 +292,5 @@ Atualizar ao fim de cada sessão. Manter também o "Estado atual" no `CLAUDE.md`
 | 2.3 | ✅ Concluída | 21/08/2026 | Validado: mata o boneco clicando. Fórmula conferida no log — 50 normal, 87.5 crítico, contra 20 de armadura |
 | 2.4 | ✅ Concluída | 21/08/2026 | Validado após corrigir a barra, que deslizava em vez de encolher (billboard descarta escala do nó) |
 | 3.1 | ✅ Concluída | 21/08/2026 | Vocabulário de efeitos: DAMAGE, HEAL, SHIELD, STAT_MOD, CROWD_CONTROL, DISPLACEMENT. `Unit` reúne atributos, vida e estados fora da árvore de cena. 71 testes |
-| 3.2 | ⬜ Não iniciada | | Motor de habilidade: cooldown, conjuração, alvo, forma, filtro |
+| 3.2 | ✅ Concluída | 21/08/2026 | `Ability` como Resource, `AbilityShape`, `AbilityBook`, `AbilityEngine`. 99 testes. Critério da 3.3 já verificado por teste — ver nota abaixo |
+| 3.3 | 🟡 Parcial | 21/08/2026 | O critério ("quarta habilidade só com configuração") passa em teste. Falta escolher as três reais e sentir se são divertidas — precisa de humano |

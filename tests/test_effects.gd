@@ -211,53 +211,71 @@ func test_cc_reaplicado_pega_a_maior_duracao_e_nao_soma() -> void:
 
 # ---------------------------------------------------------------- DISPLACEMENT
 
-func test_dash_desloca_o_conjurador_e_nao_o_alvo() -> void:
+func test_along_aim_desloca_na_direcao_da_mira() -> void:
+	# É o dash: recipient CASTER (quem a engine passa) + ALONG_AIM.
 	var caster := _unit()
-	var target := _unit({}, 1)
-	target.position = Vector3(5, 0, 0)
 
 	var effect := DisplacementEffect.new()
-	effect.mode = DisplacementEffect.Mode.DASH
+	effect.mode = DisplacementEffect.Mode.ALONG_AIM
+	effect.recipient = AbilityEffect.Recipient.CASTER
 	effect.distance = 4.0
 
-	var cast := AbilityCast.toward(caster, Vector3(1, 0, 0))
-	effect.apply(cast, target)
-
+	effect.apply(AbilityCast.toward(caster, Vector3(1, 0, 0)), caster)
 	assert_almost_eq(caster.consume_displacement().x, 4.0)
-	assert_almost_eq(target.consume_displacement().length(), 0.0)
 
-func test_knockback_empurra_o_alvo_para_longe() -> void:
+func test_away_from_caster_empurra_para_longe() -> void:
 	var caster := _unit()
 	var target := _unit({}, 1)
 	target.position = Vector3(3, 0, 0)
 
 	var effect := DisplacementEffect.new()
-	effect.mode = DisplacementEffect.Mode.KNOCKBACK
+	effect.mode = DisplacementEffect.Mode.AWAY_FROM_CASTER
 	effect.distance = 2.0
 	effect.apply(AbilityCast.on_unit(caster, target), target)
 
 	assert_almost_eq(target.consume_displacement().x, 2.0, "afastou no +X")
 
-func test_pull_traz_o_alvo_para_perto() -> void:
+func test_toward_caster_traz_para_perto() -> void:
 	var caster := _unit()
 	var target := _unit({}, 1)
 	target.position = Vector3(3, 0, 0)
 
 	var effect := DisplacementEffect.new()
-	effect.mode = DisplacementEffect.Mode.PULL
+	effect.mode = DisplacementEffect.Mode.TOWARD_CASTER
 	effect.distance = 2.0
 	effect.apply(AbilityCast.on_unit(caster, target), target)
 
 	assert_almost_eq(target.consume_displacement().x, -2.0, "aproximou")
 
-func test_imobilizado_nao_da_dash() -> void:
+func test_along_aim_em_alvos_empurra_todos_na_mesma_direcao() -> void:
+	# Combinação que os dois eixos dão de graça: um "vendaval" que empurra
+	# todo mundo na direção da mira, em vez de para longe do conjurador.
+	# Não precisou de classe nova.
+	var caster := _unit()
+	var a := _unit({}, 1)
+	a.position = Vector3(-2, 0, 0)
+	var b := _unit({}, 1)
+	b.position = Vector3(2, 0, 0)
+
+	var effect := DisplacementEffect.new()
+	effect.mode = DisplacementEffect.Mode.ALONG_AIM
+	effect.distance = 3.0
+
+	var cast := AbilityCast.toward(caster, Vector3(0, 0, -1))
+	effect.apply(cast, a)
+	effect.apply(cast, b)
+
+	assert_almost_eq(a.consume_displacement().z, -3.0)
+	assert_almost_eq(b.consume_displacement().z, -3.0, "mesma direção, não oposta")
+
+func test_imobilizado_nao_se_desloca() -> void:
 	var caster := _unit()
 	caster.status.apply(StatusSet.Kind.ROOT, 2.0)
 
 	var effect := DisplacementEffect.new()
-	effect.mode = DisplacementEffect.Mode.DASH
+	effect.mode = DisplacementEffect.Mode.ALONG_AIM
 	effect.distance = 4.0
-	effect.apply(AbilityCast.toward(caster, Vector3(1, 0, 0)), null)
+	effect.apply(AbilityCast.toward(caster, Vector3(1, 0, 0)), caster)
 
 	assert_almost_eq(caster.consume_displacement().length(), 0.0)
 
@@ -268,7 +286,7 @@ func test_empurrao_que_ignora_root_funciona_em_imobilizado() -> void:
 	target.status.apply(StatusSet.Kind.ROOT, 2.0)
 
 	var effect := DisplacementEffect.new()
-	effect.mode = DisplacementEffect.Mode.KNOCKBACK
+	effect.mode = DisplacementEffect.Mode.AWAY_FROM_CASTER
 	effect.distance = 2.0
 	effect.ignores_root = true
 	effect.apply(AbilityCast.on_unit(caster, target), target)
@@ -278,15 +296,23 @@ func test_empurrao_que_ignora_root_funciona_em_imobilizado() -> void:
 func test_deslocamento_acumula_ate_ser_consumido() -> void:
 	var caster := _unit()
 	var effect := DisplacementEffect.new()
-	effect.mode = DisplacementEffect.Mode.DASH
+	effect.mode = DisplacementEffect.Mode.ALONG_AIM
 	effect.distance = 2.0
 
 	var cast := AbilityCast.toward(caster, Vector3(1, 0, 0))
-	effect.apply(cast, null)
-	effect.apply(cast, null)
+	effect.apply(cast, caster)
+	effect.apply(cast, caster)
 
 	assert_almost_eq(caster.consume_displacement().x, 4.0, "somou os dois")
 	assert_almost_eq(caster.consume_displacement().x, 0.0, "consumir zera")
+
+func test_recipient_decide_se_o_efeito_depende_de_alvo() -> void:
+	var no_conjurador := ShieldEffect.new()
+	no_conjurador.recipient = AbilityEffect.Recipient.CASTER
+	assert_false(no_conjurador.needs_target(), "escudo em si mesmo sai sempre")
+
+	var nos_alvos := DamageEffect.new()
+	assert_true(nos_alvos.needs_target(), "dano precisa acertar alguém")
 
 # ---------------------------------------------------------------- mira
 
