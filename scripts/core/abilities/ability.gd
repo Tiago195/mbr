@@ -93,13 +93,25 @@ func cooldown_for(caster: Unit) -> float:
 	)
 	return cooldown * (1.0 - reduction)
 
-## Verdadeiro quando a habilidade só faz sentido sobre alguém — o que decide
-## se uma conjuração que não pegou ninguém é desperdiçada ou recusada.
+## Verdadeiro quando todo efeito depende de acertar alguém.
 func requires_target() -> bool:
 	for effect: AbilityEffect in effects:
 		if effect != null and not effect.needs_target():
 			return false
 	return not effects.is_empty()
+
+## Verdadeiro quando não acertar ninguém deve RECUSAR a conjuração, em vez de
+## gastá-la.
+##
+## Só vale para alvo único: aí não há comando a emitir, e recusar é o certo.
+##
+## Skillshot — POINT e DIRECTION — **gasta mesmo errando**. Errar é parte do
+## jogo, e devolver a recarga de quem errou tornaria mira irrelevante. Isto já
+## foi ao contrário: habilidade instantânea era devolvida e habilidade com
+## tempo de conjuração não, porque a recarga da segunda começa ao iniciar.
+## Dois comportamentos para a mesma situação, sem motivo.
+func refuses_without_target() -> bool:
+	return aim == Aim.UNIT and requires_target()
 
 ## Se um projétil que não atravessa, o teto de alvos é 1 por construção.
 func effective_max_targets() -> int:

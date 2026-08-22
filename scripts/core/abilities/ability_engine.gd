@@ -81,6 +81,12 @@ static func _check(book: AbilityBook, ability: Ability, aim: AbilityCast) -> Cas
 		refused.cooldown_remaining = book.remaining_cooldown(ability)
 		return refused
 
+	# Antes do alcance: sem ninguém apontado, o motivo é falta de alvo e não
+	# distância. Medir a distância até um alvo inexistente daria a mensagem
+	# errada na tela.
+	if ability.aim == Ability.Aim.UNIT and aim.unit_target == null:
+		return CastResult.of(CastResult.Status.NO_TARGET, ability)
+
 	if not _in_range(ability, aim):
 		return CastResult.of(CastResult.Status.OUT_OF_RANGE, ability)
 
@@ -95,8 +101,7 @@ static func _in_range(ability: Ability, aim: AbilityCast) -> bool:
 			# dela é o comprimento da forma.
 			return true
 		Ability.Aim.UNIT:
-			if aim.unit_target == null:
-				return false
+			# `_check` já garantiu que há alvo antes de chegar aqui.
 			return aim.caster.ground_distance_to(aim.unit_target) <= ability.cast_range
 		_:
 			return aim.caster.ground_distance_to_point(aim.point) <= ability.cast_range
@@ -112,10 +117,9 @@ static func _apply(
 ) -> CastResult:
 	var targets: Array[Unit] = AbilityShape.resolve(ability, aim, candidates)
 
-	if targets.is_empty() and ability.requires_target():
-		# Não pegou ninguém e todo efeito precisa de alvo: recusa sem gastar a
-		# recarga. Uma habilidade que também age no conjurador — dash com
-		# escudo — não cai aqui, e sai mesmo em área vazia.
+	if targets.is_empty() and ability.refuses_without_target():
+		# Só alvo único recusa: sem alguém apontado não há comando a emitir.
+		# Skillshot em área vazia SAI e gasta a recarga — errar faz parte.
 		return CastResult.of(CastResult.Status.NO_TARGET, ability)
 
 	for effect: AbilityEffect in ability.effects:

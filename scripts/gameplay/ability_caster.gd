@@ -154,9 +154,12 @@ func _report(ability: Ability, result: CastResult) -> void:
 			var mine: String = ""
 			if _combatant.health.shield > 0.0:
 				mine = "  escudo %.0f" % _combatant.health.shield
-			print("[hab] %s acertou %d alvo(s)%s" % [
-				ability.display_name, result.targets.size(), mine
-			])
+			if result.targets.is_empty():
+				print("[hab] %s errou%s" % [ability.display_name, mine])
+			else:
+				print("[hab] %s acertou %d alvo(s)%s" % [
+					ability.display_name, result.targets.size(), mine
+				])
 		CastResult.Status.CASTING:
 			print("[hab] %s conjurando (%.2fs)" % [ability.display_name, ability.cast_time])
 		CastResult.Status.ON_COOLDOWN:

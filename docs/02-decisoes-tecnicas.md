@@ -303,6 +303,21 @@ Lentidão **é** um atributo reduzido por um tempo. Modelá-la como estado
 próprio duplicaria stacking e expiração sem ganhar nada — e o doc é explícito
 sobre não construir um segundo sistema paralelo.
 
+### Errar skillshot gasta a recarga
+
+Descoberto testando a Fase 3.3. A regra original era "não pegou ninguém,
+recusa sem custo", e ela produzia dois comportamentos para a mesma situação:
+habilidade instantânea era devolvida, habilidade com tempo de conjuração não —
+porque a recarga da segunda começa ao **iniciar**.
+
+Regra corrigida: **só alvo único recusa**. Sem alguém apontado não há comando
+a emitir, e recusar é o certo. Skillshot — `POINT` e `DIRECTION` — sai e gasta
+mesmo errando.
+
+O motivo é de design, não de implementação: devolver a recarga de quem errou
+tornaria mira irrelevante. Num jogo cuja graça é acertar habilidade em alvo
+que se move, isso destrói a mecânica central.
+
 ### Cada efeito declara quem recebe
 
 Descoberto ao escrever o teste do critério da Fase 3.3, antes de a fase

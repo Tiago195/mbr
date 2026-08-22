@@ -195,7 +195,8 @@ func test_alvo_morto_nao_entra_na_conta() -> void:
 		book, _area(10.0), AbilityCast.at_point(caster, Vector3.ZERO), [morto]
 	)
 
-	assert_eq(result.status, CastResult.Status.NO_TARGET)
+	assert_true(result.succeeded(), "skillshot sai mesmo sem acertar")
+	assert_eq(result.targets.size(), 0, "mas o cadáver não conta como alvo")
 
 # ---------------------------------------------------------------- recarga
 
@@ -234,7 +235,9 @@ func test_reducao_de_recarga_e_limitada() -> void:
 	var ability := _area(10.0)
 	assert_almost_eq(ability.cooldown_for(caster), 0.5, "teto de 90%")
 
-func test_conjuracao_sem_alvo_nao_gasta_a_recarga() -> void:
+func test_skillshot_errado_gasta_a_recarga() -> void:
+	# Errar faz parte. Devolver a recarga de quem errou tornaria mira
+	# irrelevante.
 	var caster := _unit()
 	var longe := _unit(Vector3(50, 0, 0), 1)
 	var book := AbilityBook.new()
@@ -244,8 +247,44 @@ func test_conjuracao_sem_alvo_nao_gasta_a_recarga() -> void:
 		book, ability, AbilityCast.at_point(caster, Vector3.ZERO), [longe]
 	)
 
+	assert_true(result.succeeded())
+	assert_eq(result.targets.size(), 0, "não acertou ninguém")
+	assert_false(book.is_ready(ability), "e mesmo assim gastou")
+
+func test_alvo_unico_sem_alvo_e_recusado_sem_custo() -> void:
+	# O outro lado da regra: sem alguém apontado não há comando a emitir.
+	var caster := _unit()
+	var book := AbilityBook.new()
+	var ability := _area(3.0)
+	ability.aim = Ability.Aim.UNIT
+	ability.form = Ability.Form.SINGLE
+
+	var result := AbilityEngine.cast(
+		book, ability, AbilityCast.at_point(caster, Vector3.ZERO), []
+	)
+
 	assert_eq(result.status, CastResult.Status.NO_TARGET)
 	assert_true(book.is_ready(ability), "não desperdiçou")
+
+func test_instantanea_e_com_tempo_gastam_a_recarga_igual_ao_errar() -> void:
+	# Já foi diferente: a instantânea era devolvida e a com tempo de
+	# conjuração não, porque a recarga da segunda começa ao iniciar. Dois
+	# comportamentos para a mesma situação.
+	var caster := _unit()
+	var instantanea := _area(3.0)
+	var demorada := _area(3.0)
+	demorada.id = &"demorada"
+	demorada.cast_time = 0.5
+
+	var livro_a := AbilityBook.new()
+	AbilityEngine.cast(livro_a, instantanea, AbilityCast.at_point(caster, Vector3.ZERO), [])
+	assert_false(livro_a.is_ready(instantanea), "instantânea gastou")
+
+	var livro_b := AbilityBook.new()
+	AbilityEngine.cast(livro_b, demorada, AbilityCast.at_point(caster, Vector3.ZERO), [])
+	livro_b.advance_time(0.6, caster)
+	AbilityEngine.resolve_pending(livro_b, [])
+	assert_false(livro_b.is_ready(demorada), "com tempo também gastou")
 
 # ---------------------------------------------------------------- alcance
 
@@ -374,7 +413,7 @@ func test_alvos_sao_recalculados_no_fim_da_conjuracao() -> void:
 	book.advance_time(1.1, caster)
 
 	var fim := AbilityEngine.resolve_pending(book, [fugitivo])
-	assert_eq(fim.status, CastResult.Status.NO_TARGET)
+	assert_eq(fim.targets.size(), 0, "saiu da área a tempo")
 	assert_almost_eq(fugitivo.health.current, 500.0)
 
 # ---------------------------------------------------------------- efeitos
