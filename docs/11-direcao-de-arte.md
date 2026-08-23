@@ -370,15 +370,21 @@ chama sozinho ao terminar** — antes disso a frase "é executado toda vez" era
 falsa, e ele só rodava quando alguém lembrava a linha de comando do Blender.
 Defesa que depende de alguém lembrar não é defesa.
 
-Três tolerâncias não saem de faixa nenhuma e por isso são declaradas aqui, para
-poderem ser conferidas: a altura vale com folga de **4 cm**, o pé encosta no
-chão com folga de **1,5 cm**, e uma animação precisa de amplitude de pelo menos
-**3 cm** para contar como animação.
+Cinco números não saem de faixa nenhuma e por isso são declarados aqui, para
+poderem ser conferidos: a altura vale com folga de **4 cm**, o pé encosta no
+chão com folga de **1,5 cm**, uma animação precisa de amplitude de pelo menos
+**3 cm** para contar como animação, o salto sobe pelo menos **25 cm** e a
+corrida sai do chão pelo menos **4 cm**.
 
-**As demais tolerâncias são derivadas, não escritas.** Cada uma é meia faixa medida,
-arredondada para cima em passos de 0,005. Escrever a folga à mão já produziu uma
-que violava a própria regra que o comentário ao lado dela declarava — e, pior,
-permitia alargar a tolerância até nada reprovar com uma edição de um dígito.
+**As demais tolerâncias são derivadas, não escritas.** Cada uma é meia faixa
+medida, arredondada para cima em passos de **0,005**. Escrever a folga à mão já
+produziu uma que violava a própria regra que o comentário ao lado dela
+declarava.
+
+Isso não fecha a classe sozinho — **põe o número num lugar só em vez de dez**, e
+esse lugar é conferido junto com os outros cinco. Dizer que derivar "fecha uma
+classe inteira" foi otimismo: com o passo do arredondamento fora da conferência,
+trocá-lo por 0,5 abria todas as tolerâncias de uma vez.
 
 ---
 

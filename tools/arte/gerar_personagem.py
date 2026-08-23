@@ -70,7 +70,7 @@ from mathutils import Euler, Vector
 # --------------------------------------------------------------------------
 # Medidas do corpo. **Nada aqui é gosto: é `docs/11-direcao-de-arte.md`.**
 #
-# `PROPORCAO` é a mediana medida em 25 campeões do original por
+# `PROPORCAO` é a mediana medida em 27 campeões do original por
 # `tools/arte/censo_do_original.py`, como fração da altura total. Mudar um
 # número aqui muda o boneco E reprova `conferir_personagem.py` se sair da
 # faixa medida — que é o que impede a direção de arte de virar enfeite.

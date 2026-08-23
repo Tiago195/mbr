@@ -62,7 +62,7 @@ ALTURA_ESPERADA = (ALTURA_DA_DIRECAO - FOLGA_DA_ALTURA,
 ## ------------------------------------------------------------------ arte
 ##
 ## Daqui para baixo a conferencia deixa de perguntar "quebrou?" e passa a
-## perguntar "**esta na direcao de arte?**". As faixas sao as medidas em 25
+## perguntar "**esta na direcao de arte?**". As faixas sao as medidas em 27
 ## campeoes do original, em `docs/11-direcao-de-arte.md`, com folga.
 ##
 ## Sem isto o documento seria decoracao: ninguem o executa, e na terceira
@@ -98,6 +98,34 @@ FAIXA_DAS_LARGURAS = {
 }
 ## O passo do arredondamento da folga, em fracao da altura.
 PASSO_DA_FOLGA = 0.005
+
+
+def _autoteste_da_folga() -> None:
+	"""A regra da folga, conferida contra dois casos que a distinguem.
+
+	**A conferencia que se confere primeiro.** `folga_de` e o unico lugar de
+	onde saem as dez tolerancias, e uma edicao na formula abria todas de uma
+	vez sem que nada notasse — o passo esta publicado em `docs/11` e e
+	conferido, mas a multiplicacao nao estava.
+
+	Os dois casos discriminam: o primeiro cai no meio de um passo e tem que
+	arredondar para cima, o segundo cai em cima do passo e tem que ficar onde
+	esta. Uma formula errada erra pelo menos um dos dois.
+	"""
+	casos = (((0.0, 0.417, 0.512), 0.050), ((0.0, 0.100, 0.120), 0.010))
+	for faixa, esperada in casos:
+		obtida = folga_de(faixa)
+		if abs(obtida - esperada) > 1e-9:
+			# Imprime no MESMO canal e com o MESMO prefixo das outras reprovas.
+			# Levantar `SystemExit` com a mensagem manda o texto para o stderr,
+			# e quem le a saida procurando "REPROVA" no stdout nao acha —
+			# a defesa existia e era invisivel para o arnes.
+			print(
+				"[confere] REPROVA: a regra da folga esta quebrada — faixa "
+				"%.3f a %.3f deveria dar %.3f e deu %.3f"
+				% (faixa[1], faixa[2], esperada, obtida)
+			)
+			raise SystemExit(1)
 
 
 def folga_de(faixa: tuple) -> float:
@@ -328,6 +356,7 @@ def conferir_proporcao(armature, malha) -> list:
 
 
 def main() -> int:
+	_autoteste_da_folga()
 	raiz = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 	glb = os.path.join(raiz, "arte", "personagem.glb")
 	if not os.path.exists(glb):

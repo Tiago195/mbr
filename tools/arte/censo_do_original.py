@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import colorsys
 import io
+import json
 import math
 import os
 import re
@@ -43,6 +44,18 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 
 BASE = (r"C:\Program Files (x86)\Steam\steamapps\common\Royal Crown"
         r"\RoyalCrown_Data\StreamingAssets")
+
+## Onde o instantaneo das medidas e gravado. **Numeros, nao asset** — a mesma
+## natureza de `data/traducao/`, e a mesma linha de `docs/01`.
+##
+## Ele existe porque sem ele as faixas do original nao tinham dono: alargar uma
+## no documento E no conferidor ao mesmo tempo passava por tudo, porque nao
+## havia terceira fonte. Agora ha, e ela so muda rodando este script numa
+## maquina com o jogo instalado.
+INSTANTANEO = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "data", "direcao-de-arte.json",
+)
 
 ## Os 32 campeoes com controlador de partida. `Ballista_Catapult`, `Elma_Bato`
 ## e `Miru_Cat` sao FORMAS de campeao, nao campeoes, e por isso ficam de fora:
@@ -109,12 +122,43 @@ def q_mul(a, b):
 	        aw * bw - ax * bx - ay * by - az * bz)
 
 
+## O instantaneo, montado ao longo da execucao e gravado no fim.
+_MEDIDAS: dict = {}
+
+
+def _guardar(secao: str, valores: dict) -> None:
+	_MEDIDAS[secao] = valores
+
+
+## As fracoes de altura circulam com TRES casas em todo o projeto. O
+## instantaneo guarda a mesma precisao de proposito: guardando quatro, quem
+## lesse arredondava de novo, e arredondar duas vezes muda a terceira casa —
+## 0,14449 vira 0,1445 vira 0,144, enquanto o relatorio imprime 0,145.
+CASAS = 3
+
+
+def _tres(valores) -> list:
+	"""`[mediana, minimo, maximo]`, na ordem em que o resto do projeto os le."""
+	v = sorted(valores)
+	return [round(statistics.median(v), CASAS), round(v[0], CASAS), round(v[-1], CASAS)]
+
+
 def faixa(nome, valores, casas=2):
+	"""Uma linha de relatorio — **arredondada do mesmo jeito que o instantaneo**.
+
+	`%.3f` e `round(x, 3)` discordam na terceira casa em valores de meio
+	exatos: 0,9665 imprime 0,966 e arredonda 0,967. Com o relatorio e o
+	instantaneo usando regras diferentes, o documento escrito a partir da tela
+	discordava do arquivo em 0,001, e a conferencia acusava.
+	"""
 	if not valores:
 		return "%-34s (sem dado)" % nome
 	v = sorted(valores)
-	return "%-34s n=%-4d min %.*f  mediana %.*f  max %.*f" % (
-		nome, len(v), casas, v[0], casas, statistics.median(v), casas, v[-1])
+	molde = "%%.%df" % casas
+	def mostrar(x):
+		return molde % round(x, casas)
+	return "%-34s n=%-4d min %s  mediana %s  max %s" % (
+		nome, len(v), mostrar(v[0]), mostrar(statistics.median(v)), mostrar(v[-1]))
 
 
 # ------------------------------------------------------------------ animacao
@@ -209,6 +253,20 @@ def censo_de_animacao(UnityPy):
 
 	# O limiar e >=30 de 32; quantos estao em TODOS e outra conta, e e ela que
 	# o documento afirma. Publicar so o limiar deixava a afirmacao sem teste.
+	_guardar("vocabulario", {
+		"campeoes": len(partida),
+		"vagas": [
+			int(statistics.median([len(p) for p in partida.values()])),
+			min(len(p) for p in partida.values()),
+			max(len(p) for p in partida.values()),
+		],
+	})
+	# **O limiar e uma decisao, e ela vale para o documento inteiro.** A tabela
+	# dos pares usava "pouco-comum = ate 4 donos" — criterio que so existia
+	# neste stdout —, enquanto o paragrafo do ritmo declarava dois. Duas
+	# definicoes de "habilidade" no mesmo censo, e a publicada nao reproduzia a
+	# tabela.
+	LIMIAR_DE_HABILIDADE = 2
 	universais = sorted(n for n, s in donos.items() if len(s) >= 30)
 	em_todos = sorted(n for n in universais if len(donos[n]) == len(partida))
 	print("  clipes UNIVERSAIS (>=30 dos %d campeoes): %d, dos quais %d estao em TODOS"
@@ -233,13 +291,17 @@ def censo_de_animacao(UnityPy):
 	sem = sorted(k for k in partida if k not in por_pers)
 	print("  campeoes SEM clipe exclusivo: %d  %s" % (len(sem), ", ".join(sem)))
 	for k in sem:
-		raros = {p["nome"] for p in partida[k] if len(donos[p["nome"]]) <= 4}
+		raros = {p["nome"] for p in partida[k]
+		         if len(donos[p["nome"]]) <= LIMIAR_DE_HABILIDADE}
 		par = max(((len(raros & {q["nome"] for q in partida[j]}), j)
 		           for j in partida if j != k), default=(0, "?"))
+		# Subconjunto ou nao: o Harang tem clipes que o Stepan nao tem, e dizer
+		# "um e subconjunto do outro" ja foi publicado e era falso.
 		# **Quanto dividem, sobre quantos tem.** "Divide 11" sem o denominador
 		# vira "divide o kit inteiro" na primeira vez que alguem resume — e
 		# virou. Harang divide 11 de 16, o que nao e o conjunto inteiro.
-		outros = {q["nome"] for q in partida[par[1]] if len(donos[q["nome"]]) <= 4}
+		outros = {q["nome"] for q in partida[par[1]]
+		          if len(donos[q["nome"]]) <= LIMIAR_DE_HABILIDADE}
 		print("    %-10s divide %d dos %d clipes pouco-comuns dele com %s "
 		      "(que tem %d)" % (k, par[0], len(raros), par[1], len(outros)))
 
@@ -248,13 +310,22 @@ def censo_de_animacao(UnityPy):
 	# dono so jogaria fora metade das habilidades desses oito. Com `== 1` a
 	# mediana vai de 1,07 para 1,17 e o p75 de 1,40 para 1,47 — e sao esses
 	# quartis que viram a faixa de duracao dos nossos gestos.
-	LIMIAR_DE_HABILIDADE = 2
 	hab = sorted(x for n, s in donos.items()
 	             if len(s) <= LIMIAR_DE_HABILIDADE for x in dur[n])
 	print("  habilidade = clipe de no maximo %d campeoes" % LIMIAR_DE_HABILIDADE)
 	print(" ", faixa("duracao dos clipes de HABILIDADE (s)", hab))
 	print("    quartis: p25 %.2f  p75 %.2f  p90 %.2f" % (
 		hab[len(hab) // 4], hab[len(hab) * 3 // 4], hab[len(hab) * 9 // 10]))
+	_guardar("ritmo", {
+		"cadencia": 30,
+		"habilidade_p25": round(hab[len(hab) // 4], 2),
+		"habilidade_p75": round(hab[len(hab) * 3 // 4], 2),
+		"universais": {
+			n: [round(min(dur[n]), 2), round(statistics.median(dur[n]), 2),
+			    round(max(dur[n]), 2)]
+			for n in universais
+		},
+	})
 	quadros = Counter(round(x * 30) for x in hab)
 	print("    em quadros a 30 fps, os mais comuns:", quadros.most_common(6))
 
@@ -438,6 +509,21 @@ def censo_de_proporcao(UnityPy):
 	_conferir_espacos(linhas)
 
 	bons = [l for l in linhas if l["pers"] not in FORA_DA_PROPORCAO]
+	_guardar("proporcao", {
+		"campeoes": len(bons),
+		"altura": _tres([l["altura"] for l in bons]),
+		"tornozelo": _tres([l["escada"]["LeftFoot"] for l in bons]),
+		"joelho": _tres([l["escada"]["LeftLowerLeg"] for l in bons]),
+		"quadril": _tres([l["escada"]["Hips"] for l in bons]),
+		"peito": _tres([l["escada"]["Chest"] for l in bons]),
+		"pescoco": _tres([l["pescoco"] for l in bons]),
+		"cranio": _tres([l["cranio"] for l in bons]),
+		"ombro": _tres([l["escada"]["LeftUpperArm"] for l in bons]),
+		"vao_dos_ombros": _tres([l["ombros"] for l in bons if l["ombros"]]),
+		"vao_dos_quadris": _tres([l["quadris"] for l in bons if l["quadris"]]),
+		"vao_das_maos": _tres([l["maos"] for l in bons if l["maos"]]),
+		"envergadura": _tres([l["envergadura"] for l in bons]),
+	})
 	print("  campeoes medidos: %d (fora: %s)" % (len(bons), ", ".join(sorted(FORA_DA_PROPORCAO))))
 	print("  -- a escada de alturas, como fracao da altura total --")
 	for osso in ("LeftToes", "LeftFoot", "LeftLowerLeg", "LeftUpperLeg", "Hips",
@@ -570,8 +656,14 @@ def main() -> int:
 	censo_de_animacao(UnityPy)
 	censo_de_proporcao(UnityPy)
 	censo_de_paleta(UnityPy)
+
+	os.makedirs(os.path.dirname(INSTANTANEO), exist_ok=True)
+	with io.open(INSTANTANEO, "w", encoding="utf-8") as saida:
+		json.dump(_MEDIDAS, saida, ensure_ascii=False, indent=1, sort_keys=True)
+		saida.write("\n")
 	print()
-	print("[censo] fim. Nenhum asset foi escrito em disco.")
+	print("[censo] instantaneo: %s" % INSTANTANEO)
+	print("[censo] fim. Nenhum asset foi escrito em disco — so numeros.")
 	return 0
 
 

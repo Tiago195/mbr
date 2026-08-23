@@ -22,6 +22,8 @@ from __future__ import annotations
 import contextlib
 import json
 import re
+import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -956,6 +958,112 @@ def _faixas_do_conferidor(fonte: str) -> dict:
     return saida
 
 
+
+def _duracoes_do_gerador(fonte: str) -> dict:
+    """`animação → duração em segundos`, lida das chaves do gerador."""
+    saida = {}
+    for bloco in re.finditer(r'^\t"(\w+)": \{(.*?)^\t\},', fonte, re.S | re.M):
+        quadros = [int(q) for q in re.findall(r"\((\d+), pose\(", bloco.group(2))]
+        if quadros:
+            saida[bloco.group(1)] = max(quadros) / 30.0
+    return saida
+
+
+def _duracoes_do_glb(caminho: str) -> dict:
+    """`animação → duração`, lida do `.glb` EXPORTADO, sem Blender.
+
+    O cabeçalho de um `.glb` é JSON puro, e o tempo de cada animação está no
+    `max` do acessor de entrada dos samplers. Ler daqui é o que torna o
+    ARTEFATO conferível pela mesma ferramenta que roda em todo commit — e sem
+    isso ele não era conferido por nada.
+    """
+    dados = (RAIZ / caminho).read_bytes()
+    if dados[:4] != b"glTF":
+        raise ValueError("%s não é um .glb" % caminho)
+    tamanho = struct.unpack("<I", dados[12:16])[0]
+    cabecalho = json.loads(dados[20:20 + tamanho].decode("utf-8"))
+    saida = {}
+    for animacao in cabecalho.get("animations", []):
+        fim = 0.0
+        for sampler in animacao.get("samplers", []):
+            acessor = cabecalho["accessors"][sampler["input"]]
+            if acessor.get("max"):
+                fim = max(fim, float(acessor["max"][0]))
+        saida[animacao.get("name", "?")] = fim
+    return saida
+
+
+def _conferir_o_artefato(c: "Conferencia") -> None:
+    """O `.glb` que está no repositório contra o gerador que o produz.
+
+    **Existe porque o artefato commitado já REPROVOU o próprio conferidor.** A
+    suíte de mutação restaurava o código-fonte no fim e deixava o `.glb` da
+    última mutação no disco; ele foi commitado assim, com `parado` de 1,00 s
+    onde o gerador diz 2,00. Nenhuma das ferramentas notava, porque todas liam
+    CÓDIGO e nenhuma abria o arquivo exportado.
+
+    Ler o glTF em Python puro é o que permite conferir isso sem o Blender, e
+    portanto em toda execução, e não só na máquina de quem tem a engine de arte
+    instalada.
+    """
+    try:
+        gerador = ler("tools/arte/gerar_personagem.py")
+        do_glb = _duracoes_do_glb("arte/personagem.glb")
+    except (OSError, ValueError) as erro:
+        c.contar()
+        c.falhas.append("o boneco exportado não pôde ser lido: %s" % erro)
+        return
+
+    do_codigo = _duracoes_do_gerador(gerador)
+    c.contar()
+    if set(do_glb) != set(do_codigo):
+        c.falhas.append(
+            "o `.glb` tem as animações %s e o gerador define %s"
+            % (sorted(do_glb), sorted(do_codigo))
+        )
+        return
+    for nome in sorted(do_codigo):
+        c.contar()
+        # Meio quadro de folga: o glTF guarda tempo em ponto flutuante.
+        if abs(do_glb[nome] - do_codigo[nome]) > 1.0 / 60.0:
+            c.falhas.append(
+                "`%s` dura %.3f s no `.glb` commitado e %.3f s no gerador — o "
+                "artefato não veio deste código"
+                % (nome, do_glb[nome], do_codigo[nome])
+            )
+
+
+## Bytes que não podem existir em arquivo de texto rastreado. O `\b` de
+## `\blender.exe`, escrito por um script que interpretou a sequência, virou
+## byte 0x08 dentro de um comando publicado no `CLAUDE.md` — quem copiasse o
+## comando não conseguia rodá-lo.
+EXTENSOES_DE_TEXTO = (".md", ".py", ".gd", ".json", ".cfg", ".tscn", ".tres")
+
+
+def _conferir_bytes_de_controle(c: "Conferencia") -> None:
+    saida = subprocess.run(
+        ["git", "ls-files"], capture_output=True, text=True, cwd=str(RAIZ)
+    )
+    c.contar()
+    if saida.returncode != 0:
+        c.falhas.append("não consegui listar os arquivos rastreados")
+        return
+    sujos = []
+    for caminho in saida.stdout.splitlines():
+        if not caminho.endswith(EXTENSOES_DE_TEXTO):
+            continue
+        try:
+            bruto = (RAIZ / caminho).read_bytes()
+        except OSError:
+            continue
+        for indice, byte in enumerate(bruto):
+            if byte < 9 or (13 < byte < 32):
+                sujos.append("%s byte 0x%02x em %d" % (caminho, byte, indice))
+                break
+    if sujos:
+        c.falhas.append("byte de controle em arquivo de texto: %s" % "; ".join(sujos))
+
+
 def _conferir_direcao_de_arte(c: "Conferencia") -> None:
     """`docs/11` contra `tools/arte/`, nos dois sentidos, MEDIANA E FAIXA.
 
@@ -983,6 +1091,20 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
 
     proporcao = _proporcao_do_gerador(gerador)
     faixas = _faixas_do_conferidor(conferidor)
+    # **A terceira fonte.** Documento e conferidor podiam ser alargados juntos,
+    # numa edição visível mas em dois lugares, e nada automatizado sustentava a
+    # faixa — ela é uma medida do ORIGINAL, que esta ferramenta não lê. O
+    # instantâneo é escrito por `censo_do_original.py` a partir dos bundles, e
+    # é ele que ancora os outros dois.
+    try:
+        medidas = json.loads(ler("data/direcao-de-arte.json"))["proporcao"]
+    except (OSError, KeyError, ValueError) as erro:
+        medidas = {}
+        c.contar()
+        c.falhas.append(
+            "o instantâneo das medidas do original não pôde ser lido (%s) — "
+            "regere com `py tools/arte/censo_do_original.py`" % erro
+        )
     c.contar()
     if len(proporcao) != len(DIRECAO_LINHAS):
         c.falhas.append(
@@ -1007,6 +1129,22 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
             c.falhas.append(
                 "docs/11 diz %s = %.3f e o gerador usa %.3f"
                 % (rotulo, mediana, proporcao[chave])
+            )
+        c.contar()
+        if chave in medidas:
+            do_censo = tuple(medidas[chave])
+            if (abs(do_censo[0] - mediana) > 5e-4
+                    or abs(do_censo[1] - minimo) > 5e-4
+                    or abs(do_censo[2] - maximo) > 5e-4):
+                c.falhas.append(
+                    "docs/11 publica %s = %.3f (%.3f a %.3f) e o instantâneo "
+                    "medido no original diz %.3f (%.3f a %.3f)"
+                    % (rotulo, mediana, minimo, maximo, *do_censo)
+                )
+        elif medidas:
+            c.falhas.append(
+                "o instantâneo não tem `%s` — a medida perdeu a âncora no "
+                "original" % chave
             )
         c.contar()
         if medida not in faixas:
@@ -1042,6 +1180,118 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
     # A cadência, que o documento afirma e a conferência usa.
     c.afirma("docs/11 cadência", doc, r"\*\*(\d+) quadros por segundo\*\*", 30)
     c.afirma("conferidor cadência", conferidor, r"CADENCIA = (\d+)\.0", 30)
+
+    # ------------------------------------------------ os números DERIVADOS
+    #
+    # A coluna "Em 1,75 m" do §1 e a tabela inteira do §9 são a ponte entre a
+    # fração medida e o metro que o boneco tem. Ninguém os conferia: trocar
+    # "pulso 0,872" por "0,999" passava por tudo. São aritmética pura, e
+    # aritmética pura é exatamente o que uma máquina confere melhor que um
+    # leitor.
+    for rotulo, (chave, _medida) in sorted(DIRECAO_LINHAS.items()):
+        linha = _tabela_do_documento(doc, rotulo)
+        if linha is None or "altura" in rotulo:
+            continue
+        c.contar()
+        emmetros = re.search(
+            r"\| %s \| \*{0,2}-?[0-9],[0-9]+\*{0,2} \| -?[0-9],[0-9]+ – -?[0-9],[0-9]+ "
+            r"\| (-?[0-9],[0-9]+) \|" % re.escape(rotulo), doc
+        )
+        if emmetros is None:
+            c.falhas.append(
+                "docs/11: a coluna em metros da linha `%s` sumiu" % rotulo
+            )
+        elif abs(_decimal(emmetros.group(1)) - round(linha[0] * 1.75, 3)) > 5e-4:
+            c.falhas.append(
+                "docs/11: `%s` é %.3f da altura, o que dá %.3f m em 1,75 — e a "
+                "tabela diz %s" % (rotulo, linha[0], linha[0] * 1.75,
+                                   emmetros.group(1))
+            )
+
+    # A tabela do §9, que traduz cada fração para o número que o gerador usa.
+    for rotulo, formula, conta in (
+        ("tornozelo", "tornozelo", lambda v: v["tornozelo"] * 1.75),
+        ("joelho", "joelho", lambda v: v["joelho"] * 1.75),
+        ("quadril", "quadril", lambda v: v["quadril"] * 1.75),
+        ("peito", "peito", lambda v: v["peito"] * 1.75),
+        ("pescoço", "pescoco", lambda v: v["pescoco"] * 1.75),
+        ("pulso", None, lambda v: (v["ombro"] * 1.75
+                                   - (v["vao_das_maos"] - v["vao_dos_ombros"]) * 1.75 / 2)),
+        ("ponta da mão", None, lambda v: (
+            v["ombro"] * 1.75
+            - (v["vao_das_maos"] - v["vao_dos_ombros"]) * 1.75 / 2
+            - (v["envergadura"] - v["vao_das_maos"]) * 1.75 / 2)),
+    ):
+        c.contar()
+        achado = re.search(r"\| %s ([0-9],[0-9]+) \|" % re.escape(rotulo), doc)
+        if achado is None:
+            c.falhas.append("docs/11 §9: a linha `%s` sumiu da tabela" % rotulo)
+            continue
+        if not proporcao:
+            continue
+        esperado = round(conta(proporcao), 3)
+        if abs(_decimal(achado.group(1)) - esperado) > 5e-4:
+            c.falhas.append(
+                "docs/11 §9 diz `%s` = %s e a conta com a proporção do gerador "
+                "dá %.3f" % (rotulo, achado.group(1), esperado)
+            )
+
+    # A altura mediana do elenco, que o §2 publica e o instantâneo mede.
+    c.contar()
+    no_doc = re.search(r"mediana ([0-9],[0-9]+)\*\* — 15% de variação", doc)
+    if no_doc is None:
+        c.falhas.append("docs/11 §2: a altura mediana do elenco sumiu")
+    elif medidas and abs(_decimal(no_doc.group(1)) - medidas["altura"][0]) > 5e-4:
+        c.falhas.append(
+            "docs/11 §2 diz mediana %s e o instantâneo mede %.3f"
+            % (no_doc.group(1), medidas["altura"][0])
+        )
+
+    # O passo do arredondamento da folga. **É o último lugar onde uma edição de
+    # um dígito abre TODAS as tolerâncias de uma vez** — derivar a folga tirou o
+    # número de dez lugares e o pôs em um só, e um lugar sem conferência é um
+    # lugar.
+    c.contar()
+    no_doc = re.search(r"passos de \*\*0,(\d+)\*\*", doc)
+    no_codigo = re.search(r"PASSO_DA_FOLGA = ([0-9.]+)", conferidor)
+    if no_doc is None or no_codigo is None:
+        c.falhas.append("o passo da folga sumiu de `docs/11` ou do conferidor")
+    elif abs(_decimal("0," + no_doc.group(1)) - float(no_codigo.group(1))) > 1e-9:
+        c.falhas.append(
+            "docs/11 diz passo de 0,%s e o conferidor usa %s"
+            % (no_doc.group(1), no_codigo.group(1))
+        )
+
+    # Quanto o corpo tem que sair do chão em cada animação de voo. Era a única
+    # conferência que exigia que o salto saltasse, e não era publicada.
+    for nome, padrao in (("salto", r"o salto sobe pelo menos \*\*(\d+) cm\*\*"),
+                         ("correndo", r"corrida sai do chão pelo menos \*\*(\d+) cm\*\*")):
+        c.contar()
+        no_doc = re.search(padrao, doc)
+        no_codigo = re.search(r'"%s": ([0-9.]+)' % nome, conferidor)
+        if no_doc is None or no_codigo is None:
+            c.falhas.append("o voo de `%s` sumiu de `docs/11` ou do conferidor" % nome)
+        elif abs(float(no_doc.group(1)) / 100.0 - float(no_codigo.group(1))) > 1e-9:
+            c.falhas.append(
+                "docs/11 diz %s cm de voo para `%s` e o conferidor usa %s m"
+                % (no_doc.group(1), nome, no_codigo.group(1))
+            )
+
+    # A lista do que o conferidor exige tem que ser a lista do que o gerador
+    # produz. Sem isto, tirar um nome de `NOMES_EXIGIDOS` fazia a animação
+    # inteira deixar de ser medida — duração, chão e amplitude — sem uma falha.
+    c.contar()
+    do_gerador = sorted(_duracoes_do_gerador(gerador))
+    exigidos = re.search(r"NOMES_EXIGIDOS = \[(.*?)\]", conferidor, re.S)
+    if exigidos is None:
+        c.falhas.append("`NOMES_EXIGIDOS` sumiu do conferidor do boneco")
+    else:
+        pedidos = sorted(re.findall(r'"(\w+)"', exigidos.group(1)))
+        if pedidos != do_gerador:
+            c.falhas.append(
+                "o gerador produz %s e o conferidor exige %s — o que sobra não "
+                "é medido por ninguém" % (do_gerador, pedidos)
+            )
 
     # As três tolerâncias que não saem de faixa nenhuma, e por isso são
     # declaradas no §9 para poderem ser conferidas. Sem isto, alargar qualquer
@@ -2187,6 +2437,8 @@ def main() -> int:
     # era conferido por nada — o mesmo estado em que estavam as "12
     # afirmações" que eram 15.
     _conferir_direcao_de_arte(c)
+    _conferir_o_artefato(c)
+    _conferir_bytes_de_controle(c)
 
     c.contar()
     publicado = _numero(

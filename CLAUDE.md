@@ -296,10 +296,20 @@ Três achados que valem além da arte:
 `tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
 — e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
 reprova quando documento e código discordam, mediana E faixa.
-**33 mutações, 33 pegas** — 15 no boneco e 18 na concordância.
+**37 mutações, 37 pegas** — 16 no boneco e 21 na concordância.
 
-**E a primeira versão disto foi REPROVADA por um validador adversarial**, com
-17 achados. Quatro mudaram número: duas malhas de corpo eram descartadas em
+**E isto foi REPROVADO DUAS VEZES por um validador adversarial**, com 17 e 12
+achados. A segunda rodada achou o pior de todos, e era de processo: **o `.glb`
+commitado não vinha do gerador commitado.** A suíte de mutação restaurava o
+código-fonte no fim e deixava o artefato da última mutação no disco, e ele foi
+commitado assim — `parado` de 1,00 s onde o gerador diz 2,00 —, reprovando a
+própria conferência. Nenhuma das ferramentas via, porque todas liam CÓDIGO e
+nenhuma abria o arquivo exportado. Hoje `conferir_numeros.py` lê o `.glb` em
+Python puro (o cabeçalho de um glTF é JSON) e compara com as chaves do gerador,
+o que torna o artefato conferível **sem o Blender** e, portanto, em toda
+execução.
+
+Da primeira rodada, 17 achados. Quatro mudaram número: duas malhas de corpo eram descartadas em
 silêncio por não se chamarem `X_Body` (Odri e Rukh), duas texturas de corpo
 eram descartadas pelo prefixo, o quinto comprimento mais comum era 60 quadros e
 não 32, e "os pares dividem o kit inteiro" era falso em três dos quatro pares.
@@ -426,7 +436,7 @@ E, para o boneco e a direção de arte, mais duas — que precisam do **Blender*
 não da Godot:
 
 ```
-"C:\Program Files\Blender Foundation\Blender 5.2lender.exe" --background --python tools/arte/gerar_personagem.py
+"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python tools/arte/gerar_personagem.py
 py tools/arte/censo_do_original.py
 ```
 
@@ -448,7 +458,7 @@ Estado ao fim desta sessão: **478 testes, 1304 asserções**, stderr 0 bytes,
 sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
 44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
 conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
-**238 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**276 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar
