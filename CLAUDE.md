@@ -221,106 +221,68 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 
 > **PARE AQUI E LEIA.** Esta seção é o ponto de partida da próxima sessão.
 
-**O corpus traduzido chegou à cena.** Abrir o jogo agora coloca o jogador como
-um campeão do original, com os atributos dele e o kit dele em Q/W/E/R. Era o
-buraco que o usuário apontou ao fim da tradução — *"eu não as consigo ver nem
-testar no jogo"* — e ele está fechado.
+O usuário testou os campeões em jogo e disse: *"achei vários problemas com as
+skills, várias não estão funcionando como deveria"*. Medido, não é bug de
+tradução — são as lacunas registradas. Elas viraram uma **tabela de trabalho**,
+e a sessão está no meio dela.
 
-#### O que dá para fazer agora
+#### A tabela, e onde ela está
 
-| | |
-|---|---|
-| Onde | `scenes/main.tscn`, nó `Player/ChampionSelector` |
-| Quem entra | `champion_id` no Inspector (`leo` por padrão), `level` (9 = todo ranque disponível) |
-| Trocar em jogo | **Page Down / Page Up** — 27 campeões na roda |
-| O que aparece | painel no canto com atributos e o nome das quatro habilidades |
-| Conjurar | **Q, W, E e R** — o `R` foi registrado agora em `project.godot` |
+| Quantas | O que o original faz e nós não | Estado |
+|---|---|---|
+| ~~61~~ | Vários golpes, e a tela desenhava só o primeiro | **fechada** (decisão 16) |
+| ~~65~~ | Alimentam a carga da suprema, que não existia | **fechada** (decisão 17) |
+| **43** | Deveriam **zerar a cadência do ataque básico** ao acertar | **próxima** |
+| 35 | Área que **acompanha o alvo**; a nossa planta no chão | |
+| 24 | Deslocamento em **arco**; o nosso é reta | |
+| 14 | **Corrente de combo**: apertar Q de novo vira outra habilidade | |
 
-Em `data/traducao/atores.json`: **384 atores** traduzidos, dos quais
-**33 campeões com kit** e **28 deles com as quatro habilidades**
-conjuráveis. Os cinco que faltam
-citam um grupo cuja habilidade cai numa lacuna já registrada, e o
-`data/traducao/RELATORIO.md` nomeia cada um.
+A contagem vem de varrer `skill_xml` + `impact_xml` pelas colunas de
+`ORFAS_QUE_SAO_LACUNA`. **Cuidado ao remedir:** `"False"` é string não-vazia e
+`if d.get(coluna)` a conta como presente — foi assim que a primeira medição deu
+123 ocorrências de `FollowTarget` em 124 habilidades.
 
-Sondagem automática da cena, que a suíte de `tests/` não alcança:
+#### O modo de trabalho que o usuário pediu, em 22/08/2026
+
+> *"volte as lacunas q deixamos... quando vc achar q resolveu uma lacuna,
+> dispare um subagent validador/reviewer e vai lhe aprovar ou reprovar, caso
+> seja reprovado, corrija oq o subagent pegou que vc deixou passar, caso seja
+> aprovado siga para o proximo item da sua tabela"*
+
+Ou seja: implementar → disparar validador adversarial → corrigir o que ele achar
+→ repetir até aprovar → próximo item. **Continuar o mesmo subagente pelo `id`**
+(`SendMessage`), não abrir um novo: ele tem o contexto das rodadas anteriores e
+isso é metade do valor.
+
+Como escrever o comando do validador está em [[revalidacao-adversarial]] e no
+histórico das duas lacunas fechadas: dar o trabalho, os comandos para conferir,
+o contexto do projeto, e a instrução de **tentar reprovar**, pedindo veredito
+numa linha só.
+
+**Custo medido:** a lacuna 1 levou 8 rodadas (7 reprovando), a lacuna 2 levou 5
+(4 reprovando). Toda rodada achou algo material.
+
+#### Como conferir que nada quebrou
 
 ```
+godot --headless --path . --script res://tests/run_tests.gd
 godot --headless --path . --script res://tools/sondar_campeoes.gd
+py tools/conferir_numeros.py
 ```
 
-Ela troca de campeão nos 33, conjura os quatro espaços de cada um, e reprova se
-algo quebrar ou se um atributo do Inspector sumir na troca.
+Estado ao fim desta sessão: **431 testes, 1206 asserções**, stderr 0 bytes,
+sonda verde (127 espaços tentados, 126 conferidos, 8735 assinaturas),
+**118 afirmações numéricas**. Commit `985fa5a`.
 
-#### O que ISSO não prova, e por que a próxima sessão começa aqui
+#### O que ainda exige olho humano, e por que não dá para automatizar
 
-A sonda sabe se quebrou. **Ela não sabe se está bom.** O que falta é olho
-humano em três coisas, e nenhuma é automatizável:
-
-1. **A telegrafia aparece onde o dano cai?** As formas do original — cone,
-   trapézio, leque de projéteis — nunca foram desenhadas em jogo. `AbilityCaster._draw`
-   só sabe círculo, linha e projétil, e desenha **só o pulso principal**;
-   habilidade de 5 pulsos mostra um.
-2. **A sensação bate com o papel?** O tanque anda a 3,3 e o suporte a 4,2; a
-   atiradora alcança 6 m e o guerreiro 2. Os números estão lá — se isso se
-   *sente*, ninguém mediu.
-3. **A suprema de 45 s.** É número inventado (o original enche batendo). Pode
-   estar longe demais para testar e perto demais para valer.
-
-#### O plano, na ordem
-
-1. **Pedir ao usuário que teste** — escolher um campeão, usar as quatro
-   habilidades, dizer o que está errado. **É o critério de parada desta etapa.**
-2. **Oposição.** Continua sendo o que mais falta, e agora está barato: os 99
-   mobs do original já estão traduzidos, com atributos, kit e `AIPath` (a
-   taxonomia de comportamento: `AIAggressive`, `PlayerNonAggressive`,
-   `TowerMinionAI`, `DragonAI`...). `SightRange` é o alcance de agressão, e já
-   é atributo. Falta o nó que decide — e ele usa o mesmo `Combatant`,
-   `AbilityBook` e `AbilityEngine` do jogador, inclusive conjurando.
-3. **Telegrafia das formas que faltam**, se o teste do usuário disser que é o
-   que mais atrapalha.
-
-#### O que a próxima sessão precisa saber antes de mexer
-
-- **Projétil precisa de VARREDURA, não de amostra.** Testar só a posição do
-  fim do tique faz um tiro rápido atravessar alvo estreito, sem erro nenhum.
-  A 60 m/s, um tique de 60 Hz anda 1 metro. Há teste, e um teste de mutação
-  confirma que ele fica vermelho.
-- **Quem tica um `AbilityBook` tem que chamar `AbilityEngine.advance_projectiles()`**,
-  além de `resolve_scheduled()`. Sem isso o tiro sai e nunca chega — e nada
-  acusa, porque a conjuração devolve SUCCESS do mesmo jeito.
-- **`ActorProfile.apply_stats_to` SUBSTITUI o conjunto de atributos**, não soma.
-  Foi um defeito real: 28 dos 33 campeões declaram
-  `out_of_combat_health_regen` e cinco não, e com `set_bases` a regeneração do
-  anterior ficava colada nos cinco. O `fallback` é o piso do Inspector —
-  `crit_chance` e `ability_power` não existem no perfil do original e viriam a
-  zero sem ele.
-- **O perfil guarda o GRUPO da habilidade, nunca o id.** A tabela de atores
-  aponta para a linha-modelo (`Rank 0`), que não tem pulso: seria um Q que
-  aperta, gasta mana e não faz nada.
-- **`ultimate_for()` devolve CÓPIA** quando mexe na recarga. O `AbilityCatalog`
-  entrega a mesma instância a todo mundo, e escrever nela mudaria a suprema de
-  todos os campeões do grupo. Um teste de mutação passou verde antes de o teste
-  virar independente de ordem.
+O usuário **não viu** nem a telegrafia corrigida nem a carga de suprema em
+jogo. A sonda sabe que cada golpe virou marca com a forma certa, no lugar
+certo, apontando para o lado certo, visível e pelo tempo certo. Não sabe se o
+jogador entende o que aquilo quer dizer, nem se cinco ataques até a suprema é
+o ritmo certo. **É ponto de parar e pedir teste** quando o usuário voltar.
 
 ---
-
-**O que essas oito rodadas de revalidação ensinaram, e vale para tudo daqui em
-diante:**
-
-1. **Cobertura silenciosa é indistinguível de cobertura errada.** Todo achado
-   material veio de medir, nunca de reler. Daí o censo de colunas do tradutor,
-   o contador de valores desconhecidos da `EffectFactory`, e a guarda que
-   recusa emitir efeito que o motor descartaria.
-2. **Número em documento é asserção.** Três rodadas seguidas reprovaram por
-   número defasado, e nunca o mesmo. `tools/conferir_numeros.py` existe por
-   isso — **rodar antes de commitar documentação**.
-3. **Padrão que cobre dado ausente é a armadilha mais cara.** Um cone lendo
-   coluna inexistente alcançava 1 metro; um arremesso copiando `Duration = 0`
-   não fazia nada. Nenhum dos dois dava erro. O que pega é conferir se o
-   RESULTADO faz sentido, não se a coluna foi lida.
-4. **Teste de mutação, sempre.** Quatro defeitos passaram por suíte verde antes
-   de alguém tentar quebrá-los de propósito.
-
 
 ### Os dados do original estão extraídos E traduzidos
 
@@ -340,6 +302,12 @@ E **384 atores** traduzidos em `atores.json`, carregados por `ActorCatalog`:
 campeão, mob, bot, lacaio, baú e árvore, com atributos base, crescimento por
 nível, kit e passiva. É a tabela que responde *quem tem quais habilidades* — a
 única que responde, e a que faltava para o corpus virar personagem jogável.
+
+Dela saem **33 campeões com kit** e **28 deles com as quatro habilidades**
+conjuráveis. Os cinco que faltam citam um grupo cuja habilidade cai numa lacuna
+registrada; `data/traducao/RELATORIO.md` nomeia cada um. **Toda contagem de
+ator aqui é DEDUPLICADA por Id** — `actor_xml` e `actor_2_xml` repetem linhas, e
+somá-las cruas já produziu "58 campeões" onde havia 40.
 
 O que o vocabulário ganhou para caber: atributos **18 → 45**, controles de
 grupo **4 → 10** estados (e as opções de `CrowdControlEffect` de 5 para 11),
