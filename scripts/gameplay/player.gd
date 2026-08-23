@@ -29,7 +29,6 @@ const AIM_DISTANCE: float = 1000.0
 var target_position: Vector3
 
 var _target: Combatant = null
-var _attack_cooldown: float = 0.0
 
 func _ready() -> void:
 	target_position = global_position
@@ -55,8 +54,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			and event.button_index == MOUSE_BUTTON_RIGHT:
 		_command_at(event.position)
 
-func _physics_process(delta: float) -> void:
-	_attack_cooldown = maxf(0.0, _attack_cooldown - delta)
+func _physics_process(_delta: float) -> void:
+	# A cadência do ataque básico NÃO é contada aqui: ela vive no `Unit`, e
+	# quem a faz andar é `Combatant._physics_process`. Ela mudou de lugar
+	# porque habilidade pode zerá-la (decisão 18), e `AbilityEngine` não
+	# alcança um `float` guardado num nó de cena.
 
 	# Botão segurado: a ordem é reavaliada a cada tick, seguindo o cursor.
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
@@ -145,9 +147,10 @@ func _pursue_and_attack() -> void:
 	# matar o alvo o personagem sairia andando para uma ordem antiga.
 	target_position = global_position
 
-	if _attack_cooldown <= 0.0:
+	# `basic_attack` é quem recomeça a cadência — inclusive quando o golpe erra
+	# por cegueira. Aqui só se pergunta se ela já venceu.
+	if _combatant.unit.attack_is_ready():
 		_combatant.basic_attack(_target)
-		_attack_cooldown = _combatant.attack_interval()
 
 ## `look_at` emite erro quando o alvo coincide com a própria posição.
 ## Como `to_target.y` já foi zerado e o `up` é `Vector3.UP`, esta guarda de

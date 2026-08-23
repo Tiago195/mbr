@@ -41,6 +41,15 @@ const DESLOCAMENTO_DA_MIRA := Vector3(1.8, 0.0, -2.4)
 ## posição, uma rodada antes — fixture degenerado, não código faltando.
 const GIRO_POR_ESPACO_EM_GRAUS: float = 50.0
 
+## A cadência de ataque plantada antes de cada conjuração, em segundos.
+##
+## Existe para a conferência do reset de auto-ataque não ser degenerada. Se a
+## cadência já estivesse em zero, "zerou" e "não mexeu" seriam a MESMA leitura,
+## e a mutação que zera tudo seria um no-op literal — foi o que já aconteceu
+## com posição, direção e carga. Valor esquisito de propósito: 0,37 não é
+## intervalo de ataque de ninguém.
+const CADENCIA_DA_SONDA: float = 0.37
+
 ## Tudo que a assinatura de uma marca precisa distinguir.
 ##
 ## Cada uma custou uma rodada de revisão adversarial para entrar: a lista
@@ -132,8 +141,10 @@ func _sondar() -> Array[String]:
 	unit.position = POSICAO_DA_SONDA
 
 	# O primeiro campeão da roda também precisa ter o que zerar: sem isto ele é
-	# o único que a conferência de troca nunca alcança.
+	# o único que a conferência de troca nunca alcança. Vale para a carga da
+	# suprema e para a cadência do ataque, pelo mesmo motivo.
 	unit.ultimate_charge.current = maxf(unit.ultimate_charge.maximum(), 1.0)
+	unit.attack_cooldown = CADENCIA_DA_SONDA
 
 	var campeoes: Array[ActorProfile] = selector.actors.champions()
 	print("")
@@ -156,6 +167,11 @@ func _sondar() -> Array[String]:
 	## conjuntos para um elemento.
 	var lugares: Dictionary = {}
 	var lados: Dictionary = {}
+	## Espaços que zeraram a cadência do ataque básico, e espaços que a
+	## mantiveram. Os DOIS são piso: se um deles zerar, a conferência virou
+	## tautologia — ou nada zera, ou tudo zera, e nos dois casos ela passa.
+	var zeraram: int = 0
+	var mantiveram: int = 0
 
 	for profile: ActorProfile in campeoes:
 		if not selector.select(profile.id):
@@ -171,6 +187,16 @@ func _sondar() -> Array[String]:
 			falhas.append(
 				("%s: nasceu com %.0f de carga de suprema; trocar de campeão "
 				+ "tem que zerar") % [profile.id, unit.ultimate_charge.current]
+			)
+
+		# E a cadência do ataque, pela mesma razão: trocar de campeão é
+		# renascer. Sem esta conferência, a linha que a zera em
+		# `Combatant.adopt_profile` podia ser apagada em silêncio — a sonda
+		# replanta a sentinela antes de cada conjuração e nunca veria a falta.
+		if not is_zero_approx(unit.attack_cooldown):
+			falhas.append(
+				("%s: nasceu com %.2fs de cadência de ataque; trocar de "
+				+ "campeão tem que zerar") % [profile.id, unit.attack_cooldown]
 			)
 
 		# O painel é o único lugar onde o jogador vê a carga, e o critério desta
@@ -248,6 +274,9 @@ func _sondar() -> Array[String]:
 			# interrupção. Uma versão anterior tinha as duas coisas e um
 			# comentário dizendo que a interrupção era o que consertava —
 			# afirmação que a medição desmentiu.
+			# A cadência é plantada num valor NÃO-ZERO logo antes de conjurar:
+			# é o que separa "zerou" de "já estava zerada".
+			unit.attack_cooldown = CADENCIA_DA_SONDA
 			var mira: AbilityCast = _mirar(ability, unit, int(slot))
 			var resultado: CastResult = AbilityEngine.cast(
 				caster.book, ability, mira, Combatant.all_units(self)
@@ -260,6 +289,35 @@ func _sondar() -> Array[String]:
 
 			var nome_do_status: String = CastResult.Status.keys()[resultado.status]
 			censo[nome_do_status] = int(censo.get(nome_do_status, 0)) + 1
+
+			# **O reset de auto-ataque.** Conferido AQUI, antes dos tiques, por
+			# duas razões: o tique faz a cadência andar sozinha, e uma
+			# conjuração recusada nunca chega ao fim do laço — e é justamente
+			# a recusa que não pode zerar nada.
+			#
+			# Os dois contadores contam o que foi MEDIDO na cadência, e não o
+			# que a habilidade declarava. Contar a declaração fazia o piso
+			# mentir: se o motor parasse de zerar, `zeraram` continuaria em 44
+			# e a mensagem "o reset parou de disparar" nunca sairia — ela
+			# estaria descrevendo o corpus, não o jogo.
+			var saiu_mesmo: bool = resultado.succeeded() or resultado.started()
+			var devia_zerar: bool = saiu_mesmo and ability.resets_attack_cooldown
+			if is_zero_approx(unit.attack_cooldown):
+				zeraram += 1
+			else:
+				mantiveram += 1
+			var esperada: float = 0.0 if devia_zerar else CADENCIA_DA_SONDA
+			if not is_equal_approx(unit.attack_cooldown, esperada):
+				falhas.append(
+					("%s %s (%s): a cadência do ataque ficou em %.2fs e devia "
+					+ "ficar em %.2fs (a habilidade %s zera, e a conjuração %s)")
+						% [
+							profile.id, AbilityBook.Slot.keys()[slot],
+							ability.display_name, unit.attack_cooldown, esperada,
+							"" if ability.resets_attack_cooldown else "não",
+							"saiu" if saiu_mesmo else "foi recusada",
+						]
+				)
 
 			if resultado.status == CastResult.Status.CANNOT_CAST:
 				falhas.append("%s %s: recusada — o campeão anterior deixou um controle?" % [
@@ -396,6 +454,7 @@ func _sondar() -> Array[String]:
 		unit.ultimate_charge.current = maxf(
 			unit.ultimate_charge.maximum(), 1.0
 		)
+		unit.attack_cooldown = CADENCIA_DA_SONDA
 
 	var tentativas: int = 0
 	for chave: String in censo:
@@ -413,6 +472,9 @@ func _sondar() -> Array[String]:
 	print("  assinaturas comparadas: %d" % comparacoes)
 	print("  lugares distintos: %d   lados distintos: %d" % [
 		lugares.size(), lados.size()
+	])
+	print("  cadência do ataque medida: %d espaços zeraram, %d mantiveram" % [
+		zeraram, mantiveram
 	])
 
 	# **O fixture é afirmado, não só impresso.** Uma mira que deixe de apontar
@@ -437,6 +499,21 @@ func _sondar() -> Array[String]:
 		falhas.append(
 			("as marcas saíram em só %d lados distintos; a conferência de "
 			+ "ORIENTAÇÃO parou de distinguir") % lados.size()
+		)
+	# Pisos das duas metades do reset de auto-ataque. Medido na árvore limpa:
+	# **44 zeram e 83 mantêm**, e os 44 são exatamente os espaços que DECLARAM
+	# o reset — nenhum deles foi recusado pela mira genérica da sonda. Os pisos
+	# ficam bem abaixo disso porque a mira pode passar a recusar mais; o que
+	# eles pegam é o sistema parar de disparar, ou passar a disparar sempre.
+	if zeraram < 20:
+		falhas.append(
+			("só %d espaços zeraram a cadência do ataque; o reset de "
+			+ "auto-ataque parou de disparar") % zeraram
+		)
+	if mantiveram < 50:
+		falhas.append(
+			("só %d espaços mantiveram a cadência; algo está zerando o ataque "
+			+ "básico sem ter o direito") % mantiveram
 		)
 	if conferidos < 100:
 		falhas.append(

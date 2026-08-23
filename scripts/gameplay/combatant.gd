@@ -134,6 +134,9 @@ func adopt_profile(profile: ActorProfile, level: int) -> void:
 	unit.marks.clear_all()
 	unit.stats.remove_temporary()
 	unit.pending_displacement = Vector3.ZERO
+	# A cadência do ataque também: renascer não herda o meio-tempo do ataque
+	# do campeão anterior.
+	unit.reset_attack_cooldown()
 	unit.consume_summons()
 	unit.consume_cooldown_adjustments()
 
@@ -197,9 +200,6 @@ func ground_distance_to(other: Combatant) -> float:
 
 func basic_attack(target: Combatant) -> DamageResult:
 	return unit.basic_attack(target.unit)
-
-func attack_interval() -> float:
-	return unit.attack_interval()
 
 ## Encontra o Combatant preso a um corpo. Devolve nulo se o corpo não for um
 ## combatente — parede, chão.

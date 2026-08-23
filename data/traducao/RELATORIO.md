@@ -81,6 +81,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `impacto encadeado como pulso` | 320 |
 | `receita de fabricação` | 299 |
 | `stat:sight_range` | 290 |
+| `reset de auto-ataque (ResetAttackCoolTime)` | 259 |
 | `stat:move_speed_cap` | 206 |
 | `stat:cooldown_reduction_cap` | 196 |
 | `stat:max_mana` | 192 |
@@ -194,7 +195,6 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 |---|---|---|
 | área que acompanha o alvo em vez de ficar no chão (`FollowTarget` em impact) | 1967 |  |
 | arbusto que se pode atacar (não há arbusto) (`BeAbleToAttackBush` em impact) | 1523 |  |
-| habilidade que zera a cadência do ataque básico (`ResetAttackCoolTime` em skill) | 521 |  |
 | arbusto que esconde (`VisibilityInBush` em actor) | 384 |  |
 | hitbox do alvo — nossas formas medem ponto a ponto, então acertar um dragão é tão difícil quanto acertar um campeão (`ImpactRadius` em actor) | 380 |  |
 | altura da hitbox do alvo (`ImpactHeight` em actor) | 380 |  |

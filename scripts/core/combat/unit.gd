@@ -111,6 +111,15 @@ var pending_summons: Array[SummonRequest] = []
 ## Ajustes de recarga pedidos e ainda não aplicados.
 var pending_cooldown_adjustments: Array[CooldownRequest] = []
 
+## Quanto falta para o próximo ataque básico poder sair, em segundos.
+##
+## Mora aqui, e não na camada de gameplay, porque é o que a habilidade ZERA:
+## 44 dos 127 espaços de campeão do original declaram `ResetAttackCoolTime`, e
+## um contador guardado num nó de cena não é alcançável por `AbilityEngine` —
+## que é estática, roda no servidor headless e não conhece nó. Era um `float`
+## dentro de `player.gd` até a decisão 18.
+var attack_cooldown: float = 0.0
+
 func _init(unit_stats: Stats = null, unit_team: int = 0) -> void:
 	stats = unit_stats if unit_stats != null else Stats.new()
 	team = unit_team
@@ -207,6 +216,10 @@ func basic_attack(target: Unit) -> DamageResult:
 		missed.missed = true
 		missed.health_after = target.health.current
 		missed.shield_after = target.health.shield
+		# O cego gasta a cadência do mesmo jeito. É o que separa cegar de
+		# desarmar, e a saída antecipada desta função já custou um bug de
+		# carga de suprema por esquecer exatamente esta linha.
+		attack_cooldown = attack_interval()
 		return missed
 	var result: DamageResult = target.receive_damage(
 		self,
@@ -218,6 +231,7 @@ func basic_attack(target: Unit) -> DamageResult:
 	# separa cegar de desarmar também aqui.
 	if not result.missed:
 		gain_ultimate_charge(ultimate_charge_on_attack)
+	attack_cooldown = attack_interval()
 	return result
 
 ## Enche a suprema. Sem efeito para quem não tem carga máxima.
@@ -311,6 +325,23 @@ func receive_heal(amount: float, healer: Unit = null) -> float:
 func attack_interval() -> float:
 	return 1.0 / maxf(stats.get_value(Stat.Id.ATTACK_SPEED), 0.01)
 
+## Verdadeiro quando a cadência já venceu e o próximo ataque básico pode sair.
+##
+## `basic_attack()` NÃO consulta isto — quem manda atacar é que decide, e é
+## assim de propósito: um efeito que force um ataque extra (o
+## `ReleaseAutoAttack` do original, ainda lacuna) não deveria ter que mentir
+## sobre a cadência para conseguir sair.
+func attack_is_ready() -> bool:
+	return attack_cooldown <= 0.0
+
+## Zera a cadência: o próximo ataque básico sai na hora.
+##
+## É o que `ResetAttackCoolTime` faz. Cancelar a animação do ataque para
+## encaixar uma habilidade e voltar a bater na sequência é metade do que
+## separa um kit de MOBA de uma lista de botões.
+func reset_attack_cooldown() -> void:
+	attack_cooldown = 0.0
+
 # ---------------------------------------------------------------- tempo
 
 ## Avança tudo que expira: modificadores temporários, controles de grupo e
@@ -321,6 +352,7 @@ func advance_time(delta: float) -> void:
 	status.advance_time(delta)
 	health.advance_time(delta)
 	mana.advance_time(delta)
+	attack_cooldown = maxf(0.0, attack_cooldown - delta)
 	# A carga também é tickada. Todo pote que este `Unit` possui é tickado — é
 	# consistência, e é o que faz "a carga não regenera" ser propriedade do
 	# POTE, e não acidente de ninguém chamá-lo.

@@ -48,6 +48,50 @@ class Conferencia:
     def __init__(self) -> None:
         self.falhas: list[str] = []
         self.conferidas = 0
+        ## Todo motivo pelo qual esta execução conferiu MENOS do que poderia.
+        ##
+        ## Duas ausências são degradação benigna e estão documentadas como
+        ## tal: as tabelas do original (que vivem fora do repositório) e a
+        ## engine da Godot. As duas fazem a ferramenta pular afirmações e
+        ## ainda assim sair com zero.
+        ##
+        ## Isto existe porque o **piso publicado** não pode ser cobrado numa
+        ## execução degradada, e tratar isso ausência por ausência já falhou:
+        ## o desconto foi escrito para o XML e não para a engine, e sem a
+        ## Godot por perto a ferramenta acusava o `CLAUDE.md` de publicar um
+        ## número que estava certo.
+        ##
+        ## Cada aviso traz **quanto** ele dispensa, e o piso desconta a soma.
+        ## A versão anterior dispensava o piso INTEIRO ao primeiro aviso, e com
+        ## isso ficou estritamente mais fraca do que o desconto que substituiu:
+        ## sem as tabelas do original dava para perder 27 conferências de
+        ## verdade e ainda ler "todas batem". Generalizar não pode custar poder
+        ## de detecção — o número já estava calculado, e era só não jogá-lo
+        ## fora.
+        self.avisos: list[tuple[str, int]] = []
+
+    def avisar(self, texto: str, dispensa: int = 0) -> None:
+        """Degradação benigna: imprime, registra, e diz QUANTAS afirmações
+        deixaram de acontecer por causa dela.
+
+        **Todo aviso desta ferramenta tem que passar por aqui**, e todo ramo
+        benigno novo entra na conta declarando o próprio custo. Um `print`
+        solto degrada a execução sem que o piso saiba, e foi assim que a
+        segunda ausência escapou.
+
+        `dispensa` zero é legítimo: um aviso que não impede conferência
+        nenhuma não precisa afrouxar piso nenhum.
+        """
+        self.avisos.append((texto, dispensa))
+        # O rótulo é montado, e não escrito inteiro, para esta linha — a ÚNICA
+        # legítima — não casar com a varredura de `_autoteste`, que procura
+        # avisos impressos por fora. Mesmo truque dos marcadores do bloco do
+        # XML, e pelo mesmo motivo: código que se lê precisa não se encontrar.
+        print("[números] %s: %s" % ("AVISO", texto))
+
+    def dispensadas(self) -> int:
+        """Quantas afirmações as degradações desta execução dispensam."""
+        return sum(quantas for _texto, quantas in self.avisos)
 
     def afirma(self, onde: str, texto: str, padrao: str, esperado: int) -> None:
         """O documento diz `padrao` com um número; ele tem que ser `esperado`.
@@ -116,6 +160,72 @@ def _sem_offset_no_corpus(habilidades: list) -> int:
     )
 
 
+def _afirmacoes_que_dependem_do_xml() -> int:
+    """Quantas afirmações só existem quando o XML do original está por perto.
+
+    Contada no PRÓPRIO fonte, entre os marcadores `<bloco-do-xml>`, e não
+    escrita à mão: escrita à mão ela já ficou errada, dizendo 12 onde havia 15.
+    """
+    # Os marcadores são MONTADOS, e não escritos inteiros: escritos inteiros,
+    # a primeira ocorrência de cada um no arquivo é a desta própria função, e
+    # a fatia entre elas não contém afirmação nenhuma. A conferência logo
+    # abaixo pegou isso na primeira execução — "anuncia 0 e o bloco faz 15".
+    abre = "# <" + "bloco-do-xml>"
+    fecha = "# </" + "bloco-do-xml>"
+    texto = Path(__file__).read_text(encoding="utf-8")
+    # O `+ 1` é a autoconferência logo depois do bloco, que some junto com ele.
+    # Sem ela a conta não fecha com a queda observável em "N conferidas".
+    return texto.count("c.afirma(", texto.index(abre), texto.index(fecha)) + 1
+
+
+def _numero(texto: str, padrao: str) -> int:
+    """O número que um padrão captura, ou -1 quando ele não casa.
+
+    `-1` e não `None` de propósito: quem compara devolve desigualdade em vez
+    de estourar, e um padrão que parou de casar vira falha visível em vez de
+    conferência que sumiu.
+
+    **Quem usa isto TEM que tratar o -1 como falha, explicitamente.** Uma
+    comparação do tipo `if lido > esperado` transforma o -1 em aprovação
+    silenciosa, e foi assim que o piso publicado passou a aceitar o próprio
+    padrão ficar órfão. `Conferencia.afirma` já trata; comparação escrita à
+    mão, não.
+    """
+    achado = re.search(padrao, texto)
+    return int(achado.group(1)) if achado else -1
+
+
+def _testes_da_secao(caminho: str, titulo: str) -> int:
+    """Quantos `func test_` há entre um cabeçalho de seção e o próximo.
+
+    Devolve -1 quando o cabeçalho não existe OU quando não há cabeçalho
+    seguinte: sem o de baixo a contagem iria até o fim do arquivo e engoliria
+    as seções vizinhas, dando um número maior sem nenhum sinal. Quem chama
+    trata o -1 como falha.
+
+    Lê por `ler()`, e não por `Path(caminho)`: com caminho relativo a
+    ferramenta estourava `FileNotFoundError` ao ser chamada de fora da raiz do
+    repositório — o resto do arquivo é ancorado em `RAIZ` justamente por isso.
+    """
+    texto = ler(caminho)
+    inicio = texto.find(titulo)
+    if inicio < 0:
+        return -1
+    linhas = texto[inicio:].splitlines()[1:]
+    quantos = 0
+    fechou = False
+    for linha in linhas:
+        # O próximo cabeçalho de seção fecha a contagem.
+        if linha.startswith("# ---"):
+            fechou = True
+            break
+        if linha.startswith("func test_"):
+            quantos += 1
+    if not fechou:
+        return -1
+    return quantos
+
+
 def _emissoes_lacuna(relatorio: str, lacuna: str) -> int:
     """Quantas ocorrências o relatório registra para uma lacuna nomeada."""
     achado = re.search(
@@ -154,6 +264,9 @@ def _medir_no_original() -> dict | None:
                 })
         return saida
 
+    skills = linhas(
+        "skill_xml", "skill_2_xml", "skill_3_xml", "skill_4_xml"
+    )
     impactos_todos = linhas(
         "impact_xml", "impact_2_xml", "impact_3_xml", "impact_4_xml"
     )
@@ -175,7 +288,18 @@ def _medir_no_original() -> dict | None:
         "Id", "Name", "Desc", "DescParam", "AtlasName", "IconPath",
         "ShowIcon", "Sound", "Line", "Rank", "Duration", "MaxStackCount",
     }
+    # `ResetAttackCoolTime` medido de duas formas de propósito: quantas dizem
+    # VERDADEIRO e quantas declaram a coluna. As duas são afirmadas em
+    # documento, e a diferença entre elas é a armadilha — `"False"` é string
+    # não-vazia, e por isso o censo de colunas dá quase o dobro.
+    def reset(valor: str) -> bool:
+        return (valor or "").strip().lower() == "true"
+
     return {
+        "reset_ataque": sum(1 for r in skills if reset(r.get("ResetAttackCoolTime"))),
+        "reset_declarado": sum(
+            1 for r in skills if r.get("ResetAttackCoolTime") is not None
+        ),
         "timings": len(timings),
         "marcadores": sum(1 for r in buffs if marcador(r)),
         "so_linha": sum(1 for r in buffs if not set(r) - ruido),
@@ -334,6 +458,31 @@ def _autoteste(c: "Conferencia") -> None:
     Roda sempre, e não atrás de um sinalizador: conferência opcional é
     conferência que ninguém roda.
     """
+    # **Todo aviso passa por `Conferencia.avisar`.**
+    #
+    # O piso publicado deixa de ser cobrado quando houve aviso, e é assim que
+    # ele para de reclamar de execução degradada — mas só funciona enquanto
+    # nenhum ramo imprimir aviso por fora. Esta varredura é o que impede o
+    # terceiro caso de escapar como o segundo escapou: a ausência da engine
+    # tinha aviso e não tinha desconto, e a mensagem de falha nem sugeria a
+    # causa.
+    c.conferidas += 1
+    fonte = Path(__file__).read_text(encoding="utf-8")
+    # Casa o TEXTO do aviso, e não a FORMA da chamada. A primeira versão era
+    # uma regex sobre `print(` seguido de aspas, e por isso uma f-string
+    # escapava — sendo que os DOIS avisos existentes interpolam, então
+    # f-string é exatamente como o terceiro seria escrito. `avisar()` monta o
+    # rótulo em duas partes, e por isso não aparece nesta conta; este
+    # comentário também não pode escrevê-lo inteiro, pela mesma razão.
+    soltos = fonte.count("[números] " + "AVISO")
+    if soltos:
+        c.falhas.append(
+            "há %d ocorrência(s) do texto de aviso fora de "
+            "`Conferencia.avisar`; o piso publicado não as enxerga e vai "
+            "cobrar cobertura que a execução não podia ter — use "
+            "`c.avisar(texto, quantas)`" % soltos
+        )
+
     for rotulo, codigo, saida, erros, deve_passar in CENARIOS_DA_SUITE:
         # **`rodou` é conferido junto com `passou`, e não é detalhe.**
         #
@@ -479,6 +628,16 @@ def main() -> int:
 
     espacos_de_campeao = 0
     espacos_com_varios_golpes = 0
+    # Espaços cuja habilidade zera a cadência do ataque básico, e quantos
+    # campeões distintos têm ao menos um. Medido pelo MESMO caminho dos
+    # outros dois — `rank_for_level`, o que o jogo percorre — porque medir
+    # por caminho diferente é como o número errado nasce.
+    espacos_com_reset = 0
+    campeoes_com_reset: set = set()
+    # Espaços cuja habilidade enche a carga da suprema. É o reconto da lacuna
+    # 2 pelo caminho do jogo, e ele NÃO tinha conferência: o `CLAUDE.md` dizia
+    # "65 → 65" e são 67. Reconto sem asserção é o mesmo que sem reconto.
+    espacos_com_carga = 0
     for a in atores:
         if a["usage"] != "Player" or not a["ability_groups"]:
             continue
@@ -493,6 +652,11 @@ def main() -> int:
             com_efeito = [p for p in escolhida["pulses"] if p["effects"]]
             if len(com_efeito) > 1:
                 espacos_com_varios_golpes += 1
+            if float(escolhida.get("ultimate_charge_gain", 0.0)) > 0.0:
+                espacos_com_carga += 1
+            if escolhida.get("resets_attack_cooldown"):
+                espacos_com_reset += 1
+                campeoes_com_reset.add(a["id"])
     hab_projetil = [
         h for h in habilidades
         if any(p["form"] == "PROJECTILE" for p in h["pulses"])
@@ -629,6 +793,108 @@ def main() -> int:
              sum(1 for p in pulsos
                  if p["form"] == "PROJECTILE"
                  and float(p.get("projectile_speed", 0.0)) <= 0.0))
+    # O reset de auto-ataque, do lado do corpus. A contagem do XML é conferida
+    # noutro lugar; esta pega o campo sumir do JSON sem o XML mudar — que é o
+    # jeito silencioso de a tradução regredir.
+    doc02_ritmo = ler("docs/02-decisoes-tecnicas.md")
+    ability_gd = ler("scripts/core/abilities/ability.gd")
+    c.afirma("ability.gd espaços com reset", ability_gd,
+             r"\*\*(\d+) dos \d+ espaços de campeão\*\*", espacos_com_reset)
+    c.afirma("ability.gd espaços de campeão", ability_gd,
+             r"\*\*\d+ dos (\d+) espaços de campeão\*\*", espacos_de_campeao)
+    c.afirma("ability.gd campeões com reset", ability_gd,
+             r"\*\*(\d+) campeões\*\* têm ao menos um", len(campeoes_com_reset))
+    c.afirma("unit.gd espaços com reset",
+             ler("scripts/core/combat/unit.gd"),
+             r"(\d+) dos \d+ espaços de campeão", espacos_com_reset)
+    # A linha dos três recontos do `CLAUDE.md`, afirmada inteira. Ela existe
+    # justamente para dizer que o número da tabela não é o número do jogo — e
+    # uma das três parcelas estava errada.
+    c.afirma("CLAUDE.md reconto: vários golpes", claude,
+             r"\*\*61 → (\d+)\*\*", espacos_com_varios_golpes)
+    c.afirma("CLAUDE.md reconto: carga de suprema", claude,
+             r"\*\*65 → (\d+)\*\*", espacos_com_carga)
+    c.afirma("CLAUDE.md reconto: reset de ataque", claude,
+             r"\*\*43 → (\d+)\*\*", espacos_com_reset)
+    c.afirma("CLAUDE.md espaços que enchem a carga", claude,
+             r"\*\*(\d+) dos \d+ espaços\*\*\s*\|", espacos_com_carga)
+
+    # ------------------------------- a sonda de ritmo e o que ela afirma
+    #
+    # Três arquivos citam a MESMA medição — quantos golpes saem quando a trava
+    # de cadência de `player.gd` é apagada. Ela já divergiu: 119 na sonda, 120
+    # nos dois documentos, e nenhum dos três conferido.
+    #
+    # **E o número é DERIVÁVEL, não só comparável.** Sem a trava sai um golpe
+    # por quadro de física, então são `JANELA × physics_ticks_per_second`. Uma
+    # primeira versão desta conferência só exigia que os três concordassem —
+    # três arquivos errados do mesmo jeito passariam. Amarrar ao que produz o
+    # número é o que a torna verdadeira em vez de coerente.
+    ritmo = ler("tools/sondar_ritmo.gd")
+    janela = _numero(ritmo, r"const JANELA: float = (\d+)\.0")
+    por_segundo = _numero(
+        ler("project.godot"), r"physics_ticks_per_second=(\d+)"
+    )
+    if por_segundo < 0:
+        # `project.godot` só grava o que difere do padrão da engine.
+        por_segundo = 60
+    golpes = {
+        "derivado de JANELA": janela * por_segundo if janela > 0 else -1,
+        "sondar_ritmo.gd": _numero(ritmo, r"\*\*(\d+) golpes\*\* em dois segundos"),
+        "CLAUDE.md": _numero(claude, r"— (\d+) golpes em dois segundos"),
+        "docs/02": _numero(doc02_ritmo, r"real: (\d+) golpes em dois segundos"),
+    }
+    c.conferidas += 1
+    # Órfã e divergente são coisas diferentes, e dizer "divergem" quando o
+    # padrão sumiu manda o leitor comparar arquivos que estão iguais.
+    # `Conferencia.afirma` já separa as duas; comparação escrita à mão, não —
+    # e esta é escrita à mão porque compara quatro fontes, não uma.
+    orfas = [nome for nome, valor in golpes.items() if valor < 0]
+    if orfas:
+        c.falhas.append(
+            "a conferência dos golpes ficou órfã em %s: o padrão não casa "
+            "mais, e o texto por lá mudou" % ", ".join(orfas)
+        )
+    elif len(set(golpes.values())) != 1:
+        c.falhas.append(
+            "os golpes sob a mutação da trava divergem entre os arquivos: %s"
+            % golpes
+        )
+
+    # Quantos testes da suíte do reset são sobre quem NÃO pode zerar. Escrito
+    # à mão dizia "metade deles" — nove — e são quatro.
+    c.afirma("docs/02 testes de quem não pode zerar", doc02_ritmo,
+             r"dos quais \*\*(\d+)\*\* são sobre quem",
+             _testes_da_secao("tests/test_reset_de_ataque.gd",
+                              "quem NÃO tem o direito de zerar"))
+
+    doc02_reset = ler("docs/02-decisoes-tecnicas.md")
+    c.afirma("docs/02 espaços com reset", doc02_reset,
+             r"\*\*(\d+) dos \d+ espaços de campeão\*\*", espacos_com_reset)
+    c.afirma("docs/02 espaços de campeão (reset)", doc02_reset,
+             r"\*\*\d+ dos (\d+) espaços de campeão\*\*", espacos_de_campeao)
+    c.afirma("docs/02 campeões com reset", doc02_reset,
+             r"\*\*(\d+) campeões\*\*", len(campeoes_com_reset))
+    # Quantos testes a suíte do reset tem, afirmado na decisão 18. Contar
+    # `func test_` no arquivo é a mesma medida que o runner usa.
+    c.afirma("docs/02 testes do reset", doc02_reset,
+             r"`tests/test_reset_de_ataque\.gd`: (\d+) testes",
+             ler("tests/test_reset_de_ataque.gd").count("\nfunc test_"))
+    c.afirma("docs/10 espaços com reset", doc10,
+             r"o jogo percorre, são (\d+) dos", espacos_com_reset)
+    c.afirma("docs/10 espaços de campeão (reset)", doc10,
+             r"o jogo percorre, são \d+ dos (\d+) espaços", espacos_de_campeao)
+    # E o corpus tem que concordar com o contador de emissões do tradutor: o
+    # campo pode existir no JSON e estar sempre falso.
+    c.conferidas += 1
+    do_corpus = sum(1 for h in habilidades if h.get("resets_attack_cooldown"))
+    do_relatorio = _emissoes(relatorio, "reset de auto-ataque (ResetAttackCoolTime)")
+    if do_corpus != do_relatorio:
+        c.falhas.append(
+            "reset de auto-ataque: o corpus tem %d e o RELATORIO conta %d"
+            % (do_corpus, do_relatorio)
+        )
+
     c.afirma("ability_caster.gd conjuração longa", caster,
              r"\*\*(\d+) habilidades com conjuração longa\*\*",
              len(conjuracao_longa))
@@ -672,12 +938,16 @@ def main() -> int:
     # seja, detectava o TEXTO mudar, não o FATO mudar. Conferência tautológica
     # passa sempre, e passar sempre é justamente o que se quer evitar aqui.
     medido = _medir_no_original()
+    antes_do_xml = c.conferidas
     if medido is None:
-        print(
-            "[números] AVISO: as tabelas do original não estão em "
-            "C:\\Godot\\rc-referencia\\xml; 8 afirmações ficaram sem conferir"
+        c.avisar(
+            "as tabelas do original não estão em "
+            "C:\\Godot\\rc-referencia\\xml; %d afirmações ficaram sem "
+            "conferir" % _afirmacoes_que_dependem_do_xml(),
+            _afirmacoes_que_dependem_do_xml(),
         )
     else:
+        # <bloco-do-xml>
         mark_effect = ler("scripts/core/abilities/effects/mark_effect.gd")
         cooldown_effect = ler("scripts/core/abilities/effects/cooldown_effect.gd")
         pulse = ler("scripts/core/abilities/ability_pulse.gd")
@@ -699,6 +969,50 @@ def main() -> int:
                  r"o caso de (\d+) dos", medido["sem_offset"])
         c.afirma("ability_pulse.gd total de impactos", pulse,
                  r"(\d+) impactos de `impact_xml`", medido["impactos"])
+
+        # Reset de auto-ataque, medido no XML e não no corpus: é o que pega o
+        # tradutor deixar de ler a coluna. As DUAS contagens são afirmadas
+        # porque a diferença entre elas é a armadilha do `"False"`.
+        ability = ler("scripts/core/abilities/ability.gd")
+        c.afirma("ability.gd reset: declaram verdadeiro", ability,
+                 r"\*\*(\d+)\*\* dizem verdadeiro",
+                 medido["reset_ataque"])
+        c.afirma("ability.gd reset: declaram falso", ability,
+                 r"dizem verdadeiro e \*\*(\d+)\*\*",
+                 medido["reset_declarado"] - medido["reset_ataque"])
+        c.afirma("ability.gd reset: censo da coluna", ability,
+                 r"tradutor contava (\d+) porque contava outra coisa",
+                 medido["reset_declarado"])
+        c.afirma("docs/10 reset de auto-ataque", doc10,
+                 r"`ResetAttackCoolTime`, (\d+)", medido["reset_ataque"])
+        doc02 = ler("docs/02-decisoes-tecnicas.md")
+        c.afirma("docs/02 reset: declaram verdadeiro", doc02,
+                 r"\*\*(\d+) habilidades declaram", medido["reset_ataque"])
+        c.afirma("docs/02 reset: declaram falso", doc02,
+                 r"verdadeiro e (\d+) declaram falso",
+                 medido["reset_declarado"] - medido["reset_ataque"])
+        c.afirma("docs/02 reset: censo da coluna", doc02,
+                 r"\*\*O (\d+) anterior contava", medido["reset_declarado"])
+        # </bloco-do-xml>
+        # **O número do aviso é ele próprio uma afirmação.** Ele dizia 8, e
+        # estava certo; a mudança seguinte escreveu 12 onde havia 15, e nada
+        # acusou — é a lição 6 ao pé da letra, a conferência recém-acrescentada
+        # sendo a que ninguém confere. Agora ele é CONTADO no próprio fonte, e
+        # quando o XML está por perto o contador é comparado com o trabalho
+        # que o bloco realmente fez.
+        #
+        # A própria autoconferência CONTA. Ela também desaparece quando o XML
+        # desaparece, e por isso entra dos dois lados: assim o número anunciado
+        # é exatamente a queda que se vê em "N afirmações conferidas" ao rodar
+        # sem as tabelas. Anunciar 15 com queda de 16 é como o "12" começou.
+        c.conferidas += 1
+        anunciadas = _afirmacoes_que_dependem_do_xml()
+        feitas = c.conferidas - antes_do_xml
+        if anunciadas != feitas:
+            c.falhas.append(
+                "o aviso de XML ausente anuncia %d afirmações e o bloco faz %d"
+                % (anunciadas, feitas)
+            )
 
     # ----------------------------------------------- números vindos do corpus
     mark_effect = ler("scripts/core/abilities/effects/mark_effect.gd")
@@ -756,7 +1070,8 @@ def main() -> int:
 
     # --------------------------------- as tabelas de lacuna de docs/10
     #
-    # Dezessete números, e foi exatamente aqui que um deles se escondeu por
+    # Um bloco inteiro de números, e foi exatamente aqui que um deles se
+    # escondeu por
     # quatro revalidações: a linha de `BuffReleaseCondition` dizia 58 quando o
     # relatório somava 60, porque uma das parcelas subiu numa correção e o
     # documento ficou. Bloco numérico grande sem conferência é onde o próximo
@@ -779,9 +1094,6 @@ def main() -> int:
         (r"`BeAbleToAttackBush`, (\d+)",
          ["arbusto que se pode atacar (não há arbusto) "
           "(`BeAbleToAttackBush` em impact)"]),
-        (r"`ResetAttackCoolTime`, (\d+)",
-         ["habilidade que zera a cadência do ataque básico "
-          "(`ResetAttackCoolTime` em skill)"]),
         (r"`TrackingMode`, (\d+)",
          ["projétil teleguiado (`TrackingMode` em skill)"]),
         (r"`StopCondition`, (\d+)",
@@ -843,9 +1155,12 @@ def main() -> int:
     if not suite["rodou"]:
         # Aviso, e não falha: quem não tem a engine à mão ainda pode conferir
         # tudo que sai do corpus e dos documentos.
-        print(
-            "[números] AVISO: %s; a contagem de ASSERÇÕES ficou sem conferir "
-            "(defina GODOT_PATH para fechar)" % suite["motivo"]
+        c.avisar(
+            "%s; a contagem de ASSERÇÕES ficou sem conferir "
+            "(defina GODOT_PATH para fechar)" % suite["motivo"],
+            # A contagem de testes e a de asserções do `CLAUDE.md`. As duas
+            # vivem no ramo em que a suíte rodou E passou.
+            1,
         )
     elif not suite["passou"]:
         # **Falha, não aviso.** Afirmar contagem de teste contra uma suíte
@@ -857,10 +1172,23 @@ def main() -> int:
             "foram conferidas contra ela" % suite["motivo"]
         )
     else:
-        c.afirma("CLAUDE.md testes (suíte real)", claude,
-                 r"\*\*(\d+) testes, \d+ asserções\*\*", suite["testes"])
-        c.afirma("CLAUDE.md asserções", claude,
-                 r"\*\*\d+ testes, (\d+) asserções\*\*", suite["assercoes"])
+        # **TODAS as ocorrências, não a primeira.** `re.search` ancora só a
+        # primeira, e o `CLAUDE.md` repete o par em dois lugares — a segunda
+        # podia envelhecer em silêncio, que é o defeito que esta ferramenta
+        # inteira existe para não deixar acontecer.
+        pares = re.findall(r"\*\*(\d+) testes, (\d+) asserções\*\*", claude)
+        c.conferidas += 1
+        if not pares:
+            c.falhas.append("`CLAUDE.md` não diz mais quantos testes existem")
+        for indice, (testes, assercoes) in enumerate(pares):
+            if int(testes) == suite["testes"] and int(assercoes) == suite["assercoes"]:
+                continue
+            c.falhas.append(
+                "`CLAUDE.md` diz `%s testes, %s asserções` na ocorrência %d e "
+                "a suíte dá %d/%d"
+                % (testes, assercoes, indice + 1,
+                   suite["testes"], suite["assercoes"])
+            )
 
     # ------------------------- a tabela de cobertura do relatório
     #
@@ -910,7 +1238,55 @@ def main() -> int:
             "só %d afirmações foram conferidas; a ferramenta perdeu cobertura"
             % c.conferidas
         )
-    print("[números] %d afirmações conferidas" % c.conferidas)
+    # E o piso que o `CLAUDE.md` publica. É PISO e não igualdade de propósito:
+    # acrescentar conferência não pode obrigar a mexer no documento, mas
+    # perder conferência tem que doer. O número era escrito no documento e não
+    # era conferido por nada — o mesmo estado em que estavam as "12
+    # afirmações" que eram 15.
+    c.conferidas += 1
+    publicado = _numero(
+        ler("CLAUDE.md"), r"\*\*(\d+) afirmações numéricas\*\*"
+    )
+    if publicado < 0:
+        # **Órfã é falha, não aprovação.** `if publicado > c.conferidas` com
+        # `publicado = -1` passava sempre: reescrever a frase no documento
+        # desligava a conferência em silêncio. Era a única da ferramenta que
+        # aprovava ao perder o próprio padrão.
+        c.falhas.append(
+            "`CLAUDE.md` não publica mais o número de afirmações numéricas; "
+            "a conferência do piso ficou órfã"
+        )
+    else:
+        # **O piso é descontado pelo que as degradações declararam custar.**
+        #
+        # Duas versões erradas antes desta, e as duas em direções opostas. A
+        # primeira descontava só a ausência do XML: sem a engine da Godot a
+        # ferramenta reprovava o `CLAUDE.md` por publicar um número certo. A
+        # segunda dispensava o piso INTEIRO ao primeiro aviso, e aí perder 27
+        # conferências de verdade junto com uma ausência benigna passava
+        # verde — generalizar custou o poder de detecção que existia.
+        #
+        # O critério que fecha a classe sem pagar esse preço: quem degrada
+        # declara QUANTO. Um ramo benigno novo entra na conta dizendo o próprio
+        # custo, e não por existir.
+        exigido = publicado - c.dispensadas()
+        if c.avisos:
+            print(
+                "[números] piso publicado %d, exigidas %d aqui (%s)"
+                % (publicado, exigido,
+                   "; ".join(texto for texto, _q in c.avisos))
+            )
+        if exigido > c.conferidas:
+            c.falhas.append(
+                "`CLAUDE.md` publica %d afirmações numéricas (exigidas %d "
+                "nesta execução) e só %d foram conferidas. Se um ramo novo "
+                "degradou de propósito, ele tem que chamar "
+                "`c.avisar(texto, quantas)` em vez de imprimir aviso solto."
+                % (publicado, exigido, c.conferidas)
+            )
+    print("[números] %d afirmações conferidas (piso publicado: %d)" % (
+        c.conferidas, publicado
+    ))
     if not c.falhas:
         print("[números] todas batem")
         return 0

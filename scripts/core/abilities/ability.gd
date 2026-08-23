@@ -49,6 +49,23 @@ enum Aim {
 ## Quem não tem mana máxima conjura de graça — ver `ResourcePool`.
 @export var mana_cost: float = 0.0
 
+## Quando verdadeiro, conjurar esta habilidade ZERA a cadência do ataque
+## básico — o próximo golpe sai na hora em vez de esperar a velocidade de
+## ataque.
+##
+## `ResetAttackCoolTime` do original: **259** dizem verdadeiro e **262**
+## dizem falso. O censo do tradutor contava 521 porque contava outra coisa: a
+## COLUNA presente, e `"False"` é string não-vazia, então ele soma as duas
+## metades. É a mesma armadilha que deu 123 `FollowTarget` em 124.
+##
+## Pelo caminho que o jogo percorre são **44 dos 127 espaços de campeão** —
+## **22 campeões** têm ao menos um.
+##
+## **Ao conjurar, não ao acertar** — mesma leitura, e pelo mesmo motivo, de
+## `ultimate_charge_gain`: a coluna é da habilidade e não do impacto, e o
+## original não tem onde declarar "só se acertar". Ver a decisão 18.
+@export var resets_attack_cooldown: bool = false
+
 @export_group("Alvo")
 @export var aim: Aim = Aim.POINT
 ## Distância máxima do ponto ou alvo mirado. 0 = sem limite.

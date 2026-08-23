@@ -190,6 +190,9 @@ static func _in_range(ability: Ability, aim: AbilityCast) -> bool:
 		_:
 			return aim.caster.ground_distance_to_point(aim.point) <= ability.cast_range
 
+## O que acontece no instante em que a conjuração COMEÇA: custo, carga e o
+## reset do ataque básico. Um ponto só, chamado uma vez por conjuração aceita,
+## tanto na instantânea quanto na de tempo.
 static func _charge(ability: Ability, caster: Unit) -> void:
 	if ability.mana_cost > 0.0:
 		caster.mana.spend(ability.mana_cost)
@@ -201,6 +204,11 @@ static func _charge(ability: Ability, caster: Unit) -> void:
 	# E toda habilidade que sai enche a suprema — inclusive a própria suprema,
 	# se o dado dissesse isso. Nos 31 campeões ela rende 0.
 	caster.gain_ultimate_charge(ability.ultimate_charge_gain)
+	# E zera a cadência do ataque básico, se a habilidade for dessas. Aqui, e
+	# não ao acertar, porque é aqui que a conjuração deixa de poder ser
+	# recusada — o mesmo instante em que a mana já foi cobrada.
+	if ability.resets_attack_cooldown:
+		caster.reset_attack_cooldown()
 
 # ---------------------------------------------------------------- aplicação
 

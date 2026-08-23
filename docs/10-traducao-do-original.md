@@ -461,7 +461,7 @@ Rótulo curto não é justificativa.
 |---|---|---|
 | **Área que acompanha o alvo** | `FollowTarget`, 1967 | Nossa área fica onde caiu, sempre. A do original pode grudar em quem foi atingido |
 | **Arbusto atacável** | `BeAbleToAttackBush`, 1523 | Não há sistema de arbusto |
-| **Reset de auto-ataque** | `ResetAttackCoolTime`, 521 | A habilidade que zera a cadência do ataque básico. É mecânica central de MOBA, e ela sozinha muda a ordem de botões de um kit inteiro |
+| ~~**Reset de auto-ataque**~~ | `ResetAttackCoolTime`, 259 | **Fechada.** Conjurar zera a cadência do ataque básico. 259 habilidades declaram verdadeiro e 262 declaram falso — o 521 de antes contava a COLUNA presente, e `"False"` é string não-vazia. Pelo caminho que o jogo percorre, são 44 dos 127 espaços de campeão. Ver a decisão 18 |
 | **Projétil teleguiado** | `TrackingMode`, 118 | O nosso vai reto |
 | **Investida que para ao acertar** | `StopCondition`, 100 | O nosso dash sempre completa a distância. `OnImpactEnemy` faz ele travar no primeiro alvo, que é outra habilidade |
 | **Gancho que arrebenta na distância** | `LimitSourceDistance`, 17 | Parente do `Link` |

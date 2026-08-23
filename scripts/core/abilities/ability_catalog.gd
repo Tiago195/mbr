@@ -118,6 +118,9 @@ static func build(data: Dictionary) -> Ability:
 	ability.rank = int(data.get("rank", 1))
 	ability.level_requirement = int(data.get("level_requirement", 0))
 	ability.cooldown = float(data.get("cooldown", 0.0))
+	ability.resets_attack_cooldown = bool(
+		data.get("resets_attack_cooldown", false)
+	)
 	ability.cast_time = float(data.get("cast_time", 0.0))
 	ability.can_move_while_casting = bool(data.get("can_move_while_casting", false))
 	ability.cancelable = bool(data.get("cancelable", true))

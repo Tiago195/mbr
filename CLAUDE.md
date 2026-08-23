@@ -215,7 +215,7 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 ## Estado atual
 
 > Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **431 testes, 1206 asserções**, todos verdes, stderr limpo.
+> branch `master`. **449 testes, 1242 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
@@ -232,15 +232,25 @@ e a sessão está no meio dela.
 |---|---|---|
 | ~~61~~ | Vários golpes, e a tela desenhava só o primeiro | **fechada** (decisão 16) |
 | ~~65~~ | Alimentam a carga da suprema, que não existia | **fechada** (decisão 17) |
-| **43** | Deveriam **zerar a cadência do ataque básico** ao acertar | **próxima** |
-| 35 | Área que **acompanha o alvo**; a nossa planta no chão | |
+| ~~43~~ | Deveriam **zerar a cadência do ataque básico** | **fechada** (decisão 18) — 44 pelo caminho do jogo |
+| **35** | Área que **acompanha o alvo**; a nossa planta no chão | **próxima** |
 | 24 | Deslocamento em **arco**; o nosso é reta | |
 | 14 | **Corrente de combo**: apertar Q de novo vira outra habilidade | |
 
 A contagem vem de varrer `skill_xml` + `impact_xml` pelas colunas de
 `ORFAS_QUE_SAO_LACUNA`. **Cuidado ao remedir:** `"False"` é string não-vazia e
 `if d.get(coluna)` a conta como presente — foi assim que a primeira medição deu
-123 ocorrências de `FollowTarget` em 124 habilidades.
+123 ocorrências de `FollowTarget` em 124 habilidades. Foi também o que fez o
+reset de auto-ataque parecer 521 quando são 259.
+
+**Ao fechar cada lacuna, a primeira coisa é REMEDIR pelo caminho que o jogo
+percorre** — `rank_for_level` sobre os espaços de campeão. As três fechadas
+mudaram de número: **61 → 79**, **65 → 67**, **43 → 44**. Os números da tabela
+vieram de varrer o XML por outro caminho e **não são reproduzíveis**: nenhuma
+tentativa de reconstruir o 43 chega nele (o caminho do jogo dá 44 em todos os
+níveis de 1 a 18, `ranques[-1]` dá 46, habilidades distintas dão 34). Os três
+recontados são afirmados por `tools/conferir_numeros.py`; os da tabela não são,
+e é por isso que servem só para ordenar o trabalho.
 
 #### O modo de trabalho que o usuário pediu, em 22/08/2026
 
@@ -259,20 +269,39 @@ histórico das duas lacunas fechadas: dar o trabalho, os comandos para conferir,
 o contexto do projeto, e a instrução de **tentar reprovar**, pedindo veredito
 numa linha só.
 
-**Custo medido:** a lacuna 1 levou 8 rodadas (7 reprovando), a lacuna 2 levou 5
-(4 reprovando). Toda rodada achou algo material.
+**Custo medido, por lacuna:** a 1 levou 8 rodadas (7 reprovando), a 2 levou 5
+(4 reprovando), a 3 levou 6 (5 reprovando). **Toda rodada achou algo material**
+— e nas rodadas 3, 4 e 5 da lacuna 3 o achado estava dentro da conferência
+acrescentada na rodada anterior. Orçar uma lacuna por "umas duas rodadas" nunca
+bateu com a medição.
+
+**O que a lacuna 3 ensinou sobre o próprio loop:** as três reprovações do meio
+não foram sobre a mecânica — foram sobre **justificativa gravada que era
+falsa** (um número copiado de medição descartada, uma mutação creditada à
+conferência errada, uma constante justificada pelo motivo oposto) e sobre
+**conferência que falhava aberta** (padrão órfão virando aprovação, desconto
+escrito para uma ausência e não para a irmã). E uma foi sobre generalização que
+custou poder: trocar "desconta o número exato" por "dispensa tudo" fechou a
+classe e deixou passar a perda de 27 conferências.
 
 #### Como conferir que nada quebrou
 
 ```
 godot --headless --path . --script res://tests/run_tests.gd
 godot --headless --path . --script res://tools/sondar_campeoes.gd
+godot --headless --path . --script res://tools/sondar_ritmo.gd
 py tools/conferir_numeros.py
 ```
 
-Estado ao fim desta sessão: **431 testes, 1206 asserções**, stderr 0 bytes,
-sonda verde (127 espaços tentados, 126 conferidos, 8735 assinaturas),
-**118 afirmações numéricas**. Commit `985fa5a`.
+São **quatro**, e o quarto é novo. `sondar_ritmo.gd` nasceu de uma revisão
+adversarial mostrando que dava para apagar a cadência do ataque de `player.gd`
+com as outras três verdes.
+
+Estado ao fim desta sessão: **449 testes, 1242 asserções**, stderr 0 bytes,
+sonda verde (127 espaços tentados, 126 conferidos, 8735 assinaturas,
+44 espaços zerando a cadência do ataque e 83 mantendo),
+**143 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar
 
@@ -286,9 +315,11 @@ o ritmo certo. **É ponto de parar e pedir teste** quando o usuário voltar.
 
 ### O que a revisão adversarial ensinou, e vale para tudo daqui em diante
 
-Duas temporadas: oito rodadas na tradução do original (sete reprovando), e mais
-treze fechando as lacunas de habilidade (onze reprovando). **Toda rodada achou
-algo material.**
+Três temporadas — a tradução do original e as lacunas de habilidade, uma a
+uma. **Toda rodada achou algo material.** O total por lacuna está no "Custo
+medido" acima, que é onde ele serve para alguma coisa; aqui ele só envelheceria
+a cada rodada, e envelheceu: dizia "catorze (doze reprovando)" quando a própria
+aritmética do documento já dava outra coisa.
 
 1. **Cobertura silenciosa é indistinguível de cobertura errada.** Todo achado
    veio de medir, nunca de reler. Daí o censo de colunas do tradutor, o
@@ -306,7 +337,11 @@ algo material.**
    Patch que não aplicou, script cujo `write_text` foi cortado, comando atrás
    de um `&&` que não rodou, fixture que entrega a resposta certa pelo motivo
    errado. Depois de aplicar patch, **conferir por `grep` que o texto novo está
-   no arquivo** — não confiar no "ok" do script.
+   no arquivo** — não confiar no "ok" do script. E há uma forma a mais, a mais
+   sutil de todas: conferência cujo padrão ficou ÓRFÃO e cuja comparação
+   transforma "não achei" em aprovação. `_numero` devolve -1, e
+   `if publicado > conferidas` com -1 passa sempre — reescrever a frase no
+   documento desligava a conferência sem ruído.
 6. **A conferência recém-adicionada é a que ninguém confere.** Toda vez que uma
    dimensão nova entrou numa comparação, ela nasceu cega, e foi sempre a rodada
    seguinte que descobriu. Conferência nova nasce com a mutação que a derrube.
@@ -316,7 +351,13 @@ algo material.**
 8. **Fixture degenerado é cobertura falsa.** Se todos os casos têm o mesmo
    valor, a mutação que troca esse valor é um no-op literal. Já aconteceu com
    posição (tudo na origem), direção (tudo no mesmo eixo) e carga (tudo zero).
-9. **Parar de enumerar propriedades.** Uma comparação que lista o que olhar
+9. **A camada que nenhuma ferramenta RODA é onde o defeito mora.** A suíte não
+   alcança `gameplay/`; a sonda de campeões roda num `process_frame` só e nunca
+   chama `_physics_process`. No vão entre as duas dava para apagar a cadência
+   do ataque inteira com tudo verde. Antes de dizer que algo está coberto,
+   perguntar **qual ferramenta executa aquela linha** — e se a resposta for
+   nenhuma, a ferramenta que falta é o trabalho.
+10. **Parar de enumerar propriedades.** Uma comparação que lista o que olhar
    rende um achado por rodada, sempre uma propriedade fora da lista. O que
    fecha a classe é um termo que englobe todas — `global_transform * AABB` no
    lugar de raio, largura, altura e posição, uma a uma.
@@ -412,9 +453,9 @@ Das 124 habilidades dos 31 campeões com suprema:
 
 | Quantas | O que falta |
 |---|---|
-| ~~65~~ | ~~Alimentam a carga da suprema, que não existe~~ — **fechada**: a suprema enche agindo e os 45 s inventados morreram |
+| ~~65~~ | ~~Alimentam a carga da suprema, que não existe~~ — **fechada**: a suprema enche agindo e os 45 s inventados morreram. Pelo caminho que o jogo usa são **67 dos 127 espaços** |
 | ~~61~~ | ~~Vários golpes, e a tela desenhava só o primeiro~~ — **fechada**: cada golpe é desenhado quando sai, e cone e trapézio ganharam forma de verdade. Recontado pelo caminho que o jogo usa, são **79 dos 127 espaços**; o 61 contava referências de impacto do XML, que é outra medida |
-| 43 | Deveriam **zerar a cadência do ataque básico** (`ResetAttackCoolTime`) |
+| ~~43~~ | ~~Deveriam **zerar a cadência do ataque básico**~~ — **fechada**: conjurar solta o próximo ataque básico na hora. Recontado pelo caminho que o jogo usa, são **44 dos 127 espaços**, em 22 campeões. Ver a decisão 18 |
 | 35 | Área que **acompanha o alvo** (`FollowTarget`); a nossa planta no chão |
 | 24 | Deslocamento em **arco** (`ZMoveCurvePath`); o nosso é reta |
 | 14 | **Corrente de combo**: apertar Q de novo deveria virar outra habilidade |
@@ -480,7 +521,7 @@ Todo teste novo entra em `tests/` e é registrado em `SUITES`, dentro de
 `tests/run_tests.gd`. Só `scripts/core/` é testável assim: é a parte que não
 conhece nó da engine.
 
-**O que está em `gameplay/` tem sonda própria**, porque a suíte não o alcança:
+**O que está em `gameplay/` tem DUAS sondas**, porque a suíte não o alcança:
 
 ```
 godot --headless --path . --script res://tools/sondar_campeoes.gd
@@ -499,6 +540,23 @@ O que prova que uma conferência distingue algo é mexer nesse algo e ver o
 veredito mudar.
 
 Não substitui olho humano: ela sabe se quebrou, não se ficou bom.
+
+E ela **não roda quadro de física**: tudo acontece dentro de um único
+`process_frame`, de propósito — é essa hipótese que faz as marcas não expirarem
+no meio da conferência. O preço é que `_physics_process` nunca é chamado, e
+portanto o **laço de combate** fica fora do alcance dela. É a segunda sonda:
+
+```
+godot --headless --path . --script res://tools/sondar_ritmo.gd
+```
+
+Avança quadros de física de verdade, põe o jogador batendo num boneco e confere
+o RITMO: quantos golpes saem na janela e o espaçamento entre eles. Existe
+porque dava para trocar `if unit.attack_is_ready()` por `if true` em
+`player.gd` — 120 golpes em dois segundos no lugar de 3 — com as outras três
+ferramentas verdes. Ela também fecha o reset de auto-ataque ponta a ponta, com
+o par obrigatório: a habilidade que zera produz golpe no quadro seguinte, e a
+que não zera não produz.
 
 ### Número em documento é asserção
 

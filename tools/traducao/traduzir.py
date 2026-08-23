@@ -481,6 +481,7 @@ CONSULTADAS = {
         "UI_Type", "UI_Params", "AI_SkillRange", "MovingOnSkill",
         "SkillCancelableTime", "AtlasName", "ButtonIconPath", "CastingTime",
         "RemoveCC", "RemoveDebuff", "UseChainBreak", "UltimateCharge",
+        "ResetAttackCoolTime",
         "__tabela",
     } | {f"Impact{n}" for n in range(1, 13)}
       | {f"StatType{n}" for n in range(1, 5)}
@@ -729,7 +730,6 @@ ORFAS_QUE_SAO_LACUNA = {
     # que trava ao acertar. Rótulo curto não é justificativa; virou lacuna.
     "StopCondition": "a investida que PARA ao acertar (OnImpactEnemy / "
                      "OnDamage / OnLostTarget) — nosso dash sempre completa",
-    "ResetAttackCoolTime": "habilidade que zera a cadência do ataque básico",
     "ReleaseAutoAttack": "habilidade que dispara um ataque básico ao terminar",
     "TrackingMode": "projétil teleguiado",
     "TrackDistanceForMovingSkill": "dash que persegue o alvo",
@@ -2029,6 +2029,9 @@ class Tradutor:
         # habilidade ainda não aprendida, e por isso não referencia impacto
         # nenhum. Marcá-la evita que o relatório conte 115 modelos como 115
         # falhas de tradução.
+        zera_cadencia = booleano(skill.get("ResetAttackCoolTime"))
+        if zera_cadencia:
+            self.r.usou("reset de auto-ataque (ResetAttackCoolTime)")
         marcador_de_combo = booleano(skill.get("UseChainBreak"))
         modelo = inteiro(skill.get("Rank"), 1) == 0
 
@@ -2060,6 +2063,10 @@ class Tradutor:
             # lacuna registrada — a suprema não tem recarga no original, ela
             # enche agindo, e sem isto ela recebia um número inventado.
             "ultimate_charge_gain": num(skill.get("UltimateCharge"), 0.0),
+            # `ResetAttackCoolTime`: conjurar zera a cadência do ataque básico.
+            # Era lacuna registrada — e é o que dá ritmo ao corpo a corpo, onde
+            # encaixar a habilidade entre dois golpes é a jogada.
+            "resets_attack_cooldown": zera_cadencia,
             "pulses": pulsos,
             "passive_effects": passivas,
         }

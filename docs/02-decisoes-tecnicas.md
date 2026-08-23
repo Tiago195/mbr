@@ -615,3 +615,117 @@ fora sem um caso especial em lugar nenhum, exatamente como `MAX_MANA` já fazia.
 morto — mutá-la passava verde. O pote passou a ser tickado, a guarda virou
 desnecessária (`Stats.get_value` de um id que não é atributo já devolve zero) e
 saiu. Guarda que nunca roda é indistinguível de guarda que não funciona.
+
+## 18. A cadência do ataque básico mora no `Unit`, e habilidade a zera
+
+**Decidido em 22/08/2026**, fechando a terceira lacuna da tabela das seis.
+
+`ResetAttackCoolTime` do original: conjurar solta o próximo ataque básico na
+hora, em vez de esperar a velocidade de ataque. **259 habilidades declaram
+verdadeiro e 262 declaram falso**; pelo caminho que o jogo percorre, são
+**44 dos 127 espaços de campeão**, em **22 campeões**.
+
+**O 521 anterior contava outra coisa.** O censo de colunas do tradutor conta a
+COLUNA presente, e `"False"` é string não-vazia — 259 + 262. É a mesma
+armadilha que já deu "123 `FollowTarget` em 124 habilidades". As duas medidas
+são afirmadas separadamente em `tools/conferir_numeros.py`, direto no XML, para
+que confundi-las de novo dê vermelho.
+
+### O que mudou de lugar, e por quê
+
+A cadência era um `float` privado dentro de `player.gd`. Ela virou
+`Unit.attack_cooldown`, em `core/`. **Não é arrumação:** `AbilityEngine` é
+estática, roda no servidor headless e não conhece nó — ela não tem como zerar
+um contador guardado numa cena. Enquanto a cadência morasse lá, esta lacuna era
+inimplementável sem furar a regra de ouro 3.
+
+Três consequências que caíram de graça:
+
+- **A cadência agora é testável.** `tests/` só alcança `scripts/core/`, e o
+  laço de ataque nunca teve teste nenhum.
+- **O ataque básico ficou autoritativo.** `basic_attack()` é quem recomeça a
+  cadência; quem manda atacar só pergunta `attack_is_ready()`. Antes, quem
+  chamasse `basic_attack` duas vezes no mesmo tique batia duas vezes.
+- **Cegar continua diferente de desarmar.** O ramo do cego sai cedo de
+  `basic_attack`, e gasta a cadência do mesmo jeito: o ataque saiu e errou.
+
+### Ao conjurar, não ao acertar
+
+Mesma leitura de `ultimate_charge_gain`, e pelo mesmo motivo: a coluna é da
+habilidade, não do impacto. O original **não tem onde declarar** "só se
+acertar", e inventar essa condição tornaria o reset inútil justamente nas
+habilidades em que ele mais importa — as de projétil, cujo acerto acontece
+segundos depois do clique, quando a janela do ataque já passou.
+
+O reset sai dentro de `_charge`, junto da mana e da recarga, e por isso herda a
+regra que já valia para as duas: **quem tem a conjuração cortada no meio não
+recupera nada, e conjuração RECUSADA não gasta nem devolve nada.** Essa segunda
+metade é a que tem consequência de jogo: sem ela, apertar Q com Q em recarga
+seria um reset de auto-ataque de graça — dano extra por apertar botão inútil.
+
+### Como isto é conferido
+
+- `tests/test_reset_de_ataque.gd`: 18 testes, dos quais **4** são sobre quem
+  **não** tem o direito de zerar: recarga, mana, controle de grupo e suprema
+  sem carga. (Dizia "metade deles", que seriam nove; são quatro, e o número
+  agora é conferido.)
+- `tools/sondar_campeoes.gd`: planta a cadência num valor não-zero antes de
+  cada conjuração e exige que ela fique em zero exatamente nos espaços que
+  declaram o reset. **A sentinela é o ponto:** com a cadência já em zero,
+  "zerou" e "não mexeu" seriam a mesma leitura, e a mutação que zera tudo seria
+  um no-op literal — foi o que já aconteceu com posição, direção e carga.
+- `tools/sondar_ritmo.gd`, **sonda nova**, explicada abaixo.
+- Cada mutação foi aplicada uma de cada vez e a ferramenta que deveria
+  enxergá-la foi exigida em vermelho — inclusive a que arranca a sentinela da
+  própria sonda. Nenhuma delas reprova as três ferramentas: cada uma reprova a
+  sua, e é essa correspondência que se está testando.
+
+### A sonda de ritmo, e o buraco que ela fecha
+
+A revisão adversarial derrubou a primeira versão desta decisão com uma mutação
+de uma linha: trocar `if _combatant.unit.attack_is_ready()` por `if true` em
+`player.gd` — apagando a cadência do jogo inteiro — deixava **as três
+ferramentas verdes**. O comportamento real: 120 golpes em dois segundos no
+lugar de 3.
+
+Nenhuma das duas conferências podia pegar isso. A suíte não alcança
+`gameplay/`; `sondar_campeoes.gd` roda tudo dentro de um único `process_frame`
+de propósito, e por isso `_physics_process` nunca é chamado lá. E o buraco
+tinha acabado de ficar mais perigoso: quem PERGUNTA se pode bater passou a
+morar em `Player._physics_process` e quem faz o contador andar mora em
+`Combatant._physics_process` — duas metades que precisam continuar se
+encontrando, e nada as via juntas.
+
+`tools/sondar_ritmo.gd` avança quadros de física de verdade, conta golpes e
+mede o espaçamento entre eles. Duas coisas que ela ensinou no caminho:
+
+- **Folga generosa é o mesmo que não conferir.** Com uma folga de um golpe
+  para cada lado, `advance_time(0.0)` — que faz o personagem bater uma vez e
+  travar para sempre — passava verde com 1 golpe onde se esperavam 2,66. O que
+  fechou esse buraco foi apertar a faixa para `floor(N)` ou `floor(N)+1`.
+- **E o espaçamento fecha a classe, mas é outra conferência e outra mutação.**
+  A que a alcança é `advance_time(delta * 0.5)`: saem 2 golpes — número que a
+  faixa ACEITA — nos quadros `[0, 91]`, e só o vão denuncia. A primeira versão
+  desta decisão creditava o espaçamento pelo escape do `advance_time(0.0)`, que
+  produz um golpe só e portanto vão nenhum. **Justificativa gravada é
+  afirmação**, e essa estava errada dentro do texto escrito para consertar um
+  erro do mesmo tipo.
+- **O par de controle é obrigatório.** A sonda confere que uma habilidade
+  zeradora produz golpe no quadro seguinte E que uma não-zeradora não produz.
+  Sem a segunda metade, a primeira não prova nada sobre o reset.
+
+### O que sobrou sabido, e não fechado
+
+Duas observações da revisão que não bloqueiam e ficam registradas em vez de
+sumirem:
+
+- A varredura de avisos de `conferir_numeros.py` não pega um ramo que copie
+  **exatamente** a linha que `avisar()` usa para montar o rótulo. Medido: um
+  ramo assim ainda faz a ferramenta sair 1, porque o piso o cobra — degrada
+  para o piso, e o piso falha fechado. É a diferença entre não detectar e
+  aprovar por engano.
+- O desconto do ramo da engine é `1` escrito à mão, enquanto o do XML é
+  contado no fonte. Está certo hoje e foi conferido por um caminho
+  independente: com as DUAS ausências ao mesmo tempo, exigidas e conferidas
+  batem em 126 — o que não bateria se o `1` estivesse errado. Fechá-lo é pôr
+  marcadores no ramo da suíte e contar, o mesmo truque do bloco do XML.
