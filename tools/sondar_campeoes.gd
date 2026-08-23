@@ -50,6 +50,35 @@ const GIRO_POR_ESPACO_EM_GRAUS: float = 50.0
 ## intervalo de ataque de ninguém.
 const CADENCIA_DA_SONDA: float = 0.37
 
+## O salto que o conjurador dá entre a conjuração e os golpes atrasados saírem.
+##
+## Sem ele a conferência da perseguição seria degenerada: com o conjurador
+## parado, "a âncora acompanhou" e "a âncora ficou congelada" são a mesma
+## leitura, e a mutação que desliga a perseguição vira no-op — o mesmo defeito
+## que já pegou posição, direção, carga e cadência neste projeto.
+##
+## É um salto ÚNICO, e não um passo por tique, por duas razões medidas: um
+## passo por tique acumulava 72 m ao longo dos 1200 tiques do orçamento, e
+## vazava de um espaço para o outro até as coordenadas passarem de mil — e aí
+## a assinatura das marcas passou a divergir na quarta casa decimal, o que
+## reprovava a conferência de telegrafia por erro de arredondamento.
+##
+## No eixo X, longe do -Z para onde a sonda mira, para o salto não se confundir
+## com o alcance da forma.
+##
+## **30 metros, e o tamanho é medido.** A comparação é por distância relativa —
+## "a âncora ficou mais perto de onde ele está ou de onde conjurou?" —, e por
+## isso ela cega quando o deslocamento do pulso passa de meio salto. Com 4 m,
+## forçar TODOS os pulsos a perseguir era flagrado em 156 dos 160 que deviam
+## ficar; com 12 m, em 159; com 30 m, em 160. Quatro casos passando por um
+## estado quebrado é o tipo de folga que este projeto já pagou caro.
+const SALTO_ENTRE_GOLPES := Vector3(30.0, 0.0, 0.0)
+
+## O salto que o ALVO dá, no mesmo instante. Eixo DIFERENTE do salto do
+## conjurador de propósito: com os dois no mesmo eixo, "acompanhou o alvo" e
+## "acompanhou quem conjurou" ficariam indistinguíveis.
+const SALTO_DO_ALVO := Vector3(0.0, 0.0, 26.0)
+
 ## Tudo que a assinatura de uma marca precisa distinguir.
 ##
 ## Cada uma custou uma rodada de revisão adversarial para entrar: a lista
@@ -146,6 +175,13 @@ func _sondar() -> Array[String]:
 	unit.ultimate_charge.current = maxf(unit.ultimate_charge.maximum(), 1.0)
 	unit.attack_cooldown = CADENCIA_DA_SONDA
 
+	# Onde cada combatente da cena começa. É o que a normalização de cada
+	# espaço restaura — inclusive os alvos, que a conferência da perseguição
+	# move de propósito.
+	var lugares_originais: Dictionary = {}
+	for outro: Unit in Combatant.all_units(self):
+		lugares_originais[outro] = outro.position
+
 	var campeoes: Array[ActorProfile] = selector.actors.champions()
 	print("")
 	print("  sondando %d campeões" % campeoes.size())
@@ -172,6 +208,28 @@ func _sondar() -> Array[String]:
 	## tautologia — ou nada zera, ou tudo zera, e nos dois casos ela passa.
 	var zeraram: int = 0
 	var mantiveram: int = 0
+	## Golpes atrasados que acompanharam o conjurador, e golpes atrasados que
+	## ficaram onde foram plantados. Os DOIS são piso, pelo mesmo motivo do par
+	## da cadência: se um zerar, a conferência virou tautologia.
+	var perseguiram: int = 0
+	var ficaram: int = 0
+	## Golpes atrasados de conjuração COM TEMPO, que a conferência da
+	## perseguição não alcança. Publicado, e não silencioso: cobertura que
+	## encolhe sem avisar é o sintoma que este projeto mais persegue.
+	var pulados: int = 0
+	## Golpes atrasados que perseguem o ALVO. Separados em dois porque a mira
+	## genérica da sonda não aponta unidade em todos os espaços, e sem essa
+	## separação "conferido" e "não alcançado" virariam o mesmo número.
+	var alvo_seguido: int = 0
+	var alvo_sem_mira: int = 0
+	## Todo golpe atrasado que chegou à conferência da âncora.
+	##
+	## Existe para a soma FECHAR. `Follow.TARGET` ficou de fora de todos os
+	## ramos numa revisão — nem conferido, nem publicado —, e nenhum piso viu:
+	## os que existiam contavam categorias, e o que escapava não estava em
+	## categoria nenhuma. Conferir o TOTAL pega qualquer valor novo do enum que
+	## alguém acrescente sem tratar, e não só este.
+	var atrasados_vistos: int = 0
 
 	for profile: ActorProfile in campeoes:
 		if not selector.select(profile.id):
@@ -243,6 +301,24 @@ func _sondar() -> Array[String]:
 			var ability: Ability = caster.book.ability_in(slot)
 			if ability == null:
 				continue
+
+			# **O fixture é normalizado no COMEÇO de cada espaço.**
+			#
+			# A primeira versão restaurava as posições no fim, depois do laço
+			# de tiques — e vazava: medido, o conjurador chegava ao último
+			# campeão em x=1293 em vez de x=3, ou seja, 43 saltos de 30 m que
+			# alguém não desfez. Com coordenadas dessa ordem a assinatura das
+			# marcas passa a divergir na terceira casa decimal e a telegrafia
+			# reprova por arredondamento.
+			#
+			# Restaurar no fim depende de TODO caminho de saída restaurar.
+			# Normalizar no começo não depende de nada: é o mesmo motivo pelo
+			# qual `adopt_profile` zera o estado ao trocar de campeão em vez de
+			# confiar em quem sai limpar.
+			unit.position = POSICAO_DA_SONDA
+			for outro: Unit in Combatant.all_units(self):
+				if lugares_originais.has(outro):
+					outro.position = lugares_originais[outro]
 			caster.book.clear_cooldowns()
 			unit.mana.current = unit.mana.maximum()
 			# A carga da suprema também: sem isto os 31 espaços de suprema saem
@@ -377,6 +453,27 @@ func _sondar() -> Array[String]:
 			var tiques: int = int(ceil((
 				ability.cast_time + ability.total_pulse_time() + _voo(ability)
 			) * 60.0)) + 120
+			# **O conjurador SALTA depois de conjurar**, antes de qualquer golpe
+			# atrasado sair. É o que faz a perseguição da âncora ser
+			# observável: parado, a âncora que persegue e a congelada caem no
+			# mesmo ponto.
+			var onde_conjurou: Vector3 = unit.position
+			unit.position += SALTO_ENTRE_GOLPES
+			var onde_esta: Vector3 = unit.position
+			# **O alvo salta também, e por um vetor DIFERENTE.** Os 11 pulsos
+			# `TARGET` do corpus são `Origin.TARGET_UNIT` com deslocamento
+			# zero, então a âncora congelada já nasce em cima do alvo: mexendo
+			# só no conjurador, "acompanhou o alvo" e "ficou congelada" dão a
+			# mesma leitura, e a conferência aprovaria a perseguição desligada.
+			# É o mesmo fixture degenerado que o salto do conjurador resolve na
+			# outra metade — e ele já tinha sido cometido aqui.
+			var alvo_da_mira: Unit = mira.unit_target if mira != null else null
+			var alvo_onde_conjurou := Vector3.ZERO
+			var alvo_onde_esta := Vector3.ZERO
+			if alvo_da_mira != null:
+				alvo_onde_conjurou = alvo_da_mira.position
+				alvo_da_mira.position += SALTO_DO_ALVO
+				alvo_onde_esta = alvo_da_mira.position
 			for _passo: int in mini(tiques, 1200):
 				unit.advance_time(1.0 / 60.0)
 				caster.tick(1.0 / 60.0)
@@ -407,6 +504,105 @@ func _sondar() -> Array[String]:
 			var saidas: Array[CastResult] = _resolvidos.duplicate()
 			if resultado.succeeded():
 				saidas.append(resultado)
+
+			# **A perseguição da âncora.** Um golpe atrasado que declara
+			# `Follow.CASTER` tem que sair de onde o conjurador ESTÁ, e não de
+			# onde ele estava quando conjurou. As duas metades são conferidas:
+			# quem persegue tem que ter andado junto, e quem não persegue tem
+			# que ter ficado — sem a segunda, marcar tudo como perseguidor
+			# passaria.
+			for saida: CastResult in saidas:
+				if saida.pulse == null or saida.pulse.delay <= 0.0:
+					continue
+				atrasados_vistos += 1
+				# **Conjuração com TEMPO fica de fora, e o motivo é medido.**
+				# Nela as âncoras nascem quando o canto TERMINA — ou seja,
+				# depois do salto —, então "onde conjurou" não é o ponto que a
+				# âncora congelada guardaria. Comparar assim acusava 13 golpes
+				# de 2 campeões de perseguir sem declarar, e o defeito era da
+				# conferência, não deles.
+				if not resultado.succeeded():
+					pulados += 1
+					continue
+				var longe_de_onde_conjurou: float = (
+					saida.anchor - onde_conjurou
+				).length()
+				var longe_de_onde_esta: float = (
+					saida.anchor - onde_esta
+				).length()
+				if saida.pulse.follow == AbilityPulse.Follow.CASTER:
+					perseguiram += 1
+					# Comparação ESTRITA, e é o que obriga o salto a existir:
+					# com salto zero as duas distâncias empatam, `<` é falso, e
+					# a conferência acusa em vez de passar por empate. Uma
+					# versão com `>` invertido passava verde sem salto nenhum —
+					# fixture degenerado se disfarçando de aprovação.
+					if not (longe_de_onde_esta < longe_de_onde_conjurou):
+						falhas.append(
+							("%s %s (%s): o golpe atrasado devia acompanhar o "
+							+ "conjurador e saiu a %.2fm de onde ele está, "
+							+ "contra %.2fm de onde conjurou") % [
+								profile.id, AbilityBook.Slot.keys()[slot],
+								ability.display_name, longe_de_onde_esta,
+								longe_de_onde_conjurou
+							]
+						)
+				elif saida.pulse.follow == AbilityPulse.Follow.TARGET:
+					# **A outra metade do recurso, e ela quase ficou fora.**
+					# Sem este ramo os golpes `TARGET` caíam entre o `CASTER` e
+					# o `NONE` e não entravam em conta nenhuma: nem conferidos
+					# nem publicados. Uma conferência que cobre metade do que
+					# diz cobrir é indistinguível de uma que cobre tudo.
+					# `CastResult` NÃO carrega a mira — só o pulso, a âncora e a
+					# direção. A mira em escopo é a mesma que a engine usou.
+					if alvo_da_mira != null:
+						alvo_seguido += 1
+						# Contra ONDE O ALVO ESTAVA, e não contra a posição do
+						# conjurador: a âncora congelada desses pulsos já nasce
+						# em cima do alvo, então comparar com o conjurador
+						# aprova a perseguição desligada.
+						var longe_do_alvo: float = (
+							saida.anchor - alvo_onde_esta
+						).length()
+						var longe_de_onde_o_alvo_estava: float = (
+							saida.anchor - alvo_onde_conjurou
+						).length()
+						if not (longe_do_alvo < longe_de_onde_o_alvo_estava):
+							falhas.append(
+								("%s %s (%s): o golpe atrasado devia acompanhar "
+								+ "o alvo e saiu a %.2fm de onde ele está, "
+								+ "contra %.2fm de onde ele estava") % [
+									profile.id, AbilityBook.Slot.keys()[slot],
+									ability.display_name, longe_do_alvo,
+									longe_de_onde_o_alvo_estava
+								]
+							)
+					else:
+						# Sem unidade apontada, `anchor_when_fired` devolve a
+						# âncora congelada — e é isso que tem que acontecer.
+						alvo_sem_mira += 1
+						if not (longe_de_onde_conjurou < longe_de_onde_esta):
+							falhas.append(
+								("%s %s (%s): golpe `TARGET` sem alvo apontado "
+								+ "devia ficar na âncora congelada e saiu a "
+								+ "%.2fm dela") % [
+									profile.id, AbilityBook.Slot.keys()[slot],
+									ability.display_name, longe_de_onde_conjurou
+								]
+							)
+				elif saida.pulse.follow == AbilityPulse.Follow.NONE:
+					ficaram += 1
+					if not (longe_de_onde_conjurou < longe_de_onde_esta):
+						falhas.append(
+							("%s %s (%s): o golpe atrasado NÃO devia acompanhar "
+							+ "ninguém e saiu a %.2fm de onde conjurou "
+							+ "[origem=%s atraso=%.2f repete=%d]") % [
+								profile.id, AbilityBook.Slot.keys()[slot],
+								ability.display_name, longe_de_onde_conjurou,
+								AbilityPulse.Origin.keys()[saida.pulse.origin],
+								saida.pulse.delay, saida.pulse.repeat_count()
+							]
+						)
 
 			# **A comparação mora AQUI, e não numa função própria.** Enquanto
 			# ela era `_conferir_marcas() -> {problemas, comparacoes}`, dava
@@ -476,6 +672,13 @@ func _sondar() -> Array[String]:
 	print("  cadência do ataque medida: %d espaços zeraram, %d mantiveram" % [
 		zeraram, mantiveram
 	])
+	# Os parênteses importam: `"a" + "b" % [...]` aplica o `%` só à SEGUNDA
+	# parte, e a Godot reclama no stderr sem derrubar nada. A suíte deste
+	# projeto trata stderr não-vazio como falha, e foi assim que este apareceu.
+	print(("  âncora de golpe atrasado: %d seguiram o conjurador, %d seguiram "
+		+ "o alvo, %d ficaram") % [perseguiram, alvo_seguido, ficaram])
+	print(("  ...e fora de alcance: %d de conjuração com tempo, %d `TARGET` "
+		+ "sem unidade apontada") % [pulados, alvo_sem_mira])
 
 	# **O fixture é afirmado, não só impresso.** Uma mira que deixe de apontar
 	# unidade devolve os `NO_TARGET` e tira `Origin.TARGET_UNIT` de exercício —
@@ -514,6 +717,44 @@ func _sondar() -> Array[String]:
 		falhas.append(
 			("só %d espaços mantiveram a cadência; algo está zerando o ataque "
 			+ "básico sem ter o direito") % mantiveram
+		)
+	# Pisos das duas metades da perseguição. Medidos na árvore limpa e postos
+	# bem abaixo: o que eles pegam é o sistema parar de disparar, ou passar a
+	# disparar sempre.
+	if perseguiram < 10:
+		falhas.append(
+			("só %d golpes atrasados acompanharam o conjurador; a perseguição "
+			+ "da âncora parou de disparar") % perseguiram
+		)
+	# **A soma tem que fechar.** É esta conferência, e não os pisos por
+	# categoria, que pega um caso caindo fora de todos os ramos.
+	var somados: int = (
+		perseguiram + alvo_seguido + alvo_sem_mira + ficaram + pulados
+	)
+	if somados != atrasados_vistos:
+		falhas.append(
+			("%d golpes atrasados chegaram à conferência da âncora e só %d "
+			+ "entraram em alguma conta; há caso caindo fora de todos os ramos")
+				% [atrasados_vistos, somados]
+		)
+
+	# **O piso do `TARGET` é publicado mesmo valendo zero.** São 11 pulsos no
+	# corpus e 3 espaços de campeão, e nos três a mira genérica da sonda não
+	# aponta unidade — então a metade `TARGET` do recurso tem cobertura de cena
+	# ZERO hoje, e quem lê a saída precisa saber disso em vez de deduzir do
+	# silêncio. Quem a cobre é `tests/test_perseguicao.gd`.
+	# **O piso é sobre a metade que CONFERE, não sobre o total.** Ele já foi
+	# `alvo_seguido + alvo_sem_mira`, e assim ficava satisfeito por golpes que
+	# a sonda só contava — `alvo_seguido` podia cair a zero sem ninguém ver.
+	if alvo_seguido < 3:
+		falhas.append(
+			("só %d golpes atrasados de `Follow.TARGET` foram conferidos com "
+			+ "alvo apontado; eram 3") % alvo_seguido
+		)
+	if ficaram < 20:
+		falhas.append(
+			("só %d golpes atrasados ficaram onde foram plantados; algo está "
+			+ "fazendo área de chão perseguir") % ficaram
 		)
 	if conferidos < 100:
 		falhas.append(
@@ -1054,18 +1295,42 @@ func _mirar(ability: Ability, unit: Unit, espaco: int) -> AbilityCast:
 		Vector3.UP, deg_to_rad(GIRO_POR_ESPACO_EM_GRAUS * float(espaco))
 	)
 	var ponto: Vector3 = unit.position + desvio
+	var mira: AbilityCast
 	match ability.aim:
 		Ability.Aim.SELF:
-			return AbilityCast.on_self(unit)
+			mira = AbilityCast.on_self(unit)
 		Ability.Aim.DIRECTION:
-			return AbilityCast.toward(unit, ponto - unit.position)
+			mira = AbilityCast.toward(unit, ponto - unit.position)
 		Ability.Aim.UNIT:
 			var alvo: Unit = _inimigo_mais_perto(unit)
-			if alvo == null:
-				return AbilityCast.at_point(unit, ponto)
-			return AbilityCast.on_unit(unit, alvo)
+			mira = (
+				AbilityCast.at_point(unit, ponto) if alvo == null
+				else AbilityCast.on_unit(unit, alvo)
+			)
 		_:
-			return AbilityCast.at_point(unit, ponto)
+			mira = AbilityCast.at_point(unit, ponto)
+
+	# **Habilidade de PONTO também pode ter golpe que precisa de unidade.**
+	# O gancho do Chao e a salvação do Odri miram no chão e têm pulso de
+	# `Origin.TARGET_UNIT` com `Follow.TARGET`; sem unidade apontada eles caem
+	# no ponto mirado, e a metade `TARGET` da perseguição nunca é exercitada.
+	# Preencher `unit_target` aqui não muda a mira — muda o que os golpes que
+	# dependem de alvo encontram.
+	if mira.unit_target == null and _precisa_de_unidade(ability):
+		mira.unit_target = _inimigo_mais_perto(unit)
+	return mira
+
+## Verdadeiro quando algum golpe da habilidade só faz sentido com uma unidade
+## apontada.
+static func _precisa_de_unidade(ability: Ability) -> bool:
+	for pulse: AbilityPulse in ability.pulses:
+		if pulse == null:
+			continue
+		if pulse.origin == AbilityPulse.Origin.TARGET_UNIT:
+			return true
+		if pulse.follow == AbilityPulse.Follow.TARGET:
+			return true
+	return false
 
 func _inimigo_mais_perto(unit: Unit) -> Unit:
 	var achado: Unit = null

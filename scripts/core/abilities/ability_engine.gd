@@ -90,8 +90,13 @@ static func resolve_scheduled(book: AbilityBook, candidates: Array) -> Array[Cas
 		# O conjurador morrer não desfaz o que já foi lançado, mas efeito que
 		# escala com atributo dele passa a ler um morto. É o mesmo critério do
 		# veneno em `PeriodicSet`: o golpe sai, o dono não importa mais.
+		# A âncora congelada é o PADRÃO, e continua sendo: área no chão não
+		# persegue ninguém. Quem declara `follow` recalcula aqui, no instante
+		# em que o golpe sai — 258 dos 1198 pulsos atrasados do corpus.
 		results.append(_fire(
-			book, entry.ability, entry.pulse, entry.cast, entry.anchor, candidates
+			book, entry.ability, entry.pulse, entry.cast,
+			entry.pulse.anchor_when_fired(entry.cast, entry.anchor),
+			candidates
 		))
 	return results
 

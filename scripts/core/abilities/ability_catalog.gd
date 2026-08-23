@@ -157,6 +157,9 @@ static func build_pulse(data: Dictionary) -> AbilityPulse:
 	pulse.origin = _enum(
 		AbilityPulse.Origin, data.get("origin"), AbilityPulse.Origin.AIM_POINT
 	) as AbilityPulse.Origin
+	pulse.follow = _enum(
+		AbilityPulse.Follow, data.get("follow"), AbilityPulse.Follow.NONE
+	) as AbilityPulse.Follow
 	pulse.delay = float(data.get("delay", 0.0))
 	pulse.duration = float(data.get("duration", 0.0))
 	pulse.loop_interval = float(data.get("loop_interval", 0.0))

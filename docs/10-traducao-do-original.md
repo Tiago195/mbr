@@ -459,7 +459,7 @@ Rótulo curto não é justificativa.
 
 | Lacuna | Onde | O que é |
 |---|---|---|
-| **Área que acompanha o alvo** | `FollowTarget`, 1967 | Nossa área fica onde caiu, sempre. A do original pode grudar em quem foi atingido |
+| ~~**Área que acompanha o alvo**~~ | `FollowTarget`, 354 | **Fechada.** E a lacuna estava mal descrita: a coluna **não é booleana** — vale `None` em 1552 impactos, `User` em 353 e `Target` em 62, e a maioria acompanha o CONJURADOR, não o alvo. O 1967 contava a coluna presente. Só muda alguma coisa em pulso ATRASADO: são 27 dos 127 espaços de campeão. Ver a decisão 19 |
 | **Arbusto atacável** | `BeAbleToAttackBush`, 1523 | Não há sistema de arbusto |
 | ~~**Reset de auto-ataque**~~ | `ResetAttackCoolTime`, 259 | **Fechada.** Conjurar zera a cadência do ataque básico. 259 habilidades declaram verdadeiro e 262 declaram falso — o 521 de antes contava a COLUNA presente, e `"False"` é string não-vazia. Pelo caminho que o jogo percorre, são 44 dos 127 espaços de campeão. Ver a decisão 18 |
 | **Projétil teleguiado** | `TrackingMode`, 118 | O nosso vai reto |

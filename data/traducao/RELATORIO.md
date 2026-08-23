@@ -76,6 +76,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `stat:attack_speed` | 380 |
 | `stat:max_health` | 371 |
 | `stat:attack_damage` | 360 |
+| `perseguição da âncora (FollowTarget=CASTER)` | 343 |
 | `mark` | 339 |
 | `tenacidade inferida (sem ApplyToughness)` | 329 |
 | `impacto encadeado como pulso` | 320 |
@@ -143,6 +144,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `stat:health_regen` | 14 |
 | `stat:out_of_combat_mana_regen` | 14 |
 | `stat:weight` | 12 |
+| `perseguição da âncora (FollowTarget=TARGET)` | 11 |
 | `fura invulnerabilidade` | 11 |
 | `stat:crit_damage` | 11 |
 | `gatilho ABILITY_CAST` | 11 |
@@ -193,7 +195,6 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 
 | Lacuna | Ocorrências | Exemplo |
 |---|---|---|
-| área que acompanha o alvo em vez de ficar no chão (`FollowTarget` em impact) | 1967 |  |
 | arbusto que se pode atacar (não há arbusto) (`BeAbleToAttackBush` em impact) | 1523 |  |
 | arbusto que esconde (`VisibilityInBush` em actor) | 384 |  |
 | hitbox do alvo — nossas formas medem ponto a ponto, então acertar um dragão é tão difícil quanto acertar um campeão (`ImpactRadius` em actor) | 380 |  |

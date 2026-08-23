@@ -492,7 +492,7 @@ CONSULTADAS = {
         "ImpactCount", "ProjectileEffectId", "MoveDistance", "MoveSpeedZ",
         "SummonActorId", "SummonPersistTime", "DrainFactor",
         "IgnoreInvincibility", "StartPositionX", "StartPositionZ", "Angle",
-        "__tabela",
+        "FollowTarget", "__tabela",
     } | {f"StatType{n}" for n in range(1, 5)}
       | {f"StatValue{n}" for n in range(1, 5)}
       | {f"ImpactStatType{n}" for n in range(1, 9)}
@@ -734,7 +734,6 @@ ORFAS_QUE_SAO_LACUNA = {
     "TrackingMode": "projétil teleguiado",
     "TrackDistanceForMovingSkill": "dash que persegue o alvo",
     "TrackPersistTime": "por quanto tempo o dash persegue",
-    "FollowTarget": "área que acompanha o alvo em vez de ficar no chão",
     "BeAbleToAttackBush": "arbusto que se pode atacar (não há arbusto)",
     "LimitSourceDistance": "o gancho que arrebenta quando estica demais",
     "ThroughObstacle": "atravessar parede (não há sistema de obstáculo em core/)",
@@ -1677,6 +1676,11 @@ class Tradutor:
         forma, geometria = self._forma(impacto, skill)
         alvos = self._filtro(impacto.get("TargetType", ""))
         laco = num(impacto.get("LoopInterval"))
+        perseguicao = {
+            "User": "CASTER", "Target": "TARGET",
+        }.get((impacto.get("FollowTarget") or "").strip(), "NONE")
+        if perseguicao != "NONE":
+            self.r.usou("perseguição da âncora (FollowTarget=%s)" % perseguicao)
 
         pulso = {
             # Procedência: de qual `Impact` do original este pulso veio.
@@ -1686,6 +1690,9 @@ class Tradutor:
             "source_impact": int(impacto.get("Id", 0)),
             "form": forma,
             "origin": ancora,
+            # `FollowTarget`: a âncora acompanha alguém em vez de ficar onde
+            # foi plantada. NÃO é booleana — `None` / `User` / `Target`.
+            "follow": perseguicao,
             "delay": round(atraso, 3),
             # `ActiveDuration` só vira duração de área quando há laço: sem
             # laço ela é o tempo que o colisor fica ligado, que para nós é

@@ -215,7 +215,7 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 ## Estado atual
 
 > Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **449 testes, 1242 asserções**, todos verdes, stderr limpo.
+> branch `master`. **459 testes, 1264 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
@@ -233,8 +233,8 @@ e a sessão está no meio dela.
 | ~~61~~ | Vários golpes, e a tela desenhava só o primeiro | **fechada** (decisão 16) |
 | ~~65~~ | Alimentam a carga da suprema, que não existia | **fechada** (decisão 17) |
 | ~~43~~ | Deveriam **zerar a cadência do ataque básico** | **fechada** (decisão 18) — 44 pelo caminho do jogo |
-| **35** | Área que **acompanha o alvo**; a nossa planta no chão | **próxima** |
-| 24 | Deslocamento em **arco**; o nosso é reta | |
+| ~~35~~ | Área que **acompanha o alvo**; a nossa planta no chão | **fechada** (decisão 19) — 27 pelo caminho do jogo |
+| **24** | Deslocamento em **arco**; o nosso é reta | **próxima** |
 | 14 | **Corrente de combo**: apertar Q de novo vira outra habilidade | |
 
 A contagem vem de varrer `skill_xml` + `impact_xml` pelas colunas de
@@ -245,7 +245,7 @@ reset de auto-ataque parecer 521 quando são 259.
 
 **Ao fechar cada lacuna, a primeira coisa é REMEDIR pelo caminho que o jogo
 percorre** — `rank_for_level` sobre os espaços de campeão. As três fechadas
-mudaram de número: **61 → 79**, **65 → 67**, **43 → 44**. Os números da tabela
+mudaram de número: **61 → 79**, **65 → 67**, **43 → 44**, **35 → 27**. Os números da tabela
 vieram de varrer o XML por outro caminho e **não são reproduzíveis**: nenhuma
 tentativa de reconstruir o 43 chega nele (o caminho do jogo dá 44 em todos os
 níveis de 1 a 18, `ranques[-1]` dá 46, habilidades distintas dão 34). Os três
@@ -270,7 +270,8 @@ o contexto do projeto, e a instrução de **tentar reprovar**, pedindo veredito
 numa linha só.
 
 **Custo medido, por lacuna:** a 1 levou 8 rodadas (7 reprovando), a 2 levou 5
-(4 reprovando), a 3 levou 6 (5 reprovando). **Toda rodada achou algo material**
+(4 reprovando), a 3 levou 6 (5 reprovando), a 4 levou 8 (7 reprovando).
+**Toda rodada achou algo material**
 — e nas rodadas 3, 4 e 5 da lacuna 3 o achado estava dentro da conferência
 acrescentada na rodada anterior. Orçar uma lacuna por "umas duas rodadas" nunca
 bateu com a medição.
@@ -293,14 +294,21 @@ godot --headless --path . --script res://tools/sondar_ritmo.gd
 py tools/conferir_numeros.py
 ```
 
-São **quatro**, e o quarto é novo. `sondar_ritmo.gd` nasceu de uma revisão
-adversarial mostrando que dava para apagar a cadência do ataque de `player.gd`
-com as outras três verdes.
+São **quatro**, e `py tools/conferir_numeros.py` sozinho já roda os três
+primeiros: ele executa a suíte E as duas sondas, e trata `SCRIPT ERROR` no
+stderr, código de saída e ausência da marca de sucesso como falha. Rodar os
+quatro à mão continua valendo quando se quer ler a saída de um deles.
 
-Estado ao fim desta sessão: **449 testes, 1242 asserções**, stderr 0 bytes,
-sonda verde (127 espaços tentados, 126 conferidos, 8735 assinaturas,
-44 espaços zerando a cadência do ataque e 83 mantendo),
-**143 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**Sonda que estoura no meio imprime `[ok]`.** Um acesso a propriedade
+inexistente não aborta a função: empurra erro, devolve nulo e o laço segue.
+Medido: `EXIT=0`, 323 bytes de stderr, `[ok]` no stdout. Por isso o stderr
+delas passou a ser lido por máquina.
+
+Estado ao fim desta sessão: **459 testes, 1264 asserções**, stderr 0 bytes,
+sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
+44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
+conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
+**176 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar
@@ -342,6 +350,13 @@ aritmética do documento já dava outra coisa.
    transforma "não achei" em aprovação. `_numero` devolve -1, e
    `if publicado > conferidas` com -1 passa sempre — reescrever a frase no
    documento desligava a conferência sem ruído.
+11. **Defesa que depende de alguém lembrar não é defesa.** O custo que um ramo
+   degradado declara ao piso publicado errou CINCO vezes, e cada correção
+   trocou o literal por outro: um número, uma localização, um argumento
+   opcional. O que fechou foi a REGIÃO decidir — `with
+   c.dependendo_da_engine()` faz tudo contado lá dentro contar como tal. E o
+   que explica as cinco: o defeito é **verde na máquina que o escreve** e
+   vermelho só na que não tem a engine.
 6. **A conferência recém-adicionada é a que ninguém confere.** Toda vez que uma
    dimensão nova entrou numa comparação, ela nasceu cega, e foi sempre a rodada
    seguinte que descobriu. Conferência nova nasce com a mutação que a derrube.
@@ -456,7 +471,7 @@ Das 124 habilidades dos 31 campeões com suprema:
 | ~~65~~ | ~~Alimentam a carga da suprema, que não existe~~ — **fechada**: a suprema enche agindo e os 45 s inventados morreram. Pelo caminho que o jogo usa são **67 dos 127 espaços** |
 | ~~61~~ | ~~Vários golpes, e a tela desenhava só o primeiro~~ — **fechada**: cada golpe é desenhado quando sai, e cone e trapézio ganharam forma de verdade. Recontado pelo caminho que o jogo usa, são **79 dos 127 espaços**; o 61 contava referências de impacto do XML, que é outra medida |
 | ~~43~~ | ~~Deveriam **zerar a cadência do ataque básico**~~ — **fechada**: conjurar solta o próximo ataque básico na hora. Recontado pelo caminho que o jogo usa, são **44 dos 127 espaços**, em 22 campeões. Ver a decisão 18 |
-| 35 | Área que **acompanha o alvo** (`FollowTarget`); a nossa planta no chão |
+| ~~35~~ | ~~Área que **acompanha o alvo**~~ — **fechada**: e a lacuna estava mal descrita. `FollowTarget` não é booleana (`None` 1552, `User` 353, `Target` 62), a maioria acompanha o CONJURADOR, e só muda algo em pulso ATRASADO: **27 dos 127 espaços**. Ver a decisão 19 |
 | 24 | Deslocamento em **arco** (`ZMoveCurvePath`); o nosso é reta |
 | 14 | **Corrente de combo**: apertar Q de novo deveria virar outra habilidade |
 

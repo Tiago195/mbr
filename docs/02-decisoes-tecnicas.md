@@ -729,3 +729,263 @@ sumirem:
   independente: com as DUAS ausências ao mesmo tempo, exigidas e conferidas
   batem em 126 — o que não bateria se o `1` estivesse errado. Fechá-lo é pôr
   marcadores no ramo da suíte e contar, o mesmo truque do bloco do XML.
+
+## 19. A âncora persegue quando o dado manda, e só em golpe atrasado
+
+**Decidido em 23/08/2026**, fechando a quarta lacuna da tabela das seis.
+
+**A lacuna estava mal descrita, e remedir foi o trabalho.** Ela vivia como
+"área que acompanha o alvo, `FollowTarget`, 1967". Três coisas estavam erradas:
+
+1. **A coluna não é booleana.** Vale `None` em 1552 impactos, `User` em 353 e
+   `Target` em 62. O 1967 era a soma dos três — o censo da coluna presente, a
+   mesma armadilha do `ResetAttackCoolTime` que parecia 521 e era 259.
+2. **A maioria acompanha o CONJURADOR, não o alvo.** 353 contra 62. "Área que
+   acompanha o alvo" descrevia a minoria.
+3. **Só muda alguma coisa em pulso ATRASADO.** Num pulso instantâneo a âncora
+   já é calculada no lugar certo, e perseguir por zero segundo é um no-op.
+   Dos **354 pulsos** que declaram perseguição no corpus, **258 são atrasados**
+   — e são esses que mudam de comportamento; os outros **96** já saíam certos.
+
+   **Este número já esteve errado, e o erro é instrutivo.** A primeira versão
+   dizia "353 são instantâneos", medido por `duration == 0`. Mas a definição de
+   instantâneo é a que a própria frase dá e a que o motor usa — `delay > 0`
+   decide sozinho entre sair agora e ficar agendado (`ability_engine.gd`). Pelo
+   eixo certo são 96, não 353. E o 353 não era um dígito solto: é exatamente a
+   contagem de `User` do item 1, ou seja, eu tinha medido a coluna outra vez em
+   vez de medir o comportamento. **Escolher o eixo errado dá um número que
+   parece plausível e conta a história oposta:** com 353 de 354 instantâneos, a
+   mudança seria marginal; com 258 atrasados, ela é ampla.
+
+Pelo caminho que o jogo percorre, a lacuna vale para **27 dos 127 espaços de
+campeão**, em **18 campeões** — não 35.
+
+### O que muda
+
+`AbilityPulse.Follow` (`NONE` / `CASTER` / `TARGET`). Em `resolve_scheduled`, a
+âncora é recalculada no instante em que o golpe sai, e o deslocamento
+(`forward_offset`, `side_offset`) é reaplicado sobre a base nova.
+
+**A âncora congelada continua sendo o padrão, e isso é metade da decisão.** São
+940 dos 1198 pulsos atrasados do corpus: área no chão não persegue ninguém, e
+foi assim que ela foi projetada de propósito. O que mudou é que quem declara
+perseguição deixou de herdar esse comportamento.
+
+Sintoma que isso corrige: um combo de dois golpes em que o personagem anda no
+meio. Com atrasos de 0,04 a 2,0 s e passo de 3,3 m/s, meio segundo são 1,6 m —
+o segundo golpe saía de onde o personagem esteve, não de onde ele está.
+
+### Como isto é conferido
+
+- `tests/test_perseguicao.gd`: 10 testes, e a metade que mais importa é a que
+  confere que quem **não** declara continua congelado. A conferência decisiva
+  não é a coordenada: é **quem leva o dano** — o conjurador anda até um segundo
+  alvo e o golpe tem que trocar de vítima.
+- `tools/sondar_campeoes.gd`: o conjurador **salta 30 m** depois de conjurar e
+  antes de os golpes atrasados saírem. Sem o salto, "acompanhou" e "ficou
+  congelada" são a mesma leitura.
+  Medido: **48 seguiram o conjurador** e **160 ficaram**.
+- **O tamanho do salto é medido, não escolhido.** A comparação é por distância
+  relativa e cega quando o deslocamento do pulso passa de meio salto: forçando
+  todos os pulsos a perseguir, um salto de 4 m flagrava 156 dos 160 que deviam
+  ficar; 12 m, 159; 30 m, **160**.
+- **A soma tem que fechar.** `Follow.TARGET` ficou fora de todos os ramos da
+  conferência numa revisão — nem conferido nem publicado —, e nenhum piso viu,
+  porque os pisos contavam categorias e o que escapava não estava em categoria
+  nenhuma. Hoje o total de golpes atrasados que chegam é comparado com a soma
+  das cinco contas, e isso pega qualquer valor novo do enum que alguém
+  acrescente sem tratar.
+- **O ALVO salta também, e por um eixo diferente.** Os 11 pulsos `TARGET` do
+  corpus são `Origin.TARGET_UNIT` com deslocamento zero, então a âncora
+  congelada já nasce em cima do alvo: mexendo só no conjurador, "acompanhou o
+  alvo" e "ficou congelada" davam a mesma leitura, e a conferência **aprovava a
+  perseguição do alvo inteiramente desligada**. É o mesmo fixture degenerado
+  que o salto do conjurador existe para evitar — cometido de novo, na metade de
+  baixo, dentro da revisão que o corrigiu em cima.
+- **A mira da sonda passou a apontar unidade** quando a habilidade tem golpe
+  que precisa de uma (`Origin.TARGET_UNIT` ou `Follow.TARGET`), mesmo sendo
+  habilidade de ponto. Sem isso os 3 espaços `TARGET` chegavam sem alvo e o
+  ramo nunca rodava: **3 seguiram o alvo** hoje, contra 0 antes.
+- **O fixture é normalizado no COMEÇO de cada espaço, não restaurado no fim.**
+  Restaurar no fim depende de todo caminho de saída restaurar, e um deles não
+  restaurava: medido, o conjurador chegava ao último campeão em x=1293 em vez
+  de x=3 — 43 saltos de 30 m que ninguém desfez. Com coordenadas dessa ordem a
+  assinatura das marcas diverge na terceira casa e a telegrafia reprova por
+  arredondamento.
+- A comparação é **estrita** (`<`, não `>` invertido) justamente para o salto
+  ser obrigatório: com salto zero as distâncias empatam e a conferência acusa,
+  em vez de passar por empate.
+- **17 golpes ficam fora do alcance da sonda**, e o número é publicado: numa
+  conjuração com tempo de canto as âncoras nascem quando o canto TERMINA, ou
+  seja, já depois do salto. Comparar assim acusava 13 golpes de 2 campeões de
+  perseguirem sem declarar — e o defeito era da conferência.
+
+### Duas armadilhas pagas aqui
+
+- **Passo por tique acumulava.** A primeira versão da sonda andava 0,06 m por
+  tique; ao longo dos 1200 tiques do orçamento isso virava 72 m, vazava de um
+  espaço para o outro até as coordenadas passarem de mil, e aí a assinatura das
+  marcas divergia na quarta casa decimal. A telegrafia reprovava por
+  arredondamento. Virou salto único — e a restauração ao fim de cada espaço,
+  que foi a primeira resposta, também não sobreviveu: ela dependia de todo
+  caminho de saída restaurar, e um deles não restaurava. Hoje o fixture é
+  normalizado no COMEÇO de cada espaço, como está descrito acima.
+- **`"a" + "b" % [...]` aplica o `%` só à segunda parte.** A Godot reclama no
+  stderr sem derrubar nada, e o critério deste projeto é stderr de zero bytes.
+
+### E uma coisa que não é da lacuna 4: as sondas passaram a ter o stderr lido
+
+Descoberto no meio desta revisão, e vale para o projeto inteiro.
+
+Um acesso a propriedade inexistente dentro de uma sonda **não aborta a função
+que o causou**: empurra um erro, devolve nulo, e o laço segue. A guarda
+`falhas is Array` nunca dispara. Medido, com o acesso que eu mesmo escrevi por
+engano: `EXIT=0`, 323 bytes de stderr, e `[ok] todos os campeões trocaram e
+conjuraram sem erro` no stdout.
+
+As duas sondas são a **única** cobertura automática de `gameplay/`, e nada lia
+o stderr delas: `conferir_numeros.py` aplicava o classificador de
+`SCRIPT ERROR` / `leaked at exit` / código de saída só a `tests/run_tests.gd`,
+e nunca as executava.
+
+Agora executa as duas, com o mesmo rigor e mais um item: **a marca de sucesso
+tem que aparecer no stdout**, para uma sonda que morra calada não passar por
+aprovada. `_classificar_sonda` é função pura e tem os seis cenários no
+autoteste, incluindo o que aconteceu de verdade. Reproduzido: com o acesso ruim
+de volta, `exit 1` e "a sonda de campeões NÃO passou (`SCRIPT ERROR` no
+stderr)"; apagando a marca de sucesso da sonda de ritmo, "não imprimiu a marca
+de sucesso".
+
+Custo: `py tools/conferir_numeros.py` passou a rodar três processos da engine.
+É lento e é o preço de a ferramenta ser o lugar onde tudo se encontra.
+
+### E daí saiu uma categoria nova: limite publicado
+
+Um número que uma sonda imprime **a cada execução** e um documento republica é
+uma classe própria, e ela envelhece sozinha. Foi o caso de "8735 assinaturas"
+no `CLAUDE.md` contra 9667 medidos — número que esta lacuna moveu duas vezes,
+nas mesmas três linhas em que a contagem de testes foi atualizada.
+
+`LIMITES_DA_SONDA` cruza cada um com a saída da própria sonda, **na mesma
+execução**. Piso e não igualdade, e órfão dos dois lados é falha.
+
+**A primeira versão dessa tabela fechou a classe só para o `CLAUDE.md`**, e os
+quatro números que esta decisão republica podiam ir a 480/30/1600/170 com a
+ferramenta dizendo "todas batem" — enumerar o arquivo em vez da classe é a
+mesma forma do desconto que foi escrito para uma ausência benigna e não para a
+irmã. Hoje cada limite carrega a lista de documentos onde é republicado, e cada
+um é chaveado à SUA sonda, para a segurança não depender de os vocabulários das
+duas não se cruzarem.
+
+A fronteira é nítida, e vale registrá-la porque ela impede que isto vire "todo
+número de documento":
+
+| espécie | exemplo | como se confere |
+|---|---|---|
+| derivado do corpus | 354, 258, 96, 27, 18 | `c.afirma` contra o JSON |
+| **impresso pela sonda toda execução** | **48, 3, 160, 17, 9667** | `LIMITES_DA_SONDA` |
+| medição histórica, não re-derivável | 156/159/160 conforme o salto, x=1293, 27 a 32 golpes | não se confere, e está certo: reproduzi-los exige aplicar a mutação |
+
+Varri as duas sondas atrás do que sobrou: fora esses, todo número de resumo que
+aparece num documento é coincidência de valor (o `33` de "sondando 33 campeões"
+é o mesmo 33 de "campeões com kit", que já é conferido contra o corpus; o `120`
+da sonda de ritmo é o mesmo 120 da mutação, já conferido por derivação).
+
+### A terceira recorrência, e a peça que faltava
+
+O custo que um ramo benigno declara ao piso publicado já ficou errado **três
+vezes**, sempre do mesmo jeito e nunca pelo mesmo motivo:
+
+1. O desconto foi escrito para a ausência do XML e não para a da engine.
+2. Trocado por "qualquer aviso dispensa o piso inteiro", ficou estritamente
+   mais fraco: dava para perder 27 conferências junto com uma ausência benigna.
+3. Passou a declarar `len(SONDAS)`, que responde *"quantas sondas"* quando a
+   pergunta é *"quanto deste bloco depende da engine"* — e quebrou no primeiro
+   crescimento que não foi uma sonda, os nove pares `(limite, documento)`.
+
+O lado do XML nunca sofreu nenhuma das três, e o motivo é estrutural:
+`_afirmacoes_que_dependem_do_xml()` **conta o próprio fonte** entre marcadores
+em vez de acreditar num literal. Ele absorveu a mesma expansão desta lacuna sem
+uma edição — era 16, virou 19, e ninguém precisou saber.
+
+Do lado da engine a contagem textual não serve, porque os incrementos estão
+dentro de laços. Então a derivação é sobre as **listas que os laços percorrem**
+— `len(SONDAS)` mais a soma dos pares de `LIMITES_DA_SONDA` — e, o que faltava
+nas três vezes, **a declaração é conferida contra o trabalho**: com a engine
+presente, o que o bloco realmente gastou tem que bater com o que ele diz custar.
+
+Ela achou dois defeitos meus na própria execução em que nasceu: eu media o
+intervalo errado (declarado 12, feito 28, porque entre os dois trechos há
+dezenas de afirmações que não dependem da engine) e a condição estava atrelada
+a *"não houve aviso"* em vez de *"a engine está presente"* — o que a fazia sumir
+junto com a ausência do XML, que não tem nada a ver com ela. **Cada degradação
+tem que afrouxar só o que ela própria impede.**
+
+Os quatro caminhos são exercitados: com tudo (174), sem a engine (161), sem o
+XML (155), sem os dois (142) — todos exit 0.
+
+### A quarta recorrência, e o que finalmente a fechou
+
+A terceira correção derivava o custo de **dois intervalos delimitados à mão** no
+corpo de `main()`. Era um literal com outra roupa: `len(SONDAS)` acreditava num
+número, e os colchetes acreditavam numa **localização**. Uma afirmação
+dependente da engine posta fora deles gastava sem entrar na conta, e a mesma
+falha voltava pela quarta vez — com a autoconferência dizendo, satisfeita,
+`declarado 13 = feito 13`.
+
+O que fecha é registrar o gasto **onde a afirmação acontece**:
+`c.contar(com_engine=True)`. Declaração e trabalho ficam amarrados no mesmo
+lugar, que é a propriedade que os marcadores do bloco do XML ganham de graça
+por andarem junto com o código.
+
+Sobraram dois modos de escapar, e os dois viraram varredura do próprio fonte:
+
+- **Um portão de engine novo.** `main()` tem quatro `godot is (not) None`; um
+  quinto acusa e obriga quem o escrever a decidir se ele gasta.
+- **`c.conferidas += 1` cru.** Escrito dentro do bloco existente, gastava sem
+  marcar: medido, `exit 0` com a engine e cobrança a mais sem ela. Hoje
+  `contar()` é o único lugar que mexe no campo, e a varredura recusa qualquer
+  outro. As duas linhas da varredura montam o literal em duas partes para não
+  se contarem — mesmo truque dos marcadores do XML.
+
+As sete combinações são exercitadas: os quatro ambientes saem 0; portão novo,
+incremento cru e gasto marcado sem atualizar o custo saem 1, cada um com a
+mensagem que diz o que fazer.
+
+**A armadilha de bash que isto custou**, e que vale para o projeto: escrever
+`\b` numa regex através de um heredoc gravou o byte 0x08 (backspace) no
+arquivo. A regex parava de casar, a varredura media zero, e a saída em cp1252
+escondeu a linha de falha do meu próprio `grep` por acento. Conferir com
+`cat -A` quando uma regex "correta" não casa.
+
+### A quinta, e o que a fechou de vez
+
+Registrar o gasto no site fechou a distância entre **onde o trabalho está** e
+**onde ele é contado**. Deixou aberta a distância entre *contado* e *contado
+como dependente da engine* — e essa dependia de `com_engine=True`, um argumento
+opcional que quem escreve precisa lembrar.
+
+Quinto disfarce do mesmo defeito, e o mais bem escondido:
+
+| versão | acreditava em |
+|---|---|
+| `len(SONDAS)` | um número |
+| os dois colchetes | uma localização |
+| `+ 2` | um número que a autoconferência confere |
+| `com_engine=True` | **a memória de quem escreve a próxima afirmação** |
+
+A edição que passava pelas três defesas era a mais natural que existe: uma
+afirmação nova dentro do portão que já existia, chamando `contar()`. Portões
+continuavam quatro, o incremento passava por `contar()`, e `declarado` e
+`com_engine` seguiam ambos 13.
+
+**O que fecha é a região decidir, não o argumento.**
+`with c.dependendo_da_engine():` envolve cada bloco gated, e tudo que for
+contado lá dentro conta como dependente da engine — sem ninguém dizer nada.
+"Depende da engine" virou propriedade de **onde o código está**, imposta pelo
+objeto, que é a mesma propriedade que os marcadores do bloco do XML têm de
+graça por andarem junto com o código.
+
+**O modo de falha é o que tornava isto urgente:** verde na máquina que escreve,
+vermelho só na máquina sem a Godot. Quem introduz nunca vê; quem clona, sim. É
+essa assimetria que explica as cinco recorrências.

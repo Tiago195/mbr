@@ -19,6 +19,7 @@ commitar documentação.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import sys
@@ -69,6 +70,45 @@ class Conferencia:
         ## de detecção — o número já estava calculado, e era só não jogá-lo
         ## fora.
         self.avisos: list[tuple[str, int]] = []
+        ## Quantas das afirmações só aconteceram porque a engine estava por
+        ## perto. Contado por REGIÃO, não por lembrança de quem escreve.
+        self.com_engine = 0
+        self._na_regiao_da_engine = False
+
+    @contextlib.contextmanager
+    def dependendo_da_engine(self):
+        """Tudo que for contado aqui dentro conta como dependente da engine.
+
+        **É a região que decide, e não um argumento.** A versão anterior pedia
+        `contar(com_engine=True)` em cada sítio, e isso era o quinto disfarce
+        do mesmo defeito: `len(SONDAS)` acreditava num número, os colchetes
+        numa localização, e o argumento opcional acreditava na MEMÓRIA de quem
+        escrevesse a próxima afirmação. Uma afirmação nova dentro do portão que
+        já existia, chamando `contar()` sem o argumento, passava pelas três
+        defesas — verde na máquina que a escreve e vermelha só na máquina sem
+        a Godot, que é exatamente por que esta espécie recorreu cinco vezes.
+        """
+        anterior = self._na_regiao_da_engine
+        self._na_regiao_da_engine = True
+        try:
+            yield
+        finally:
+            self._na_regiao_da_engine = anterior
+
+    def contar(self, quantas: int = 1) -> None:
+        """Registra afirmações feitas — e, quando for o caso, que elas só
+        aconteceram porque a engine da Godot estava por perto.
+
+        **O gasto é registrado ONDE a afirmação acontece.** A versão anterior
+        o derivava de dois intervalos delimitados à mão no corpo de `main()`, e
+        isso era um literal com outra roupa: `len(SONDAS)` acreditava num
+        número, e os colchetes acreditavam numa LOCALIZAÇÃO. Uma afirmação
+        dependente da engine posta fora deles gastava sem entrar na conta, e a
+        mesma falha voltava — quarta recorrência da mesma espécie.
+        """
+        self.conferidas += quantas
+        if self._na_regiao_da_engine:
+            self.com_engine += quantas
 
     def avisar(self, texto: str, dispensa: int = 0) -> None:
         """Degradação benigna: imprime, registra, e diz QUANTAS afirmações
@@ -97,8 +137,12 @@ class Conferencia:
         """O documento diz `padrao` com um número; ele tem que ser `esperado`.
 
         `padrao` é uma regex com **um** grupo de captura numérico.
+
+        Dentro de `dependendo_da_engine()` ela conta como dependente da
+        engine sem precisar dizer nada — ver `contar()`, por onde TODO
+        incremento passa.
         """
-        self.conferidas += 1
+        self.contar()
         achado = re.search(padrao, texto)
         if achado is None:
             self.falhas.append(
@@ -114,7 +158,7 @@ class Conferencia:
             )
 
     def contem(self, onde: str, texto: str, agulha: str) -> None:
-        self.conferidas += 1
+        self.contar()
         if agulha not in texto:
             self.falhas.append("%s: esperava encontrar %r" % (onde, agulha))
 
@@ -297,6 +341,20 @@ def _medir_no_original() -> dict | None:
 
     return {
         "reset_ataque": sum(1 for r in skills if reset(r.get("ResetAttackCoolTime"))),
+        # `FollowTarget` NÃO é booleana, e foi por isso que a lacuna ficou mal
+        # descrita: os três valores são contados separados.
+        "segue_nada": sum(
+            1 for r in impactos_todos
+            if (r.get("FollowTarget") or "").strip() == "None"
+        ),
+        "segue_conjurador": sum(
+            1 for r in impactos_todos
+            if (r.get("FollowTarget") or "").strip() == "User"
+        ),
+        "segue_alvo": sum(
+            1 for r in impactos_todos
+            if (r.get("FollowTarget") or "").strip() == "Target"
+        ),
         "reset_declarado": sum(
             1 for r in skills if r.get("ResetAttackCoolTime") is not None
         ),
@@ -311,6 +369,176 @@ def _medir_no_original() -> dict | None:
             and r.get("StartPositionZ", "0") in ("", "0")
         ),
     }
+
+
+def _achar_godot() -> str | None:
+    """Onde a engine está, ou `None`. Fronteira entre incapacidade e falha.
+
+    Depois daqui, tudo é FALHA da coisa executada — nunca "não consegui
+    conferir".
+    """
+    import os
+    import shutil
+
+    godot = os.environ.get("GODOT_PATH") or shutil.which("godot")
+    if godot is not None:
+        return godot
+    for candidato in (
+        r"C:\Godot\Godot_v4.7.2-stable_win64.exe",
+        r"C:\Godot\Godot.exe",
+    ):
+        if Path(candidato).exists():
+            return candidato
+    return None
+
+
+## As sondas de cena, com a marca que cada uma imprime quando passa.
+##
+## Elas existem porque a suíte de `tests/` só alcança `scripts/core/`. E são
+## rodadas AQUI porque, até esta revisão, **nada lia o stderr delas**: um
+## `SCRIPT ERROR` no meio de uma sonda não aborta a função que o causou —
+## empurra um erro, devolve nulo e o laço segue —, então ela imprimia `[ok]` e
+## saía com zero numa execução que parcialmente não aconteceu. Foi medido, com
+## um acesso a propriedade inexistente: `EXIT=0`, 323 bytes de stderr, `[ok]`.
+SONDAS = [
+    ("sonda de campeões", "res://tools/sondar_campeoes.gd",
+     "todos os campeões trocaram e conjuraram sem erro"),
+    ("sonda de ritmo", "res://tools/sondar_ritmo.gd",
+     "o ataque básico respeita a cadência"),
+]
+
+
+## Os limites que uma sonda imprime a cada execução e um documento republica.
+##
+## `(rótulo, script da sonda, padrão na saída dela, [(documento, padrão)…])`.
+##
+## Existe porque a republicação envelhece em silêncio: "8735 assinaturas" no
+## `CLAUDE.md` contra 9667 medidos, depois de a lacuna 4 mover o número duas
+## vezes. **E a primeira versão desta tabela fechou a classe só para o
+## `CLAUDE.md`** — os quatro números que a decisão 19 republica podiam ir a
+## 480/30/1600/170 com a ferramenta dizendo "todas batem". Enumerar o arquivo
+## em vez da classe é a mesma forma do desconto que foi escrito para uma
+## ausência benigna e não para a irmã.
+##
+## A lista de documentos por limite é o que fecha: republicar num arquivo novo
+## é acrescentar um par, e não escrever código.
+##
+## **Cada limite é chaveado à SUA sonda.** Hoje os vocabulários das duas não se
+## cruzam, mas depender disso seria depender de coincidência: um dia a sonda de
+## ritmo imprime "assinaturas comparadas" e o cruzamento pega a linha errada.
+##
+## O que NÃO entra aqui: número medido uma vez e registrado como história —
+## "156/159/160 conforme o salto", "x=1293", "27 a 32 golpes". Reproduzi-los
+## exige aplicar uma mutação, e por isso eles não derivam sozinhos. O que
+## entra é o que a sonda reimprime em toda execução.
+LIMITES_DA_SONDA = [
+    ("espaços tentados", "res://tools/sondar_campeoes.gd",
+     r"espaços de campeão tentados: (\d+)",
+     [("CLAUDE.md", r"\((\d+) espaços tentados")]),
+    ("espaços conferidos", "res://tools/sondar_campeoes.gd",
+     r"foram conferidos: (\d+)",
+     [("CLAUDE.md", r"(\d+) conferidos")]),
+    # `(?![\w-])` e não só `assinaturas`: sem isso, reescrever o documento
+    # para "9667 assinaturas-comparadas" continuava casando, e a mutação que
+    # deveria acusar padrão órfão passava verde.
+    ("assinaturas comparadas", "res://tools/sondar_campeoes.gd",
+     r"assinaturas comparadas: (\d+)",
+     [("CLAUDE.md", r"(\d+) assinaturas(?![\w-])")]),
+    ("espaços que zeram a cadência", "res://tools/sondar_campeoes.gd",
+     r"medida: (\d+) espaços zeraram",
+     [("CLAUDE.md", r"(\d+) espaços zerando a cadência")]),
+    ("espaços que mantêm a cadência", "res://tools/sondar_campeoes.gd",
+     r"zeraram, (\d+) mantiveram",
+     [("CLAUDE.md", r"e (\d+) mantendo")]),
+    ("golpes que seguiram o conjurador", "res://tools/sondar_campeoes.gd",
+     r"atrasado: (\d+) seguiram o conjurador",
+     [("docs/02-decisoes-tecnicas.md", r"\*\*(\d+) seguiram o conjurador\*\*")]),
+    ("golpes que seguiram o alvo", "res://tools/sondar_campeoes.gd",
+     r"conjurador, (\d+) seguiram o alvo",
+     [("docs/02-decisoes-tecnicas.md", r"\*\*(\d+) seguiram o alvo\*\*")]),
+    ("golpes que ficaram", "res://tools/sondar_campeoes.gd",
+     r"o alvo, (\d+) ficaram",
+     [("docs/02-decisoes-tecnicas.md", r"\*\*(\d+) ficaram\*\*")]),
+    ("golpes fora do alcance da sonda", "res://tools/sondar_campeoes.gd",
+     r"alcance: (\d+) de conjuração com tempo",
+     [("docs/02-decisoes-tecnicas.md",
+       r"\*\*(\d+) golpes ficam fora do alcance")]),
+]
+
+
+def _afirmacoes_que_dependem_da_engine() -> int:
+    """Quantas afirmações só acontecem com a engine da Godot por perto.
+
+    **DERIVADA das estruturas que os laços percorrem, e não escrita à mão.**
+
+    A versão anterior declarava `len(SONDAS)`, que responde "quantas sondas" —
+    e a pergunta é "quanto deste bloco depende da engine". Ela quebrou no
+    primeiro crescimento que não foi uma sonda: os nove pares
+    `(limite, documento)` entraram no mesmo ramo e ficaram fora do custo, e
+    quem não tinha a Godot passou a ver a ferramenta sair 1 acusando o
+    `CLAUDE.md` de publicar um número que estava certo.
+
+    É a terceira vez que esta espécie de defeito aparece. O lado do XML nunca
+    a sofreu porque `_afirmacoes_que_dependem_do_xml()` CONTA o próprio fonte
+    em vez de acreditar num literal — absorveu a mesma expansão sem uma edição.
+    Aqui a contagem textual não serviria (os incrementos estão dentro de
+    laços), então a derivação é sobre as listas que os laços percorrem, e
+    `main()` confere a soma contra o trabalho de verdade quando a engine está
+    presente.
+    """
+    pares = sum(len(documentos) for _r, _s, _p, documentos in LIMITES_DA_SONDA)
+    # +2: a conferência das contagens de teste do `CLAUDE.md`, que vive no ramo
+    # da suíte, e a autoconferência deste próprio custo, que só roda quando a
+    # engine está presente. Ela conta por si mesma pelo mesmo motivo que a do
+    # bloco do XML conta: some junto com o bloco.
+    return len(SONDAS) + pares + 2
+
+
+def _rodar_sonda(godot: str, script: str, marca: str) -> dict:
+    """Roda uma sonda de cena e classifica com a MESMA disciplina da suíte."""
+    import subprocess
+
+    try:
+        processo = subprocess.run(
+            [godot, "--headless", "--path", str(RAIZ), "--script", script],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=900,
+        )
+    except subprocess.TimeoutExpired:
+        return {"passou": False, "motivo": "TRAVOU (900s sem terminar)"}
+    except Exception as erro:
+        return {"passou": False, "motivo": "não chegou a rodar: %s" % erro}
+    veredito = _classificar_sonda(
+        processo.returncode, processo.stdout or "", processo.stderr or "", marca
+    )
+    # A SAÍDA volta junto: os limites que a sonda publica ("assinaturas
+    # comparadas", "espaços conferidos") são afirmados no `CLAUDE.md`, e o
+    # único jeito de conferi-los é lendo o que ela imprimiu.
+    veredito["saida"] = processo.stdout or ""
+    return veredito
+
+
+def _classificar_sonda(codigo: int, saida: str, erros: str, marca: str) -> dict:
+    """O que a execução de uma sonda quer dizer. PURA, e exercitada no autoteste.
+
+    Três coisas, e a do meio é a que faltava no projeto inteiro:
+
+    1. código de saída zero;
+    2. **stderr limpo** — `SCRIPT ERROR` e `leaked at exit`;
+    3. a marca de sucesso impressa, para uma sonda que morra calada não passar
+       por aprovada.
+    """
+    motivos: list[str] = []
+    if codigo != 0:
+        motivos.append("saiu com código %d" % codigo)
+    if "[FALHOU]" in saida:
+        motivos.append("reportou falha")
+    for sinal in ("SCRIPT ERROR", "leaked at exit"):
+        if sinal in erros:
+            motivos.append("`%s` no stderr" % sinal)
+    if marca not in saida:
+        motivos.append("não imprimiu a marca de sucesso")
+    return {"passou": not motivos, "motivo": "; ".join(motivos)}
 
 
 def _rodar_suite() -> dict:
@@ -331,19 +559,9 @@ def _rodar_suite() -> dict:
     estoura DEPOIS da primeira asserção conta como sucesso. Ler só o stdout
     deixava isso passar.
     """
-    import os
-    import shutil
     import subprocess
 
-    godot = os.environ.get("GODOT_PATH") or shutil.which("godot")
-    if godot is None:
-        for candidato in (
-            r"C:\Godot\Godot_v4.7.2-stable_win64.exe",
-            r"C:\Godot\Godot.exe",
-        ):
-            if Path(candidato).exists():
-                godot = candidato
-                break
+    godot = _achar_godot()
     if godot is None:
         return {"rodou": False, "motivo": "Godot não encontrada"}
 
@@ -426,6 +644,28 @@ def _classificar(codigo: int, saida: str, erros: str) -> dict:
 ## `(rótulo, código, stdout, stderr, tem que passar?)`. Cada um custou uma
 ## rodada de revisão adversarial, e a lista é o resumo do que ela ensinou:
 ## **a ferramenta que confere os outros também precisa de quem a confira.**
+## A marca fictícia usada pelo autoteste do classificador de sonda.
+MARCA_DE_TESTE = "tudo certo por aqui"
+
+## Quantos `godot is (not) None` existem no fonte, fora de `_achar_godot` e do
+## `_rodar_suite`. Um a mais obriga quem o escrever a declarar o custo.
+PORTOES_DA_ENGINE = 4
+
+## Os jeitos de uma sonda mentir. O primeiro é o que aconteceu de verdade: um
+## acesso a propriedade inexistente empurra erro, devolve nulo, o laço segue, e
+## a sonda imprime `[ok]` com `EXIT=0`.
+CENARIOS_DA_SONDA = [
+    ("sonda verde", 0, "  [ok] tudo certo por aqui", "", True),
+    ("SCRIPT ERROR com [ok] no stdout", 0, "  [ok] tudo certo por aqui",
+     "SCRIPT ERROR: Invalid access to property 'cast'", False),
+    ("vazamento de memória", 0, "  [ok] tudo certo por aqui",
+     "ObjectDB instances were leaked at exit", False),
+    ("reportou falha", 1, "  [FALHOU] alguma coisa", "", False),
+    ("morreu calada", 0, "", "", False),
+    ("código diferente de zero com a marca impressa", 2,
+     "  [ok] tudo certo por aqui", "", False),
+]
+
 CENARIOS_DA_SUITE = [
     ("suíte verde", 0, "  431 testes, 1206 asserções — tudo passou.", "", True),
     ("suíte vermelha", 1, "  431 testes, 1206 asserções — 2 FALHA(S).", "", False),
@@ -466,8 +706,59 @@ def _autoteste(c: "Conferencia") -> None:
     # terceiro caso de escapar como o segundo escapou: a ausência da engine
     # tinha aviso e não tinha desconto, e a mensagem de falha nem sugeria a
     # causa.
-    c.conferidas += 1
+    c.contar()
     fonte = Path(__file__).read_text(encoding="utf-8")
+    # **Todo incremento passa por `contar()`.**
+    #
+    # Sem isto, `c.conferidas += 1` escrito dentro de um bloco dependente da
+    # engine gasta sem entrar na conta — medido: a ferramenta saía 0 com a
+    # engine e cobrava a mais sem ela. `contar()` é o único lugar onde o campo
+    # é mexido, e quem chama tem que decidir, ali mesmo, se aquilo depende da
+    # engine.
+    c.contar()
+    crus = sum(
+        1 for linha in fonte.splitlines()
+        if not linha.strip().startswith("#")
+        # Montados, para estas duas linhas não se contarem — mesmo truque dos
+        # marcadores do bloco do XML e do rótulo de aviso.
+        and ("conferidas" + " +=") in linha
+        and ("self.conferidas" + " += quantas") not in linha
+    )
+    if crus:
+        c.falhas.append(
+            "há %d incremento(s) de `conferidas` fora de `contar()`; use "
+            "`c.contar()`, e dentro de `with c.dependendo_da_engine()` "
+            "quando a afirmação só acontece com a engine" % crus
+        )
+
+    # **Nenhum portão da engine pode nascer sem registrar o gasto.**
+    #
+    # Contar no site resolve o gasto de quem passa por `contar(com_engine=…)`,
+    # mas não impede alguém de abrir uma REGIÃO nova dependente da engine e
+    # esquecer de marcá-la — e foi exatamente assim que a quarta recorrência
+    # aconteceu, com a afirmação fora dos colchetes.
+    #
+    # `main()` tem dois portões: o `if godot is None:` das sondas e a
+    # autoconferência do custo. Um terceiro obriga quem o escrever a passar
+    # por aqui e a decidir conscientemente se ele gasta. É a mesma disciplina
+    # da varredura de avisos logo abaixo, e nasce do mesmo defeito.
+    c.contar()
+    # Só linhas de CÓDIGO: o comentário acima cita o portão, e contar
+    # comentário faria a varredura reclamar de quem a documenta.
+    portoes = sum(
+        1 for linha in fonte.splitlines()
+        if not linha.strip().startswith("#")
+        and re.search("godot is (?:not )?None", linha)
+    )
+    if portoes != PORTOES_DA_ENGINE:
+        c.falhas.append(
+            "há %d portões de engine no fonte e o esperado é %d; se o novo faz "
+            "afirmação, ela tem que ficar dentro de "
+            "`with c.dependendo_da_engine()` — "
+            "senão o piso vai cobrar o que a execução degradada não podia "
+            "fazer" % (portoes, PORTOES_DA_ENGINE)
+        )
+
     # Casa o TEXTO do aviso, e não a FORMA da chamada. A primeira versão era
     # uma regex sobre `print(` seguido de aspas, e por isso uma f-string
     # escapava — sendo que os DOIS avisos existentes interpolam, então
@@ -483,6 +774,20 @@ def _autoteste(c: "Conferencia") -> None:
             "`c.avisar(texto, quantas)`" % soltos
         )
 
+    # E o classificador das SONDAS, contra os mesmos truques.
+    for rotulo, codigo, saida, erros, deve_passar in CENARIOS_DA_SONDA:
+        c.contar()
+        veredito = _classificar_sonda(codigo, saida, erros, MARCA_DE_TESTE)
+        if bool(veredito["passou"]) == deve_passar:
+            continue
+        c.falhas.append(
+            "autoteste do classificador de sonda: `%s` devia %s e %s (%s)" % (
+                rotulo, "passar" if deve_passar else "reprovar",
+                "passou" if veredito["passou"] else "reprovou",
+                veredito["motivo"] or "nenhum motivo",
+            )
+        )
+
     for rotulo, codigo, saida, erros, deve_passar in CENARIOS_DA_SUITE:
         # **`rodou` é conferido junto com `passou`, e não é detalhe.**
         #
@@ -492,7 +797,7 @@ def _autoteste(c: "Conferencia") -> None:
         # o resumo" atravessou uma rodada inteira. Um autoteste que olhasse só
         # `passou` aceitaria a regressão de volta: sem `passou`, `.get()`
         # devolve `None`, que é falso, que parece "reprovou corretamente".
-        c.conferidas += 1
+        c.contar()
         veredito = _classificar(codigo, saida, erros)
         if not veredito.get("rodou"):
             c.falhas.append(
@@ -512,7 +817,7 @@ def _autoteste(c: "Conferencia") -> None:
         )
     # O motivo fantasma tem conferência PRÓPRIA: o cenário acima já reprova por
     # outros motivos, então "reprovou" não prova que o fantasma sumiu.
-    c.conferidas += 1
+    c.contar()
     fantasma = _classificar(
         1, "  [FALHOU] x — (procure SCRIPT ERROR no console)\n"
         "  431 testes, 1206 asserções — 1 FALHA(S).", ""
@@ -638,6 +943,11 @@ def main() -> int:
     # 2 pelo caminho do jogo, e ele NÃO tinha conferência: o `CLAUDE.md` dizia
     # "65 → 65" e são 67. Reconto sem asserção é o mesmo que sem reconto.
     espacos_com_carga = 0
+    # Espaços cujo pulso ATRASADO acompanha alguém. Pulso instantâneo não
+    # conta: a âncora dele já sai no lugar certo, e perseguir por zero segundo
+    # não muda nada. Foi essa distinção que reformulou a lacuna.
+    espacos_que_perseguem = 0
+    campeoes_que_perseguem: set = set()
     for a in atores:
         if a["usage"] != "Player" or not a["ability_groups"]:
             continue
@@ -654,6 +964,14 @@ def main() -> int:
                 espacos_com_varios_golpes += 1
             if float(escolhida.get("ultimate_charge_gain", 0.0)) > 0.0:
                 espacos_com_carga += 1
+            if any(
+                p.get("follow", "NONE") != "NONE"
+                and float(p.get("delay", 0.0)) > 0.0
+                and p["effects"]
+                for p in escolhida["pulses"]
+            ):
+                espacos_que_perseguem += 1
+                campeoes_que_perseguem.add(a["id"])
             if escolhida.get("resets_attack_cooldown"):
                 espacos_com_reset += 1
                 campeoes_com_reset.add(a["id"])
@@ -756,12 +1074,12 @@ def main() -> int:
              r"vale \*\*200 nos (\d+)\*\*", len(com_carga))
     # O custo é o MESMO nos 31 — é régua do sistema, não característica de
     # personagem. Se um dia deixar de ser, a afirmação de `stat.gd` mente.
-    c.conferidas += 1
+    c.contar()
     if len(custos) != 1 or 1000.0 not in custos:
         c.falhas.append(
             "o custo da suprema deixou de ser 1000 para todos: %s" % sorted(custos)
         )
-    c.conferidas += 1
+    c.contar()
     if len(ganho_do_basico) != 1 or 200.0 not in ganho_do_basico:
         c.falhas.append(
             "o ganho do ataque básico deixou de ser 200 para todos: %s"
@@ -798,6 +1116,58 @@ def main() -> int:
     # jeito silencioso de a tradução regredir.
     doc02_ritmo = ler("docs/02-decisoes-tecnicas.md")
     ability_gd = ler("scripts/core/abilities/ability.gd")
+
+    # -------------------------------------------- perseguição da âncora
+    pulso_gd = ler("scripts/core/abilities/ability_pulse.gd")
+    atrasados = [
+        p for h in habilidades for p in h["pulses"]
+        if float(p.get("delay", 0.0)) > 0.0 and p["effects"]
+    ]
+    perseguem = [p for p in atrasados if p.get("follow", "NONE") != "NONE"]
+    c.afirma("ability_pulse.gd pulsos atrasados que ficam", pulso_gd,
+             r"\*\*(\d+) dos \d+ pulsos atrasados\*\*",
+             len(atrasados) - len(perseguem))
+    c.afirma("ability_pulse.gd pulsos atrasados", pulso_gd,
+             r"\*\*\d+ dos (\d+) pulsos atrasados\*\*", len(atrasados))
+    c.afirma("ability_engine.gd pulsos que perseguem",
+             ler("scripts/core/abilities/ability_engine.gd"),
+             r"(\d+) dos \d+ pulsos atrasados", len(perseguem))
+    c.afirma("ability_pulse.gd espaços que perseguem", pulso_gd,
+             r"\*\*(\d+) dos \d+ espaços de campeão\*\*", espacos_que_perseguem)
+    c.afirma("docs/10 espaços que perseguem", doc10,
+             r"são (\d+) dos \d+ espaços de campeão", espacos_que_perseguem)
+    # A decisão 19, inteira. Todos os quatro números da reformulação, incluindo
+    # o eixo em que "instantâneo" é medido: a primeira versão dizia 353 porque
+    # media `duration == 0`, e o motor decide por `delay > 0`.
+    todos_que_seguem = sum(
+        1 for h in habilidades for p in h["pulses"]
+        if p.get("follow", "NONE") != "NONE"
+    )
+    c.afirma("docs/02 pulsos que perseguem", doc02_ritmo,
+             r"\*\*(\d+) pulsos\*\* que declaram perseguição", todos_que_seguem)
+    c.afirma("docs/02 perseguem e são atrasados", doc02_ritmo,
+             r"\*\*(\d+) são atrasados\*\*", len(perseguem))
+    c.afirma("docs/02 perseguem e são instantâneos", doc02_ritmo,
+             r"os outros \*\*(\d+)\*\* já saíam certos",
+             todos_que_seguem - len(perseguem))
+    c.afirma("docs/02 campeões que perseguem", doc02_ritmo,
+             r"em \*\*(\d+) campeões\*\* — não 35",
+             len(campeoes_que_perseguem))
+    # E o corpus tem que concordar com o contador do tradutor, como no reset.
+    c.contar()
+    do_corpus = sum(
+        1 for h in habilidades for p in h["pulses"]
+        if p.get("follow", "NONE") != "NONE"
+    )
+    do_relatorio = (
+        _emissoes(relatorio, "perseguição da âncora (FollowTarget=CASTER)")
+        + _emissoes(relatorio, "perseguição da âncora (FollowTarget=TARGET)")
+    )
+    if do_corpus != do_relatorio:
+        c.falhas.append(
+            "perseguição da âncora: o corpus tem %d e o RELATORIO conta %d"
+            % (do_corpus, do_relatorio)
+        )
     c.afirma("ability.gd espaços com reset", ability_gd,
              r"\*\*(\d+) dos \d+ espaços de campeão\*\*", espacos_com_reset)
     c.afirma("ability.gd espaços de campeão", ability_gd,
@@ -816,6 +1186,8 @@ def main() -> int:
              r"\*\*65 → (\d+)\*\*", espacos_com_carga)
     c.afirma("CLAUDE.md reconto: reset de ataque", claude,
              r"\*\*43 → (\d+)\*\*", espacos_com_reset)
+    c.afirma("CLAUDE.md reconto: perseguição", claude,
+             r"\*\*35 → (\d+)\*\*", espacos_que_perseguem)
     c.afirma("CLAUDE.md espaços que enchem a carga", claude,
              r"\*\*(\d+) dos \d+ espaços\*\*\s*\|", espacos_com_carga)
 
@@ -844,7 +1216,7 @@ def main() -> int:
         "CLAUDE.md": _numero(claude, r"— (\d+) golpes em dois segundos"),
         "docs/02": _numero(doc02_ritmo, r"real: (\d+) golpes em dois segundos"),
     }
-    c.conferidas += 1
+    c.contar()
     # Órfã e divergente são coisas diferentes, e dizer "divergem" quando o
     # padrão sumiu manda o leitor comparar arquivos que estão iguais.
     # `Conferencia.afirma` já separa as duas; comparação escrita à mão, não —
@@ -886,7 +1258,7 @@ def main() -> int:
              r"o jogo percorre, são \d+ dos (\d+) espaços", espacos_de_campeao)
     # E o corpus tem que concordar com o contador de emissões do tradutor: o
     # campo pode existir no JSON e estar sempre falso.
-    c.conferidas += 1
+    c.contar()
     do_corpus = sum(1 for h in habilidades if h.get("resets_attack_cooldown"))
     do_relatorio = _emissoes(relatorio, "reset de auto-ataque (ResetAttackCoolTime)")
     if do_corpus != do_relatorio:
@@ -926,11 +1298,11 @@ def main() -> int:
             "docs/10 diz que o censo sai vazio, e o RELATORIO.md gerado lista "
             "colunas órfãs. Foi exatamente este o erro da segunda revalidação."
         )
-    c.conferidas += 1
+    c.contar()
 
     if eventos < 9:
         c.falhas.append("TriggerSet.Event encolheu para %d" % eventos)
-    c.conferidas += 1
+    c.contar()
 
     # ------------------------------------------- números medidos no original
     #
@@ -993,6 +1365,17 @@ def main() -> int:
                  medido["reset_declarado"] - medido["reset_ataque"])
         c.afirma("docs/02 reset: censo da coluna", doc02,
                  r"\*\*O (\d+) anterior contava", medido["reset_declarado"])
+
+        # Os TRÊS valores de `FollowTarget`, medidos no XML. Contá-los juntos
+        # é o que produziu a lacuna mal descrita: "área que acompanha o alvo"
+        # para uma coluna cuja maioria acompanha o CONJURADOR.
+        pulso_xml = ler("scripts/core/abilities/ability_pulse.gd")
+        c.afirma("ability_pulse.gd FollowTarget=None", pulso_xml,
+                 r"em (\d+) impactos, `User`", medido["segue_nada"])
+        c.afirma("ability_pulse.gd FollowTarget=User", pulso_xml,
+                 r"`User` em (\d+)", medido["segue_conjurador"])
+        c.afirma("ability_pulse.gd FollowTarget=Target", pulso_xml,
+                 r"`Target` em (\d+)", medido["segue_alvo"])
         # </bloco-do-xml>
         # **O número do aviso é ele próprio uma afirmação.** Ele dizia 8, e
         # estava certo; a mudança seguinte escreveu 12 onde havia 15, e nada
@@ -1005,7 +1388,7 @@ def main() -> int:
         # desaparece, e por isso entra dos dois lados: assim o número anunciado
         # é exatamente a queda que se vê em "N afirmações conferidas" ao rodar
         # sem as tabelas. Anunciar 15 com queda de 16 é como o "12" começou.
-        c.conferidas += 1
+        c.contar()
         anunciadas = _afirmacoes_que_dependem_do_xml()
         feitas = c.conferidas - antes_do_xml
         if anunciadas != feitas:
@@ -1088,9 +1471,6 @@ def main() -> int:
          ["UseSkillSlot (troca a habilidade de um espaço)"]),
         (r"`PhysicalDamageAmp_SkillE`, (\d+)",
          ["StatType=PhysicalDamageAmp_SkillE"]),
-        (r"`FollowTarget`, (\d+)",
-         ["área que acompanha o alvo em vez de ficar no chão "
-          "(`FollowTarget` em impact)"]),
         (r"`BeAbleToAttackBush`, (\d+)",
          ["arbusto que se pode atacar (não há arbusto) "
           "(`BeAbleToAttackBush` em impact)"]),
@@ -1155,40 +1535,96 @@ def main() -> int:
     if not suite["rodou"]:
         # Aviso, e não falha: quem não tem a engine à mão ainda pode conferir
         # tudo que sai do corpus e dos documentos.
+        #
+        # O custo declarado aqui é 1 — a conferência das contagens do
+        # `CLAUDE.md`. O resto do que a engine gata foi declarado no bloco das
+        # sondas, e a soma dos dois é `_afirmacoes_que_dependem_da_engine()`.
         c.avisar(
             "%s; a contagem de ASSERÇÕES ficou sem conferir "
             "(defina GODOT_PATH para fechar)" % suite["motivo"],
-            # A contagem de testes e a de asserções do `CLAUDE.md`. As duas
-            # vivem no ramo em que a suíte rodou E passou.
             1,
         )
     elif not suite["passou"]:
-        # **Falha, não aviso.** Afirmar contagem de teste contra uma suíte
-        # vermelha é pior que não afirmar nada: publica um número que descreve
-        # um resultado que não vale.
-        c.conferidas += 1
-        c.falhas.append(
-            "a suíte NÃO está verde (%s) — as contagens de `CLAUDE.md` não "
-            "foram conferidas contra ela" % suite["motivo"]
+        with c.dependendo_da_engine():
+            # **Falha, não aviso.** Afirmar contagem de teste contra uma suíte
+            # vermelha é pior que não afirmar nada: publica um número que descreve
+            # um resultado que não vale.
+            c.contar()
+            c.falhas.append(
+                "a suíte NÃO está verde (%s) — as contagens de `CLAUDE.md` não "
+                "foram conferidas contra ela" % suite["motivo"]
+            )
+    else:
+        with c.dependendo_da_engine():
+            # **TODAS as ocorrências, não a primeira.** `re.search` ancora só a
+            # primeira, e o `CLAUDE.md` repete o par em dois lugares — a segunda
+            # podia envelhecer em silêncio, que é o defeito que esta ferramenta
+            # inteira existe para não deixar acontecer.
+            pares = re.findall(r"\*\*(\d+) testes, (\d+) asserções\*\*", claude)
+            c.contar()
+            if not pares:
+                c.falhas.append("`CLAUDE.md` não diz mais quantos testes existem")
+            for indice, (testes, assercoes) in enumerate(pares):
+                if int(testes) == suite["testes"] and int(assercoes) == suite["assercoes"]:
+                    continue
+                c.falhas.append(
+                    "`CLAUDE.md` diz `%s testes, %s asserções` na ocorrência %d e "
+                    "a suíte dá %d/%d"
+                    % (testes, assercoes, indice + 1,
+                       suite["testes"], suite["assercoes"])
+                )
+
+    # ---------------------------------------------------- sondas de cena
+    #
+    # As duas são a ÚNICA cobertura automática de `gameplay/`, e até esta
+    # revisão nada lia o stderr delas. Rodam aqui, com o mesmo classificador
+    # da suíte: código de saída, stderr e marca de sucesso.
+    godot = _achar_godot()
+    if godot is None:
+        c.avisar(
+            "Godot não encontrada; as %d sondas de cena e os %d limites "
+            "publicados ficaram sem conferir" % (
+                len(SONDAS),
+                sum(len(d) for _r, _s, _p, d in LIMITES_DA_SONDA),
+            ),
+            _afirmacoes_que_dependem_da_engine() - 1,
         )
     else:
-        # **TODAS as ocorrências, não a primeira.** `re.search` ancora só a
-        # primeira, e o `CLAUDE.md` repete o par em dois lugares — a segunda
-        # podia envelhecer em silêncio, que é o defeito que esta ferramenta
-        # inteira existe para não deixar acontecer.
-        pares = re.findall(r"\*\*(\d+) testes, (\d+) asserções\*\*", claude)
-        c.conferidas += 1
-        if not pares:
-            c.falhas.append("`CLAUDE.md` não diz mais quantos testes existem")
-        for indice, (testes, assercoes) in enumerate(pares):
-            if int(testes) == suite["testes"] and int(assercoes) == suite["assercoes"]:
-                continue
-            c.falhas.append(
-                "`CLAUDE.md` diz `%s testes, %s asserções` na ocorrência %d e "
-                "a suíte dá %d/%d"
-                % (testes, assercoes, indice + 1,
-                   suite["testes"], suite["assercoes"])
-            )
+        with c.dependendo_da_engine():
+            saida_por_sonda: dict = {}
+            for nome, script, marca in SONDAS:
+                c.contar()
+                veredito = _rodar_sonda(godot, script, marca)
+                saida_por_sonda[script] = veredito.get("saida", "")
+                if not veredito["passou"]:
+                    c.falhas.append("a %s NÃO passou (%s)" % (nome, veredito["motivo"]))
+
+            # **Os limites que a sonda PUBLICA também são afirmação.**
+            #
+            # O `CLAUDE.md` os repete, e um deles ficou para trás: dizia "8735
+            # assinaturas" enquanto a sonda media 9667 — número que a lacuna 4
+            # moveu duas vezes, nas mesmas três linhas em que a contagem de testes
+            # foi atualizada. Nenhuma conferência os cobria, ao contrário de todos
+            # os outros números publicados por este projeto.
+            #
+            # PISO, e não igualdade, pela mesma razão do total de afirmações:
+            # cobertura que cresce não pode obrigar a mexer no documento, mas
+            # cobertura que encolhe tem que doer.
+            for rotulo, script, padrao_da_sonda, documentos in LIMITES_DA_SONDA:
+                medido = _numero(saida_por_sonda.get(script, ""), padrao_da_sonda)
+                for documento, padrao_do_doc in documentos:
+                    c.contar()
+                    publicado = _numero(ler(documento), padrao_do_doc)
+                    if medido < 0 or publicado < 0:
+                        c.falhas.append(
+                            "o limite `%s` ficou órfão (sonda=%d, %s=%d): um dos "
+                            "dois textos mudou" % (rotulo, medido, documento, publicado)
+                        )
+                    elif publicado > medido:
+                        c.falhas.append(
+                            "`%s` publica %d de `%s` e a sonda mede %d"
+                            % (documento, publicado, rotulo, medido)
+                        )
 
     # ------------------------- a tabela de cobertura do relatório
     #
@@ -1213,7 +1649,7 @@ def main() -> int:
     #
     # Já foi falso: uma seção intitulada "Dois bugs do tradutor" com cinco
     # itens na lista. Contar os itens é mais barato que confiar no cabeçalho.
-    c.conferidas += 1
+    c.contar()
     cabecalho = re.search(r"## (Dois|Três|Quatro|Cinco|Seis) bugs do tradutor", doc10)
     if cabecalho is None:
         c.falhas.append("docs/10: a seção de bugs do tradutor sumiu")
@@ -1226,6 +1662,33 @@ def main() -> int:
                 "docs/10: o cabeçalho diz %d bugs e a lista tem %d itens"
                 % (dito, itens)
             )
+
+    # ------------------- a declaração de custo, conferida contra o trabalho
+    #
+    # **É esta conferência que faltou nas três vezes.** O custo que um ramo
+    # benigno declara já ficou errado três vezes — o desconto escrito para uma
+    # ausência e não para a irmã, a dispensa que jogava fora a quantidade, e
+    # `len(SONDAS)` sobrevivendo ao bloco crescer nove afirmações. Declarar não
+    # basta: a declaração tem que ser comparada com o que o bloco FEZ.
+    #
+    # Roda só com a engine presente, que é quando o trabalho de verdade
+    # acontece. É o mesmo desenho da autoconferência do bloco do XML.
+    # **A condição é a ENGINE, e não "não houve aviso".** Atrelada a
+    # `not c.avisos`, esta conferência sumia junto com a ausência do XML — que
+    # não tem nada a ver com ela — e o piso passava a cobrar uma afirmação a
+    # mais do que podia acontecer. Cada degradação tem que afrouxar só o que
+    # ela própria impede.
+    if godot is not None and suite["rodou"]:
+        with c.dependendo_da_engine():
+            c.contar()
+            declarado = _afirmacoes_que_dependem_da_engine()
+            feito = c.com_engine
+            if declarado != feito:
+                c.falhas.append(
+                    "o custo declarado da engine é %d e o bloco fez %d afirmações; "
+                    "sem a Godot por perto o piso vai cobrar o que não podia "
+                    "acontecer" % (declarado, feito)
+                )
 
     # ---------------------------------------------------------- veredito
     #
@@ -1243,7 +1706,7 @@ def main() -> int:
     # perder conferência tem que doer. O número era escrito no documento e não
     # era conferido por nada — o mesmo estado em que estavam as "12
     # afirmações" que eram 15.
-    c.conferidas += 1
+    c.contar()
     publicado = _numero(
         ler("CLAUDE.md"), r"\*\*(\d+) afirmações numéricas\*\*"
     )

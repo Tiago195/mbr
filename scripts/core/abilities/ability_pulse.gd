@@ -111,6 +111,31 @@ enum Origin {
 ## dentro dela, simétricas em torno da direção mirada.
 @export var spread_angle: float = 0.0
 
+@export_group("Perseguição")
+## Se a âncora ACOMPANHA alguém em vez de ficar onde foi calculada.
+##
+## `FollowTarget` do original, e a coluna **não é booleana**: ela vale `None`
+## em 1552 impactos, `User` em 353 e `Target` em 62. A lacuna estava registrada
+## como "área que acompanha o alvo", e a maioria esmagadora acompanha o
+## CONJURADOR — que é outra coisa.
+##
+## **Valor novo entra no FIM.** Enum exportado serializa como inteiro no
+## `.tres`; inserir no meio renumera tudo depois, em silêncio.
+enum Follow {
+	## Fica onde foi plantada — **940 dos 1198 pulsos atrasados** do corpus.
+	NONE,
+	## Acompanha quem conjurou.
+	CASTER,
+	## Acompanha o alvo apontado.
+	TARGET,
+}
+
+## Só tem efeito em pulso ATRASADO: num pulso instantâneo a âncora já é
+## calculada no lugar certo, e perseguir por zero segundo não muda nada. É por
+## isso que a lacuna vale para **27 dos 127 espaços de campeão** e não para os
+## 41 que declaram a coluna.
+@export var follow: Follow = Follow.NONE
+
 @export_group("Deslocamento da âncora")
 ## Metros à frente, na direção da mira. `StartPositionZ` do original, diferente
 ## de zero em 293 impactos: é a explosão que nasce um pouco adiante dos pés, e
@@ -145,6 +170,28 @@ enum Origin {
 ## encadeia é a engine, porque só ela conhece a ordem.
 func anchor_for(cast: AbilityCast, previous: Vector3) -> Vector3:
 	return _base_anchor(cast, previous) + _offset(cast)
+
+## Onde a forma se planta no instante em que o golpe SAI.
+##
+## `frozen` é a âncora calculada na conjuração e congelada — que é o certo para
+## área no chão, e continua sendo o padrão. Um pulso que declara `follow`
+## recalcula, porque é o que o original faz: o segundo golpe de um combo em que
+## o personagem andou 1,8 m no meio sai de onde ele ESTÁ, não de onde estava.
+##
+## O deslocamento é reaplicado sobre a base nova; sem isso, uma explosão que
+## nasce dois metros à frente perderia esses dois metros ao passar a perseguir.
+func anchor_when_fired(cast: AbilityCast, frozen: Vector3) -> Vector3:
+	match follow:
+		Follow.CASTER:
+			if cast == null or cast.caster == null:
+				return frozen
+			return cast.caster.position + _offset(cast)
+		Follow.TARGET:
+			if cast == null or cast.unit_target == null:
+				return frozen
+			return cast.unit_target.position + _offset(cast)
+		_:
+			return frozen
 
 func _base_anchor(cast: AbilityCast, previous: Vector3) -> Vector3:
 	match origin:
