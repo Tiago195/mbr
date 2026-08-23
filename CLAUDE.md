@@ -260,6 +260,22 @@ vê. Daí saíram três coisas, todas camada visual pura:
 - `scripts/gameplay/marcador_de_alcance.gd` — anéis de alcance no chão. Alcance
   varia de 2 m a 6 m entre campeões e era invisível; sem ele, "a mira estava
   torta" e "o alvo estava longe demais" têm a mesma aparência: nada acontece
+- `scripts/gameplay/gesto_de_conjuracao.gd` — **o corpo faz alguma coisa ao
+  conjurar**. Estocada, giro, salto, erguer, e um preparo que dura a conjuração
+  inteira, escolhidos pela forma do primeiro pulso com efeito
+
+**E a correção que gerou o último item vale guardar.** A primeira resposta dele
+foi um registro de texto, com o argumento de que *"isso é informação, não
+animação"*. A réplica do usuário:
+
+> *"você esquece que eu sou um humano vendo uma tela; para mim informação É a
+> animação do personagem gastando a habilidade"*
+
+Está certo, e o erro foi meu duas vezes: tratar texto como substituto do gesto,
+e responder a uma confusão que ele não cometeu — quando ele disse "importamos
+os bonecos", falava do KIT, e funcionalmente as habilidades são o personagem.
+Enquanto não há esqueleto (Fase 6), a cápsula anima por procedimento: é como
+os jogos comunicavam antes de haver animação esquelética, e é nosso.
 
 **Ele pediu para importar os bonecos e as animações do original**, argumentando
 que as tabelas já foram importadas. A premissa não se sustenta e a resposta

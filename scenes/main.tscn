@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scripts/gameplay/camera_rig.gd" id="2_camera"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://scripts/gameplay/champion_selector.gd" id="10_champion"]
 [ext_resource type="Script" path="res://scripts/gameplay/combat_log.gd" id="11_log"]
 [ext_resource type="Script" path="res://scripts/gameplay/marcador_de_alcance.gd" id="12_alcance"]
+[ext_resource type="Script" path="res://scripts/gameplay/gesto_de_conjuracao.gd" id="13_gesto"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(20, 20)
@@ -139,6 +140,9 @@ script = ExtResource("11_log")
 
 [node name="MarcadorDeAlcance" type="Node3D" parent="Player"]
 script = ExtResource("12_alcance")
+
+[node name="GestoDeConjuracao" type="Node" parent="Player"]
+script = ExtResource("13_gesto")
 
 [node name="DummyNear" parent="." instance=ExtResource("4_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1, -2)

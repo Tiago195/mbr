@@ -233,6 +233,83 @@ func _sondar() -> Array[String]:
 			+ "cadência; o par de controle não distingue nada")
 		)
 
+	# ------------------------------------------- o gesto de conjuração
+	#
+	# O corpo tem que FAZER alguma coisa ao conjurar, e voltar ao repouso
+	# depois. É a única conferência automática do gesto: as duas sondas
+	# chamam `AbilityEngine.cast` direto, e o gesto pende de
+	# `cast_attempted`, que só `_try_cast` emite — ou seja, sem apertar a
+	# tecla de verdade ele não roda, e um erro nele passaria em silêncio.
+	falhas.append_array(await _conferir_gesto(jogador, meu))
+
+	return falhas
+
+## O corpo se mexe ao conjurar, e volta ao lugar depois.
+func _conferir_gesto(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
+	var falhas: Array[String] = []
+	var caster: AbilityCaster = null
+	var gesto: Node = null
+	var malha: Node3D = null
+	for filho: Node in jogador.get_children():
+		if filho is AbilityCaster:
+			caster = filho as AbilityCaster
+		elif filho.get_script() != null 				and filho.get_script().resource_path.ends_with("gesto_de_conjuracao.gd"):
+			gesto = filho
+		elif filho is MeshInstance3D and filho.name != "FrontMarker":
+			malha = filho as Node3D
+	if caster == null or gesto == null or malha == null:
+		return ["a cena não tem AbilityCaster, GestoDeConjuracao ou malha"] as Array[String]
+
+	var repouso: Vector3 = malha.position
+	var escala: Vector3 = malha.scale
+	# Recarga limpa e mana cheia: o que se confere é o gesto, não o custo.
+	caster.book.clear_cooldowns()
+	meu.unit.mana.current = meu.unit.mana.maximum()
+	meu.unit.ultimate_charge.restore(meu.unit.ultimate_charge.maximum())
+
+	# Aperta a tecla de verdade — é `_try_cast` que emite `cast_attempted`.
+	# O status é conferido junto: um gesto que não sai porque a conjuração foi
+	# RECUSADA é comportamento certo, e acusá-lo seria acusar o alvo errado.
+	# **Array e não variável solta**: lambda em GDScript captura por VALOR, e
+	# reatribuir de dentro não tem efeito nenhum lá fora. Está registrado em
+	# `CLAUDE.md` entre as armadilhas já pagas, e eu caí nela de novo aqui —
+	# a conferência acusou `INVALID` numa conjuração que dera `SUCCESS`.
+	var visto: Array[int] = [CastResult.Status.INVALID]
+	caster.cast_attempted.connect(
+		func(_slot: AbilityBook.Slot, _pedida: Ability, r: CastResult) -> void:
+			if r != null:
+				visto[0] = int(r.status)
+	)
+	caster.call("_try_cast", AbilityBook.Slot.Q)
+	var status: int = visto[0]
+	if status != int(CastResult.Status.SUCCESS) 			and status != int(CastResult.Status.CASTING):
+		return ["a conjuração da sonda do gesto foi recusada (%s); ela precisa "
+			% CastResult.Status.keys()[status]
+			+ "sair para o gesto ter o que conferir"] as Array[String]
+
+	# **O desvio MÁXIMO ao longo do gesto, e não o do primeiro quadro.**
+	# A antecipação começa em zero — é o que faz o gesto ter peso — e medir
+	# logo no primeiro quadro dá desvio nulo com o gesto funcionando. Foi
+	# exatamente o que esta conferência acusou na primeira execução.
+	var maior: float = 0.0
+	for _passo: int in 90:
+		await physics_frame
+		await process_frame
+		maior = maxf(maior, malha.position.distance_to(repouso))
+		maior = maxf(maior, malha.scale.distance_to(escala))
+		maior = maxf(maior, absf(malha.rotation.y))
+	if maior <= 0.01:
+		falhas.append(
+			"conjurar não mexeu o corpo em quadro nenhum: o gesto não disparou"
+		)
+	print("  gesto de conjuração: desvio máximo %.3f" % maior)
+	if malha.position.distance_to(repouso) > 0.001 			or malha.scale.distance_to(escala) > 0.001 			or absf(malha.rotation.y) > 0.001:
+		falhas.append(
+			("o corpo não voltou ao repouso depois do gesto: posição %s, "
+			+ "escala %s, giro %.3f") % [
+				str(malha.position), str(malha.scale), malha.rotation.y
+			]
+		)
 	return falhas
 
 ## Uma habilidade instantânea e inofensiva, zeradora ou não.
