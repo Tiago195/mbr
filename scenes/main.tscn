@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=26 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scripts/gameplay/camera_rig.gd" id="2_camera"]
@@ -10,6 +10,8 @@
 [ext_resource type="Resource" path="res://data/abilities/raio.tres" id="8_raio"]
 [ext_resource type="Resource" path="res://data/abilities/investida.tres" id="9_investida"]
 [ext_resource type="Script" path="res://scripts/gameplay/champion_selector.gd" id="10_champion"]
+[ext_resource type="Script" path="res://scripts/gameplay/combat_log.gd" id="11_log"]
+[ext_resource type="Script" path="res://scripts/gameplay/marcador_de_alcance.gd" id="12_alcance"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(20, 20)
@@ -132,11 +134,23 @@ script = ExtResource("10_champion")
 champion_id = &"leo"
 level = 9
 
+[node name="CombatLog" type="Node" parent="Player"]
+script = ExtResource("11_log")
+
+[node name="MarcadorDeAlcance" type="Node3D" parent="Player"]
+script = ExtResource("12_alcance")
+
 [node name="DummyNear" parent="." instance=ExtResource("4_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1, -2)
 
 [node name="DummyFar" parent="." instance=ExtResource("4_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1, 2.5)
+
+[node name="DummyMedio" parent="." instance=ExtResource("4_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -6)
+
+[node name="DummyLonge" parent="." instance=ExtResource("4_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 1, -9)
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.57357645, 0.81915206, 0, -0.81915206, 0.57357645, 0, 12, 8)

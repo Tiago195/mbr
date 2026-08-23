@@ -21,6 +21,16 @@ extends Node
 ## este sinal ela não tinha como dizer o que saiu.
 signal resolved(result: CastResult)
 
+## Uma tecla de habilidade foi apertada, e este foi o desfecho.
+##
+## Carrega o ESPAÇO e a habilidade que estava nele — as duas coisas que
+## `CastResult` não tem como saber e que são justamente o que o jogador precisa
+## ler na tela. `pedida` e `result.ability` divergem quando a corrente de combo
+## troca a habilidade, e é comparando as duas que se vê o combo acontecer.
+signal cast_attempted(
+	slot: AbilityBook.Slot, pedida: Ability, result: CastResult
+)
+
 ## Habilidades por slot. Arraste os `.tres` de `data/abilities/` no Inspector.
 ##
 ## São o kit PADRÃO. Um `ChampionSelector` irmão substitui os quatro espaços
@@ -35,6 +45,29 @@ signal resolved(result: CastResult)
 @export var color_area: Color = Color(0.95, 0.55, 0.15)
 @export var color_line: Color = Color(0.45, 0.70, 1.0)
 @export var color_dash: Color = Color(0.65, 0.95, 0.55)
+
+## Pinta a marca pela TECLA que a fez sair, em vez de pelo tipo de forma.
+##
+## Existe por um veredito do usuário em 23/08/2026: *"não sei se estou usando a
+## mesma habilidade ou se são habilidades diferentes, tudo que vejo são
+## formas"*. Com Q, W, E e R saindo todos laranja, duas conjurações seguidas
+## eram indistinguíveis quando a forma coincidia — e formas coincidem muito:
+## CIRCLE é a forma de boa parte do corpus.
+##
+## A cor da corrente de combo é uma quinta, e é a única maneira de VER que o
+## segundo aperto entregou outra habilidade.
+@export var cor_por_espaco: bool = true
+@export var cor_q: Color = Color(0.45, 0.70, 1.00)
+@export var cor_w: Color = Color(0.55, 0.95, 0.60)
+@export var cor_e: Color = Color(1.00, 0.85, 0.35)
+@export var cor_r: Color = Color(1.00, 0.45, 0.45)
+@export var cor_combo: Color = Color(0.95, 0.55, 1.00)
+
+## De que espaço saiu a conjuração que está sendo desenhada, e se ela virou
+## corrente. Guardado em vez de passado como argumento porque o desenho dos
+## golpes ATRASADOS acontece tiques depois, fora da pilha de `_try_cast`.
+var _espaco_atual: AbilityBook.Slot = AbilityBook.Slot.Q
+var _atual_veio_de_combo: bool = false
 
 var book: AbilityBook
 
@@ -174,6 +207,7 @@ func _try_cast(slot: AbilityBook.Slot) -> void:
 	var ability: Ability = book.ability_in(slot)
 	if ability == null:
 		print("[hab] %s vazio" % AbilityBook.Slot.keys()[slot])
+		cast_attempted.emit(slot, null, null)
 		return
 
 	var cast: AbilityCast = _aim(ability)
@@ -183,7 +217,13 @@ func _try_cast(slot: AbilityBook.Slot) -> void:
 	var result: CastResult = AbilityEngine.cast(
 		book, ability, cast, Combatant.all_units(get_tree())
 	)
+	_espaco_atual = slot
+	_atual_veio_de_combo = (
+		result != null and result.ability != null
+		and result.ability.id != ability.id
+	)
 	_report(ability, result)
+	cast_attempted.emit(slot, ability, result)
 
 	# A telegrafia da conjuração com tempo sai no início, não no fim: é ela que
 	# avisa o adversário que algo vem vindo, e avisar depois do impacto não
@@ -280,29 +320,42 @@ func _draw_pulse(part: CastResult) -> void:
 		if marca != null and vida > marca.lifetime:
 			marca.lifetime = vida
 
+## A cor desta conjuração: a da tecla, ou a do tipo de forma quando
+## `cor_por_espaco` está desligada.
+func _cor_da_marca(padrao: Color) -> Color:
+	if not cor_por_espaco:
+		return padrao
+	if _atual_veio_de_combo:
+		return cor_combo
+	match _espaco_atual:
+		AbilityBook.Slot.Q: return cor_q
+		AbilityBook.Slot.W: return cor_w
+		AbilityBook.Slot.E: return cor_e
+		_: return cor_r
+
 func _draw_form(
 		scene_root: Node, pulse: AbilityPulse, anchor: Vector3, direction: Vector3
 ) -> AbilityTelegraph:
 	match pulse.form:
 		AbilityPulse.Form.CIRCLE:
 			return AbilityTelegraph.circle(
-				scene_root, anchor, pulse.radius, color_area
+				scene_root, anchor, pulse.radius, _cor_da_marca(color_area)
 			)
 		AbilityPulse.Form.CONE:
 			return AbilityTelegraph.cone(
 				scene_root, anchor, direction,
-				pulse.length, pulse.cone_angle, color_area
+				pulse.length, pulse.cone_angle, _cor_da_marca(color_area)
 			)
 		AbilityPulse.Form.TRAPEZOID:
 			return AbilityTelegraph.trapezoid(
 				scene_root, anchor, direction,
 				pulse.near_distance, pulse.near_width,
-				pulse.length, pulse.far_width, color_area
+				pulse.length, pulse.far_width, _cor_da_marca(color_area)
 			)
 		AbilityPulse.Form.LINE:
 			return AbilityTelegraph.line(
 				scene_root, anchor, direction,
-				pulse.length, pulse.width, color_dash
+				pulse.length, pulse.width, _cor_da_marca(color_dash)
 			)
 		_:
 			# SINGLE não tem área: o alvo foi escolhido a dedo, e o número de
@@ -347,7 +400,7 @@ func _draw_new_projectiles() -> void:
 		if shot.id <= _last_drawn_shot:
 			continue
 		_last_drawn_shot = shot.id
-		AbilityTelegraph.follow(scene_root, shot, color_line)
+		AbilityTelegraph.follow(scene_root, shot, _cor_da_marca(color_line))
 
 ## Console em vez de HUD: a Fase 1 não tem UI, e a recusa precisa ser visível
 ## para dar para testar. Vira ícone acinzentado e aviso na tela na Fase 6.

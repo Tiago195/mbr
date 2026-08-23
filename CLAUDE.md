@@ -244,6 +244,32 @@ validou a telegrafia, a carga de suprema e o ritmo do reset de auto-ataque
 combo** — as duas são sensação de jogo, e as sondas sabem que não quebrou, não
 que ficou bom. É a lista completa do que falta de olho humano; não há outra.
 
+**E ele não conseguiu testá-las.** Palavras dele: *"não sei se estou usando a
+mesma habilidade ou se são habilidades diferentes, tudo que vejo são formas"*.
+O diagnóstico estava certo e a causa não era falta de arte: **a tela não dizia
+nada**. `AbilityCaster._report` já contava tudo — no console, que quem joga não
+vê. Daí saíram três coisas, todas camada visual pura:
+
+- `scripts/gameplay/combat_log.gd` — o relato na tela: qual tecla, qual
+  habilidade, **se a corrente de combo trocou o elo**, quantos alvos, quanto de
+  dano, e o motivo quando a conjuração é recusada
+- **Cor por tecla na telegrafia** (`AbilityCaster.cor_por_espaco`), com uma
+  quinta cor para o elo de combo. Com Q, W, E e R saindo todos laranja, duas
+  conjurações seguidas eram indistinguíveis sempre que a forma coincidia — e
+  CIRCLE é a forma de boa parte do corpus
+- `scripts/gameplay/marcador_de_alcance.gd` — anéis de alcance no chão. Alcance
+  varia de 2 m a 6 m entre campeões e era invisível; sem ele, "a mira estava
+  torta" e "o alvo estava longe demais" têm a mesma aparência: nada acontece
+
+**Ele pediu para importar os bonecos e as animações do original**, argumentando
+que as tabelas já foram importadas. A premissa não se sustenta e a resposta
+está registrada aqui porque vai voltar: **o repositório não tem um único
+asset** — 79 scripts, 13 documentos, 3 JSONs, 2 cenas, zero imagens, malhas ou
+sons. O que a tradução guarda de uma habilidade é `cooldown: 0.8`,
+`cast_range: 2.0` e o NOME de um ícone. Número de recarga é fato funcional;
+malha e animação são obra expressiva, e é a linha de `docs/01`. O caminho
+previsto para os bonecos é Meshy + Mixamo, na Fase 6.
+
 #### A tabela, e como ela terminou
 
 | Quantas | O que o original faz e nós não | Estado |
