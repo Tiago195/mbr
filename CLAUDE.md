@@ -296,7 +296,7 @@ Três achados que valem além da arte:
 `tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
 — e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
 reprova quando documento e código discordam, mediana E faixa.
-**42 mutações, 42 pegas** — 16 no boneco e 26 na concordância.
+**46 mutações, 46 pegas** — 16 no boneco e 30 na concordância.
 
 **E isto foi REPROVADO DUAS VEZES por um validador adversarial**, com 17 e 12
 achados. A segunda rodada achou o pior de todos, e era de processo: **o `.glb`
@@ -452,9 +452,11 @@ py tools/arte/mutar_boneco.py
 py tools/mutar_direcao.py
 ```
 
-**42 mutações, 42 pegas.** Elas mexem nos arquivos e restauram no fim, incluindo
-o `.glb` — a versão anterior restaurava só o código-fonte, e o artefato da
-última mutação chegou a ser commitado.
+**46 mutações, 46 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
+artefatos inclusive** — restaurar só o código-fonte já deixou um `.glb`
+commitado vindo de uma mutação, e restaurar só o `.glb` deixou o `.blend`.
+**Rodar uma de cada vez:** as duas mutam os mesmos arquivos, e sobrepô-las
+corrompe as duas.
 
 São **quatro**, e `py tools/conferir_numeros.py` sozinho já roda os três
 primeiros: ele executa a suíte E as duas sondas, e trata `SCRIPT ERROR` no
@@ -470,7 +472,7 @@ Estado ao fim desta sessão: **478 testes, 1304 asserções**, stderr 0 bytes,
 sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
 44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
 conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
-**300 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**321 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar

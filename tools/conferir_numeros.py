@@ -907,6 +907,35 @@ DIRECAO_LINHAS = {
     "envergadura / altura": ("envergadura", "envergadura"),
 }
 
+## `(rótulo do §9, tem ÷ 2) → chave de PROPORCAO`. Sem isto cada linha daquela
+## tabela se confere sozinha: a multiplicação fecha e a fração pode ser
+## qualquer uma.
+ANCORA_DO_NOVE = {
+    ("tornozelo", False): "tornozelo",
+    ("joelho", False): "joelho",
+    ("quadril", False): "quadril",
+    ("peito", False): "peito",
+    ("pescoço", False): "pescoco",
+    ("ombro (junta)", False): "ombro",
+    ("ombro", True): "vao_dos_ombros",
+    ("quadril", True): "vao_dos_quadris",
+}
+
+## `rótulo da tabela de alturas do §1 → chave do instantâneo`. Toda linha tem
+## que ter uma: três delas — dedos do pé, lombar e base do crânio — só se
+## conferiam contra si mesmas, e `| dedos do pé | 0,500 |` passava.
+ANCORA_DO_UM = {
+    "dedos do pé": "dedos",
+    "tornozelo": "tornozelo",
+    "joelho": "joelho",
+    "quadril": "quadril",
+    "lombar": "lombar",
+    "peito": "peito",
+    "base do pescoço": "pescoco",
+    "base do crânio": "cranio",
+    "ombro / cotovelo / mão": "ombro",
+}
+
 ## As três animações de locomoção usam a faixa do clipe equivalente do original,
 ## publicada na tabela do §3. Sem esta amarração dava para alargar a faixa da
 ## corrida até nada reprovar, e nenhuma ferramenta notava.
@@ -1146,6 +1175,29 @@ def _conferir_o_blend(c: "Conferencia", gerador: str) -> None:
             "o `.blend` rastreado não tem %s — ou ele está comprimido, ou não "
             "veio deste gerador" % ", ".join(faltam)
         )
+        return
+
+    # **Os NÚMEROS, e não só os nomes.** Nome nenhum muda quando a proporção
+    # muda: o `.blend` commitado uma vez teve o pescoço em 0,790 da altura, veio
+    # de uma rodada de mutação, e a conferência dos nomes aprovou. As alturas de
+    # osso são gravadas como `float32`; se a medida está lá, os quatro bytes
+    # dela estão.
+    proporcao = _proporcao_do_gerador(gerador)
+    c.contar()
+    if not proporcao:
+        c.falhas.append("não consegui ler `PROPORCAO` para conferir o `.blend`")
+        return
+    ausentes = []
+    for chave in ("tornozelo", "joelho", "quadril", "peito", "pescoco", "ombro"):
+        altura_do_osso = proporcao[chave] * 1.75
+        if struct.pack("<f", altura_do_osso) not in bruto:
+            ausentes.append("%s (%.5f)" % (chave, altura_do_osso))
+    c.contar()
+    if ausentes:
+        c.falhas.append(
+            "o `.blend` rastreado não tem as alturas de %s — ele não veio deste "
+            "gerador" % ", ".join(ausentes)
+        )
 
 
 ## `medida em PROPORCAO → como lê-la do .glb`. As posições vêm em Y para cima,
@@ -1185,6 +1237,31 @@ def _conferir_a_geometria_do_glb(c: "Conferencia", gerador: str) -> None:
         c.falhas.append(
             "o boneco exportado tem %.3f m e a direção manda 1,75" % altura
         )
+    # Quantas peças o corpo tem. Cada caixa exporta 24 vértices — três por
+    # canto, um por face —, e é isto que pega um boneco exportado sem uma peça:
+    # a mão, por exemplo, cuja falta produziu o "número certo pelo motivo
+    # errado" da primeira revisão.
+    c.contar()
+    caixas = re.search(r"^CAIXAS = \{(.*?)^\}", gerador, re.S | re.M)
+    adornos = re.search(r"^ADORNOS = \[(.*?)^\]", gerador, re.S | re.M)
+    if caixas is None or adornos is None:
+        c.falhas.append("não achei as caixas do corpo no gerador")
+    else:
+        pecas = (len(re.findall(r"^\t\"\w+\":", caixas.group(1), re.M))
+                 + len(re.findall(r"^\t\(\"", adornos.group(1), re.M)))
+        vertices = 0
+        for malha in cabecalho.get("meshes", []):
+            for primitiva in malha.get("primitives", []):
+                indice = primitiva.get("attributes", {}).get("POSITION")
+                if indice is not None:
+                    vertices += cabecalho["accessors"][indice].get("count", 0)
+        if vertices != pecas * 24:
+            c.falhas.append(
+                "o gerador descreve %d caixas (%d vértices) e o `.glb` tem %d "
+                "— o corpo exportado tem outra quantidade de peças"
+                % (pecas, pecas * 24, vertices)
+            )
+
     for chave, ler_do_glb in sorted(GEOMETRIA_DO_GLB.items()):
         c.contar()
         try:
@@ -1392,7 +1469,19 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
     # três primeiras colunas, e a quarta é "em 1,75 m" numa e "humano real" na
     # outra. Varrer o documento inteiro comparava a largura dos ombros com a
     # referência humana e reprovava — a varredura tem que saber onde termina.
-    trecho = doc[doc.index("Alturas como fração"):doc.index("E as larguras:")]
+    # `index()` levantaria `ValueError` e mataria a ferramenta no meio — numa
+    # que trata "a conferência ficou órfã" como falha em todo lugar, este era o
+    # único ponto que tratava órfã com exceção.
+    inicio = doc.find("Alturas como fração")
+    fim = doc.find("E as larguras:")
+    c.contar()
+    if inicio < 0 or fim < 0 or fim <= inicio:
+        c.falhas.append(
+            "docs/11 §1: não achei o trecho da tabela de alturas — a "
+            "conferência das colunas em metros ficou órfã"
+        )
+        inicio, fim = 0, 0
+    trecho = doc[inicio:fim]
     linhas_do_um = re.findall(
         r"^\| ([^|]+?) \| \*{0,2}(-?[0-9],[0-9]+)\*{0,2} \| "
         r"(-?[0-9],[0-9]+) – (-?[0-9],[0-9]+) \| (-?[0-9],[0-9]+) \|",
@@ -1404,7 +1493,7 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
             "docs/11 §1: achei só %d linhas com coluna em metros — a tabela "
             "mudou de forma e a conferência ficou órfã" % len(linhas_do_um)
         )
-    for rotulo, mediana, _menor, _maior, emmetros in linhas_do_um:
+    for rotulo, mediana, menor, maior, emmetros in linhas_do_um:
         c.contar()
         esperado = round(_decimal(mediana) * 1.75, 3)
         if abs(_decimal(emmetros) - esperado) > 5e-4:
@@ -1412,6 +1501,28 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
                 "docs/11 §1: `%s` é %s da altura, o que dá %.3f m em 1,75 — e a "
                 "tabela diz %s" % (rotulo.strip(), mediana, esperado, emmetros)
             )
+        c.contar()
+        chave = ANCORA_DO_UM.get(rotulo.strip())
+        if chave is None:
+            c.falhas.append(
+                "docs/11 §1: a linha `%s` não tem âncora no instantâneo — sem "
+                "ela a linha só se confere contra si mesma" % rotulo.strip()
+            )
+        elif medidas:
+            do_censo = medidas.get(chave)
+            if do_censo is None:
+                c.falhas.append(
+                    "o instantâneo não tem `%s` — a linha `%s` perdeu a âncora "
+                    "no original" % (chave, rotulo.strip())
+                )
+            elif (abs(_decimal(mediana) - do_censo[0]) > 5e-4
+                  or abs(_decimal(menor) - do_censo[1]) > 5e-4
+                  or abs(_decimal(maior) - do_censo[2]) > 5e-4):
+                c.falhas.append(
+                    "docs/11 §1: `%s` publica %s (%s a %s) e o instantâneo mede "
+                    "%.3f (%.3f a %.3f)" % (rotulo.strip(), mediana, menor,
+                                            maior, *do_censo)
+                )
 
     # A tabela do §9, que traduz cada fração para o número que o gerador usa.
     # Toda linha da forma "X 0,ABC | 0,DEF × altura [÷ 2]" é conferida pela
@@ -1434,6 +1545,26 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
                 "docs/11 §9: `%s` diz %s e %s × 1,75%s dá %.3f"
                 % (rotulo.strip(), valor, fracao, " ÷ 2" if metade else "",
                    esperado)
+            )
+        # **E a fração tem que ser a do gerador.** Conferir só a aritmética
+        # dentro da linha aceita `| tornozelo 0,350 | 0,200 × altura |`: as
+        # contas fecham entre si e descrevem um boneco que não existe. A versão
+        # por lista tinha essa âncora e a varredura a perdeu — generalização
+        # que custou poder de detecção, que é a lição 10 do `CLAUDE.md` ao
+        # contrário.
+        c.contar()
+        chave = ANCORA_DO_NOVE.get((rotulo.strip(), bool(metade)))
+        if chave is None:
+            c.falhas.append(
+                "docs/11 §9: a linha `%s`%s não tem âncora em `PROPORCAO` — "
+                "acrescente-a a `ANCORA_DO_NOVE` ou a linha fica se conferindo "
+                "sozinha" % (rotulo.strip(), " (±)" if metade else "")
+            )
+        elif proporcao and abs(_decimal(fracao) - proporcao.get(chave, -1)) > 5e-4:
+            c.falhas.append(
+                "docs/11 §9: `%s` sai de %s da altura e o gerador usa %.3f "
+                "para `%s`" % (rotulo.strip(), fracao,
+                               proporcao.get(chave, -1), chave)
             )
     # As duas linhas cuja conta não é uma multiplicação.
     for rotulo, conta in (

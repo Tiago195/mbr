@@ -24,7 +24,13 @@ ALVOS = {
     "claude": os.path.join(RAIZ, "CLAUDE.md"),
     "regra": os.path.join(RAIZ, "tools", "arte", "regra_da_folga.py"),
 }
-GLB = os.path.join(RAIZ, "arte", "personagem.glb")
+## **Todo artefato rastreado que o gerador escreve.** Restaurar so o `.glb`
+## deixava o `.blend` da ultima mutacao no disco, e ele foi commitado assim —
+## a mesma falha que esta lista corrigiu para o `.glb`, no irmao dele.
+ARTEFATOS = [
+    os.path.join(RAIZ, "arte", "personagem.glb"),
+    os.path.join(RAIZ, "arte", "fonte", "personagem.blend"),
+]
 
 ## `(titulo, [(alvo, velho, novo), ...], regerar_o_glb)`
 MUTACOES = [
@@ -87,6 +93,16 @@ MUTACOES = [
     # --- byte de controle em texto ---
     ("um byte de controle entra num arquivo publicado", [
         ("claude", "Blender Foundation", "Blender\x08Foundation")], False),
+    # --- o INSTANTANEO: a terceira fonte tambem precisa de prova ---
+    ("o instantaneo mede outra coisa que o documento", [
+        ("instantaneo", "   0.763,", "   0.790,")], False),
+    # --- as ancoras das duas tabelas ---
+    ("a fracao do §9 deixa de ser a do gerador", [
+        ("doc", "| tornozelo 0,163 | 0,093 × altura |",
+         "| tornozelo 0,350 | 0,200 × altura |")], False),
+    ("uma linha do §1 sem ancora fica se conferindo sozinha", [
+        ("doc", "| lombar | 0,557 | 0,476 – 0,575 | 0,975 |",
+         "| lombar | 0,900 | 0,476 – 0,575 | 1,575 |")], False),
     # --- o ARTEFATO ---
     #
     # A guarda nova (exportar para um temporario e so publicar se passar) faz o
@@ -112,6 +128,9 @@ MUTACOES = [
     # --- byte de controle vizinho do que motivou a conferencia ---
     ("um byte 0x0B entra num arquivo publicado", [
         ("claude", "Blender Foundation", "Blender" + chr(11) + "Foundation")], False),
+    ("o corpo exportado perde uma peca", [
+        ("gerador", '"mao_E": (0.145, 0.13),', '"mao_zz": (0.145, 0.13),'),
+        ("gerador", "	return resultado.returncode", "	return 0")], True),
 ]
 
 def roda_conferidor():
@@ -122,7 +141,7 @@ def roda_conferidor():
 
 def main():
     originais = {k: io.open(v, "rb").read() for k, v in ALVOS.items()}
-    glb_original = io.open(GLB, "rb").read()
+    artefatos = {caminho: io.open(caminho, "rb").read() for caminho in ARTEFATOS}
     escaparam = []
     try:
         for titulo, edicoes, regerar in MUTACOES:
@@ -160,7 +179,8 @@ def main():
             for k, v in ALVOS.items():
                 io.open(v, "wb").write(originais[k])
             if regerar:
-                io.open(GLB, "wb").write(glb_original)
+                for caminho, bruto in artefatos.items():
+                    io.open(caminho, "wb").write(bruto)
 
             if r.returncode == 0:
                 print("ESCAPOU  %s" % titulo)
@@ -173,7 +193,8 @@ def main():
     finally:
         for k, v in ALVOS.items():
             io.open(v, "wb").write(originais[k])
-        io.open(GLB, "wb").write(glb_original)
+        for caminho, bruto in artefatos.items():
+            io.open(caminho, "wb").write(bruto)
 
     if escaparam:
         print("\n%d de %d escaparam: %s" % (len(escaparam), len(MUTACOES), escaparam))

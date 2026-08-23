@@ -512,7 +512,9 @@ def censo_de_proporcao(UnityPy):
 	_guardar("proporcao", {
 		"campeoes": len(bons),
 		"altura": _tres([l["altura"] for l in bons]),
+		"dedos": _tres([l["escada"]["LeftToes"] for l in bons]),
 		"tornozelo": _tres([l["escada"]["LeftFoot"] for l in bons]),
+		"lombar": _tres([l["escada"]["Spine"] for l in bons]),
 		"joelho": _tres([l["escada"]["LeftLowerLeg"] for l in bons]),
 		"quadril": _tres([l["escada"]["Hips"] for l in bons]),
 		"peito": _tres([l["escada"]["Chest"] for l in bons]),

@@ -73,19 +73,22 @@ def roda(script):
 
 
 def main():
-    fontes = {caminho: io.open(caminho, encoding="utf-8").read()
+    # **Binario, e nao texto.** Restaurar com `open(..., "w")` converte todo
+    # LF em CRLF no Windows, e rodar a suite deixava os fontes rastreados
+    # sujos por inteiro — 425 linhas trocadas num arquivo que nao mudou.
+    fontes = {caminho: io.open(caminho, "rb").read()
               for caminho in (GERADOR, CONFERE, REGRA)}
     escaparam = []
     try:
         for mutacao in MUTACOES:
             titulo, velho, novo = mutacao[0], mutacao[1], mutacao[2]
             alvo = mutacao[3] if len(mutacao) > 3 else GERADOR
-            original = fontes[alvo]
+            original = fontes[alvo].decode("utf-8")
             if original.count(velho) != 1:
                 print("PADRAO INVALIDO (%d): %s" % (original.count(velho), titulo))
                 escaparam.append(titulo)
                 continue
-            io.open(alvo, "w", encoding="utf-8").write(
+            io.open(alvo, "w", encoding="utf-8", newline="").write(
                 original.replace(velho, novo, 1))
             try:
                 # O gerador chama a conferencia e devolve o codigo dela: sair
@@ -99,7 +102,7 @@ def main():
                 # **Restaurar SEMPRE, antes do proximo laco.** Deixar o arquivo
                 # mutado por causa de um `continue` contaminava todas as
                 # mutacoes seguintes, e elas viravam falso-positivo.
-                io.open(alvo, "w", encoding="utf-8").write(original)
+                io.open(alvo, "wb").write(fontes[alvo])
             if codigo == 0:
                 print("ESCAPOU  %s" % titulo)
                 escaparam.append(titulo)
@@ -109,8 +112,8 @@ def main():
             else:
                 print("pegou    %-46s -> %s" % (titulo, motivos[0]))
     finally:
-        for caminho, texto in fontes.items():
-            io.open(caminho, "w", encoding="utf-8").write(texto)
+        for caminho, bruto in fontes.items():
+            io.open(caminho, "wb").write(bruto)
         # **Restaurar o FONTE nao basta: o artefato ficou mutado.** O `.glb` no
         # disco e o da ultima mutacao, e ele nao volta sozinho. Foi assim que um
         # boneco com `parado` de 1,00 s chegou a ser commitado, reprovando a

@@ -813,15 +813,26 @@ def main() -> int:
 	provisorio = os.path.join(os.path.dirname(destino), "personagem.novo.glb")
 	exportar(provisorio)
 	blend = os.path.join(raiz, "arte", "fonte", "personagem.blend")
-	salvar_blend(blend)
+	# **O `.blend` também espera.** Ele é rastreado igual ao `.glb`, e publicar
+	# um e segurar o outro só muda de qual artefato o defeito sai: a revisão
+	# achou um `.blend` commitado vindo de uma rodada de mutação, no commit que
+	# corrigia exatamente isso para o `.glb`. Os dois saem juntos ou nenhum sai.
+	#
+	# O nome do provisório termina em `.blend` porque o Blender guarda o backup
+	# como `<nome>1`, e só `*.blend1` está no `.gitignore`.
+	blend_provisorio = os.path.join(os.path.dirname(blend), "personagem_novo.blend")
+	salvar_blend(blend_provisorio)
 
 	codigo = conferir(raiz, provisorio)
 	if codigo != 0:
-		os.remove(provisorio)
-		print("[arte] o boneco NAO foi publicado — %s continua como estava"
-		      % destino)
+		for lixo in (provisorio, blend_provisorio):
+			if os.path.exists(lixo):
+				os.remove(lixo)
+		print("[arte] o boneco NAO foi publicado — %s e %s continuam como estavam"
+		      % (destino, blend))
 		return codigo
 	os.replace(provisorio, destino)
+	os.replace(blend_provisorio, blend)
 	print("[arte] %d ossos, %d animações -> %s (%.0f KB)" % (
 		len(OSSOS), len(ANIMACOES), destino,
 		os.path.getsize(destino) / 1024 if os.path.exists(destino) else 0,

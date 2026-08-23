@@ -392,7 +392,7 @@ um binário que ninguém consegue conferir.
 E as defesas têm suas próprias suítes de mutação, no repositório:
 `tools/arte/mutar_boneco.py` quebra o gerador e a regra da folga, e
 `tools/mutar_direcao.py` quebra a concordância entre documento, código,
-instantâneo e artefato. **42 mutações, 42 pegas.**
+instantâneo e artefato. **46 mutações, 46 pegas.**
 
 Cinco números não saem de faixa nenhuma e por isso são declarados aqui, para
 poderem ser conferidos: a altura vale com folga de **4 cm**, o pé encosta no

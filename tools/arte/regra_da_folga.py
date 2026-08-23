@@ -37,7 +37,14 @@ def folga_de(faixa) -> float:
 ## `(faixa, folga esperada)`. Os dois casos discriminam: o primeiro cai no meio
 ## de um passo e tem que arredondar para cima, o segundo cai em cima do passo e
 ## tem que ficar onde esta. Uma formula errada erra pelo menos um dos dois.
-CASOS = (((0.0, 0.417, 0.512), 0.050), ((0.0, 0.100, 0.120), 0.010))
+## As medianas sao diferentes entre si e diferentes de zero de proposito: com
+## `(0.0, min, max)` nos dois, uma formula que lesse `faixa[0]` por engano so
+## seria pega pela magnitude, e fixture degenerado e cobertura falsa.
+CASOS = (
+	((0.485, 0.417, 0.512), 0.050),
+	((0.110, 0.100, 0.120), 0.010),
+	((0.900, 0.100, 0.120), 0.010),
+)
 
 
 def conferir_a_regra() -> list:
