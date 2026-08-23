@@ -272,27 +272,41 @@ arquivo que dirija a arte daqui para frente. Saiu `docs/11-direcao-de-arte.md`,
 com `tools/arte/censo_do_original.py` medindo os bundles da instalação da Steam
 — **números e estrutura entram, asset não**, a mesma linha das 113 tabelas XML.
 
-O que ele mede: proporção em **25 campeões**, vocabulário em **93
-controladores**, ritmo em **1350 clipes**. E o que saiu disso muda o boneco:
-pescoço a 0,763 da altura (humano 0,823), quadril a 0,486, ombros a 0,175
-(humano 0,229), envergadura 0,901 (humano 1,00). **Cabeça grande, ombros
-estreitos, braços curtos** — e as pernas quase certas.
+O que ele mede: proporção em **27 campeões**, vocabulário em **93
+controladores** de `_animation.pak`, ritmo em **1350 clipes**. E o que saiu
+disso muda o boneco: pescoço a 0,763 da altura (humano 0,823), quadril a 0,485,
+ombros a 0,175 (humano 0,229), vão das mãos 0,629 e envergadura 0,895 (humano
+~1,00). **Cabeça grande, ombros estreitos, braço curto e mão grande** — e a
+perna é o caso misto: joelho igual ao humano, tornozelo 2,4 vezes mais alto.
 
 Três achados que valem além da arte:
 
-- **Só 3 clipes de partida em 235 têm evento de animação**, e são `collect`,
-  `cut` e `mine`. Nenhum de combate. No original o tempo do dano **não sai da
-  animação** — o que é exatamente a regra 3 daqui, confirmada por medição.
-- **`throw_f`/`throw_b` duram o ciclo de `run` em 29 dos 32 campeões.** São as
-  versões conjuradas em movimento, cortadas no tamanho da passada.
-- **6 dos 32 campeões não têm clipe exclusivo nenhum** — Bastine e Fisher, Eden
-  e Kane, Thief e Violet, Harang e Stepan dividem o kit inteiro de animação.
-  Habilidade com a mesma FORMA divide o gesto, que é o que
-  `GestoDeConjuracao` já faz.
+- **3 NOMES de clipe de partida em 235 têm evento de animação** (96 instâncias
+  de 1843), e são `collect`, `cut` e `mine`. Nenhum de combate. A leitura mais
+  econômica é que o tempo do dano **não sai da animação** — mas é inferência a
+  partir de ausência, não observação do motor deles.
+- **`throw_b` dura o ciclo de `run` em 30 dos 32 campeões, e `throw_f` em 29.**
+  São as versões conjuradas em movimento, cortadas no tamanho da passada.
+- **6 dos 32 campeões não têm clipe exclusivo nenhum** — Bastine, Eden, Fisher,
+  Harang, Thief e Violet. Cada um divide as habilidades com um parceiro, mas
+  **dividir não é ser igual**: só Thief e Violet têm conjuntos idênticos; o
+  Harang divide 11 dos 15 dele com o Stepan, que tem 17. Habilidade com a mesma
+  FORMA divide o gesto, que é o que `GestoDeConjuracao` já faz.
 
-`tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção,
-e `tools/conferir_numeros.py` reprova quando documento e código discordam.
-**21 mutações, 21 pegas** — 14 no boneco e 7 na concordância.
+`tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
+— e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
+reprova quando documento e código discordam, mediana E faixa.
+**33 mutações, 33 pegas** — 15 no boneco e 18 na concordância.
+
+**E a primeira versão disto foi REPROVADA por um validador adversarial**, com
+17 achados. Quatro mudaram número: duas malhas de corpo eram descartadas em
+silêncio por não se chamarem `X_Body` (Odri e Rukh), duas texturas de corpo
+eram descartadas pelo prefixo, o quinto comprimento mais comum era 60 quadros e
+não 32, e "os pares dividem o kit inteiro" era falso em três dos quatro pares.
+Dois foram estruturais e valem para tudo: **conferir só a mediana e não a faixa
+deixava alargar qualquer tolerância até nada reprovar** — dez mutações desse
+tipo passaram —, e **`envergadura` eram duas medidas com o mesmo nome**, o que
+fazia o boneco acertar o número com antebraço comprido e nenhuma mão.
 
 **E o anel de alcance nasceu MENTINDO.** Ele mostrava `cast_range`, que vem de
 `AI_SkillRange` do original — a distância em que a IA *decide usar* a
@@ -408,6 +422,18 @@ godot --headless --path . --script res://tools/sondar_ritmo.gd
 py tools/conferir_numeros.py
 ```
 
+E, para o boneco e a direção de arte, mais duas — que precisam do **Blender**,
+não da Godot:
+
+```
+"C:\Program Files\Blender Foundation\Blender 5.2lender.exe" --background --python tools/arte/gerar_personagem.py
+py tools/arte/censo_do_original.py
+```
+
+A primeira gera o boneco **e roda a conferência dele**; a segunda mede o
+original e só funciona onde a instalação da Steam existir (sem ela sai com 2,
+que é diferente de reprovar).
+
 São **quatro**, e `py tools/conferir_numeros.py` sozinho já roda os três
 primeiros: ele executa a suíte E as duas sondas, e trata `SCRIPT ERROR` no
 stderr, código de saída e ausência da marca de sucesso como falha. Rodar os
@@ -422,7 +448,7 @@ Estado ao fim desta sessão: **478 testes, 1304 asserções**, stderr 0 bytes,
 sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
 44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
 conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
-**228 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**238 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar

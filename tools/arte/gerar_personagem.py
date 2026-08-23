@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import math
 import os
+import subprocess
 import sys
 
 import bpy
@@ -81,15 +82,24 @@ from mathutils import Euler, Vector
 ALTURA = 1.75
 
 PROPORCAO = {
-	"tornozelo": 0.096,
-	"joelho": 0.287,
-	"quadril": 0.486,
-	"peito": 0.657,
+	"tornozelo": 0.093,
+	"joelho": 0.283,
+	"quadril": 0.485,
+	"peito": 0.656,
 	"pescoco": 0.763,
-	"ombro": 0.727,        # altura da junta do ombro (pose T do original)
+	"ombro": 0.725,        # altura da junta do ombro (pose T do original)
 	"vao_dos_ombros": 0.175,
 	"vao_dos_quadris": 0.129,
-	"envergadura": 0.901,  # ponta a ponta dos braços abertos
+	# **Duas medidas, e elas não são a mesma.** `vao_das_maos` é junta a junta,
+	# e para no PULSO; `envergadura` é ponta a ponta da malha e inclui a mão.
+	# A diferença entre as duas — 0,266 da altura, 13% por lado — é mão, e é
+	# muita mão: o original tem punho curto e mão grande.
+	#
+	# Publicar só a envergadura foi um erro caro: o boneco batia o número
+	# esticando o antebraço 60% além do que o original tem, e a conferência
+	# aprovava porque o total fechava. Número certo pelo motivo errado.
+	"vao_das_maos": 0.629,
+	"envergadura": 0.895,
 }
 
 Y_TORNOZELO = PROPORCAO["tornozelo"] * ALTURA
@@ -102,12 +112,17 @@ Y_OMBRO = PROPORCAO["ombro"] * ALTURA
 X_OMBRO = PROPORCAO["vao_dos_ombros"] * ALTURA * 0.5
 X_QUADRIL = PROPORCAO["vao_dos_quadris"] * ALTURA * 0.5
 
-# O braço sai da envergadura: ponta a ponta menos o vão dos ombros, dividido
-# por dois. Medir assim em vez de escolher um número é o que faz o braço ficar
-# curto na mesma medida em que o do original é.
-COMPRIMENTO_DO_BRACO = (PROPORCAO["envergadura"] - PROPORCAO["vao_dos_ombros"]) * ALTURA * 0.5
-Y_COTOVELO = Y_OMBRO - COMPRIMENTO_DO_BRACO * 0.47
-Y_MAO = Y_OMBRO - COMPRIMENTO_DO_BRACO
+# Do ombro ao PULSO sai do vão das mãos; do pulso à ponta, da envergadura.
+# São dois ossos e uma mão, e não um braço comprido.
+COMPRIMENTO_ATE_O_PULSO = (
+	(PROPORCAO["vao_das_maos"] - PROPORCAO["vao_dos_ombros"]) * ALTURA * 0.5
+)
+COMPRIMENTO_DA_MAO = (
+	(PROPORCAO["envergadura"] - PROPORCAO["vao_das_maos"]) * ALTURA * 0.5
+)
+Y_COTOVELO = Y_OMBRO - COMPRIMENTO_ATE_O_PULSO * 0.47
+Y_PULSO = Y_OMBRO - COMPRIMENTO_ATE_O_PULSO
+Y_PONTA_DA_MAO = Y_PULSO - COMPRIMENTO_DA_MAO
 
 COMPRIMENTO_DO_PE = 0.24
 COMPRIMENTO_DA_COXA = Y_QUADRIL - Y_JOELHO
@@ -120,9 +135,11 @@ OSSOS = [
 	("peito",       (0.0, 0.0, Y_PEITO), (0.0, 0.0, Y_PESCOCO), "quadril"),
 	("cabeca",      (0.0, 0.0, Y_PESCOCO), (0.0, 0.0, Y_TOPO), "peito"),
 	("braco_D",     (X_OMBRO, 0.0, Y_OMBRO), (X_OMBRO, 0.0, Y_COTOVELO), "peito"),
-	("antebraco_D", (X_OMBRO, 0.0, Y_COTOVELO), (X_OMBRO, 0.0, Y_MAO), "braco_D"),
+	("antebraco_D", (X_OMBRO, 0.0, Y_COTOVELO), (X_OMBRO, 0.0, Y_PULSO), "braco_D"),
+	("mao_D",       (X_OMBRO, 0.0, Y_PULSO), (X_OMBRO, 0.0, Y_PONTA_DA_MAO), "antebraco_D"),
 	("braco_E",     (-X_OMBRO, 0.0, Y_OMBRO), (-X_OMBRO, 0.0, Y_COTOVELO), "peito"),
-	("antebraco_E", (-X_OMBRO, 0.0, Y_COTOVELO), (-X_OMBRO, 0.0, Y_MAO), "braco_E"),
+	("antebraco_E", (-X_OMBRO, 0.0, Y_COTOVELO), (-X_OMBRO, 0.0, Y_PULSO), "braco_E"),
+	("mao_E",       (-X_OMBRO, 0.0, Y_PULSO), (-X_OMBRO, 0.0, Y_PONTA_DA_MAO), "antebraco_E"),
 	("coxa_D",      (X_QUADRIL, 0.0, Y_QUADRIL), (X_QUADRIL, 0.0, Y_JOELHO), "quadril"),
 	("canela_D",    (X_QUADRIL, 0.0, Y_JOELHO), (X_QUADRIL, 0.0, Y_TORNOZELO), "coxa_D"),
 	("pe_D",        (X_QUADRIL, 0.0, Y_TORNOZELO),
@@ -146,8 +163,12 @@ CAIXAS = {
 	"cabeca": (0.36, 0.34),
 	"braco_D": (0.12, 0.12),
 	"antebraco_D": (0.11, 0.11),
+	# A mão é a peça mais grossa do braço, e é assim no original: punho curto,
+	# mão grande. É ela que o olho segue durante o golpe.
+	"mao_D": (0.145, 0.13),
 	"braco_E": (0.12, 0.12),
 	"antebraco_E": (0.11, 0.11),
+	"mao_E": (0.145, 0.13),
 	"coxa_D": (0.155, 0.155),
 	"canela_D": (0.135, 0.135),
 	"coxa_E": (0.155, 0.155),
@@ -193,7 +214,8 @@ CORES = {
 MATERIAL_DO_OSSO = {
 	"quadril": "roupa", "peito": "roupa", "cabeca": "pele",
 	"braco_D": "membro", "braco_E": "membro",
-	"antebraco_D": "mao", "antebraco_E": "mao",
+	"antebraco_D": "membro", "antebraco_E": "membro",
+	"mao_D": "mao", "mao_E": "mao",
 	"coxa_D": "membro", "coxa_E": "membro",
 	"canela_D": "membro", "canela_E": "membro",
 }
@@ -784,7 +806,36 @@ def main() -> int:
 		os.path.getsize(destino) / 1024 if os.path.exists(destino) else 0,
 	))
 	print("[arte] para abrir e olhar: %s" % blend)
-	return 0
+	return conferir(raiz)
+
+
+def conferir(raiz: str) -> int:
+	"""Roda `conferir_personagem.py` no que acabou de ser exportado.
+
+	**Porque a direcao de arte diz que ele roda toda vez que o boneco e
+	gerado**, e antes disso a frase era falsa: o conferidor so rodava se
+	alguem lembrasse a linha de comando do Blender. "Defesa que depende de
+	alguem lembrar nao e defesa" e a licao 11 do `CLAUDE.md`, e ela ja
+	recorreu cinco vezes neste projeto.
+
+	Roda num processo separado de proposito: o conferidor IMPORTA o `.glb`
+	numa cena limpa, e importar dentro desta aqui apagaria a cena que acabou
+	de ser salva.
+	"""
+	conferidor = os.path.join(raiz, "tools", "arte", "conferir_personagem.py")
+	if not os.path.exists(conferidor):
+		print("[arte] FALTA %s — o boneco saiu sem ser conferido" % conferidor)
+		return 1
+	resultado = subprocess.run(
+		[bpy.app.binary_path, "--background", "--python", conferidor],
+		capture_output=True, text=True, encoding="utf-8", errors="replace",
+	)
+	for linha in (resultado.stdout or "").splitlines():
+		if linha.startswith("[confere]"):
+			print(linha)
+	if resultado.returncode != 0:
+		print("[arte] o boneco NAO passou na direcao de arte")
+	return resultado.returncode
 
 
 if __name__ == "__main__":

@@ -889,35 +889,41 @@ NIVEL_DE_REFERENCIA = 9
 
 # --------------------------------------------------- a direção de arte
 
-## Rótulo na tabela de `docs/11` → chave de `PROPORCAO` no gerador.
+## Rótulo na tabela de `docs/11` → chave de `PROPORCAO` no gerador → nome da
+## medida em `conferir_personagem.py`. As três fontes têm que dizer o mesmo
+## número, e cada seta é uma chance de elas se separarem.
 DIRECAO_LINHAS = {
-    "tornozelo": "tornozelo",
-    "joelho": "joelho",
-    "quadril": "quadril",
-    "peito": "peito",
-    "base do pescoço": "pescoco",
-    "ombro / cotovelo / mão": "ombro",
-    "separação dos ombros / altura": "vao_dos_ombros",
-    "separação dos quadris / altura": "vao_dos_quadris",
-    "envergadura / altura": "envergadura",
+    "tornozelo": ("tornozelo", "pe_D"),
+    "joelho": ("joelho", "canela_D"),
+    "quadril": ("quadril", "coxa_D"),
+    "peito": ("peito", "peito"),
+    "base do pescoço": ("pescoco", "cabeca"),
+    "ombro / cotovelo / mão": ("ombro", "braco_D"),
+    "separação dos ombros / altura": ("vao_dos_ombros", "ombros"),
+    "separação dos quadris / altura": ("vao_dos_quadris", "quadris"),
+    "vão das mãos / altura": ("vao_das_maos", "maos"),
+    "envergadura / altura": ("envergadura", "envergadura"),
 }
 
-## Chave de `PROPORCAO` → nome em `PROPORCAO_ESPERADA` do conferidor. É o que
-## impede o gerador e o conferidor de andarem para lados diferentes: mudar a
-## proporção só no gerador faria a conferência aprovar o boneco novo contra a
-## regra velha, em silêncio.
-DIRECAO_CONFERIDOR = {
-    "tornozelo": "pe_D",
-    "joelho": "canela_D",
-    "quadril": "coxa_D",
-    "peito": "peito",
-    "pescoco": "cabeca",
-    "ombro": "braco_D",
-}
+## As três animações de locomoção usam a faixa do clipe equivalente do original,
+## publicada na tabela do §3. Sem esta amarração dava para alargar a faixa da
+## corrida até nada reprovar, e nenhuma ferramenta notava.
+DIRECAO_LOCOMOCAO = {"parado": "idle", "andando": "walk", "correndo": "run"}
 
 
 def _decimal(texto: str) -> float:
     return float(texto.replace(",", "."))
+
+
+def _tabela_do_documento(doc: str, rotulo: str):
+    """`(mediana, mínimo, máximo)` de uma linha das tabelas de `docs/11`."""
+    achado = re.search(
+        r"\| %s \| \*{0,2}(-?[0-9],[0-9]+)\*{0,2} \| (-?[0-9],[0-9]+) – (-?[0-9],[0-9]+) \|"
+        % re.escape(rotulo), doc
+    )
+    if achado is None:
+        return None
+    return tuple(_decimal(achado.group(i)) for i in (1, 2, 3))
 
 
 def _proporcao_do_gerador(fonte: str) -> dict:
@@ -927,7 +933,7 @@ def _proporcao_do_gerador(fonte: str) -> dict:
     topo, e esta ferramenta roda em Python comum. Importar aqui exigiria o
     Blender, e uma conferência que só roda numa máquina não é conferência.
     """
-    trecho = re.search(r"PROPORCAO = \{(.*?)\}", fonte, re.S)
+    trecho = re.search(r"PROPORCAO = \{(.*?)^\}", fonte, re.S | re.M)
     if trecho is None:
         return {}
     return {
@@ -936,22 +942,47 @@ def _proporcao_do_gerador(fonte: str) -> dict:
     }
 
 
+def _faixas_do_conferidor(fonte: str) -> dict:
+    """`medida → (mediana, mínimo, máximo)`, das duas tabelas do conferidor."""
+    saida = {}
+    for bloco in ("FAIXA_MEDIDA", "FAIXA_DAS_LARGURAS"):
+        trecho = re.search(r"%s = \{(.*?)^\}" % bloco, fonte, re.S | re.M)
+        if trecho is None:
+            continue
+        for nome, a, b, d in re.findall(
+            r'"(\w+)": \(([0-9.]+), (-?[0-9.]+), ([0-9.]+)\)', trecho.group(1)
+        ):
+            saida[nome] = (float(a), float(b), float(d))
+    return saida
+
+
 def _conferir_direcao_de_arte(c: "Conferencia") -> None:
-    """`docs/11` contra `tools/arte/`, nos dois sentidos.
+    """`docs/11` contra `tools/arte/`, nos dois sentidos, MEDIANA E FAIXA.
 
     Os números do ORIGINAL naquele documento não são conferidos aqui: eles
     dependem da instalação da Steam, e quem os reproduz é
     `tools/arte/censo_do_original.py`. O que é conferido é o que o documento
     afirma sobre NÓS — e é aí que documento e código se separam.
+
+    **A faixa é conferida junto com a mediana, e isso não é zelo.** A tolerância
+    do conferidor do boneco é derivada da faixa; conferindo só a mediana, abrir
+    a tolerância até nada reprovar era uma edição de um dígito que passava por
+    todas as ferramentas. Foram dez mutações desse tipo, e as dez passaram.
     """
-    doc = ler("docs/11-direcao-de-arte.md")
-    gerador = ler("tools/arte/gerar_personagem.py")
-    conferidor = ler("tools/arte/conferir_personagem.py")
-    if not doc or not gerador or not conferidor:
-        c.avisar("a direção de arte ou as ferramentas dela não foram lidas", 0)
+    try:
+        doc = ler("docs/11-direcao-de-arte.md")
+        gerador = ler("tools/arte/gerar_personagem.py")
+        conferidor = ler("tools/arte/conferir_personagem.py")
+    except OSError as erro:
+        # Falta de arquivo é FALHA, não degradação benigna: a versão anterior
+        # tinha um `c.avisar()` aqui que era inalcançável, porque `ler()`
+        # levanta em vez de devolver vazio. Caminho documentado que era ficção.
+        c.contar()
+        c.falhas.append("a direção de arte não pôde ser lida: %s" % erro)
         return
 
     proporcao = _proporcao_do_gerador(gerador)
+    faixas = _faixas_do_conferidor(conferidor)
     c.contar()
     if len(proporcao) != len(DIRECAO_LINHAS):
         c.falhas.append(
@@ -960,61 +991,105 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
             % (len(proporcao), len(DIRECAO_LINHAS))
         )
 
-    # 1. cada linha da tabela de docs/11 contra o gerador
-    for rotulo, chave in sorted(DIRECAO_LINHAS.items()):
+    for rotulo, (chave, medida) in sorted(DIRECAO_LINHAS.items()):
         c.contar()
-        linha = re.search(
-            r"\| %s \| \*{0,2}([0-9],[0-9]+)\*{0,2} \|" % re.escape(rotulo), doc
-        )
+        linha = _tabela_do_documento(doc, rotulo)
         if linha is None:
             c.falhas.append(
-                "docs/11: a linha `%s` sumiu da tabela — a conferência ficou "
+                "docs/11: a linha `%s` sumiu das tabelas — a conferência ficou "
                 "órfã" % rotulo
             )
             continue
+        mediana, minimo, maximo = linha
         if chave not in proporcao:
             c.falhas.append("`PROPORCAO` do gerador não tem `%s`" % chave)
-            continue
-        if abs(_decimal(linha.group(1)) - proporcao[chave]) > 1e-9:
+        elif abs(mediana - proporcao[chave]) > 1e-9:
             c.falhas.append(
-                "docs/11 diz %s = %s e o gerador usa %.3f"
-                % (rotulo, linha.group(1), proporcao[chave])
+                "docs/11 diz %s = %.3f e o gerador usa %.3f"
+                % (rotulo, mediana, proporcao[chave])
             )
-
-    # 2. o gerador contra o conferidor
-    esperadas = dict(re.findall(r'"(\w+)": \(([0-9.]+), [0-9.]+\)', conferidor))
-    for chave, osso in sorted(DIRECAO_CONFERIDOR.items()):
         c.contar()
-        if osso not in esperadas:
+        if medida not in faixas:
             c.falhas.append(
-                "`PROPORCAO_ESPERADA` não tem `%s` — a conferência do boneco "
-                "deixou de olhar essa medida" % osso
+                "o conferidor do boneco não tem a faixa de `%s` — a medida "
+                "deixou de ser julgada" % medida
             )
             continue
-        if abs(float(esperadas[osso]) - proporcao.get(chave, -1)) > 1e-9:
+        if (abs(faixas[medida][0] - mediana) > 1e-9
+                or abs(faixas[medida][1] - minimo) > 1e-9
+                or abs(faixas[medida][2] - maximo) > 1e-9):
             c.falhas.append(
-                "o gerador põe `%s` em %.3f e a conferência espera %.3f"
-                % (chave, proporcao.get(chave, -1), float(esperadas[osso]))
-            )
-    for nome, chave in (("VAO_DOS_OMBROS", "vao_dos_ombros"),
-                        ("VAO_DOS_QUADRIS", "vao_dos_quadris"),
-                        ("ENVERGADURA", "envergadura")):
-        c.contar()
-        achado = re.search(r"%s = \(([0-9.]+), [0-9.]+\)" % nome, conferidor)
-        if achado is None:
-            c.falhas.append("`%s` sumiu do conferidor do boneco" % nome)
-        elif abs(float(achado.group(1)) - proporcao.get(chave, -1)) > 1e-9:
-            c.falhas.append(
-                "o gerador põe `%s` em %.3f e o conferidor espera %.3f"
-                % (chave, proporcao.get(chave, -1), float(achado.group(1)))
+                "docs/11 publica %s = %.3f (%.3f a %.3f) e o conferidor usa "
+                "%.3f (%.3f a %.3f)" % (rotulo, mediana, minimo, maximo,
+                                        faixas[medida][0], faixas[medida][1],
+                                        faixas[medida][2])
             )
 
-    # 3. a cadência, que o documento afirma e a conferência usa
+    # A altura, que o §2 manda e o gerador e o conferidor obedecem.
+    c.afirma("docs/11 altura do personagem", doc,
+             r"todo personagem tem \*\*1,(\d+) m\*\*", 75)
+    c.contar()
+    alt_g = re.search(r"^ALTURA = ([0-9.]+)", gerador, re.M)
+    alt_c = re.search(r"^ALTURA_DA_DIRECAO = ([0-9.]+)", conferidor, re.M)
+    if alt_g is None or alt_c is None:
+        c.falhas.append("a altura sumiu do gerador ou do conferidor do boneco")
+    elif abs(float(alt_g.group(1)) - 1.75) > 1e-9 or abs(float(alt_c.group(1)) - 1.75) > 1e-9:
+        c.falhas.append(
+            "docs/11 manda 1,75 m; gerador diz %s e conferidor diz %s"
+            % (alt_g.group(1), alt_c.group(1))
+        )
+
+    # A cadência, que o documento afirma e a conferência usa.
     c.afirma("docs/11 cadência", doc, r"\*\*(\d+) quadros por segundo\*\*", 30)
     c.afirma("conferidor cadência", conferidor, r"CADENCIA = (\d+)\.0", 30)
 
-    # 4. a faixa dos gestos: `docs/11` publica os quartis, e é deles que a
-    #    conferência tira a faixa. Já bastou mudar um dos dois.
+    # As três tolerâncias que não saem de faixa nenhuma, e por isso são
+    # declaradas no §9 para poderem ser conferidas. Sem isto, alargar qualquer
+    # uma até nada reprovar era uma edição de um dígito.
+    for rotulo, no_doc_padrao, no_codigo_padrao in (
+        ("altura", r"a altura vale com folga de \*\*([0-9]) cm\*\*",
+         r"FOLGA_DA_ALTURA = ([0-9.]+)"),
+        ("chão", r"chão com folga de \*\*([0-9],[0-9]) cm\*\*",
+         r"TOLERANCIA_DO_CHAO = ([0-9.]+)"),
+        ("amplitude", r"amplitude de pelo menos\s+\*\*([0-9]) cm\*\*",
+         r"MOVIMENTO_MINIMO = ([0-9.]+)"),
+    ):
+        c.contar()
+        no_doc = re.search(no_doc_padrao, doc)
+        no_codigo = re.search(no_codigo_padrao, conferidor)
+        if no_doc is None or no_codigo is None:
+            c.falhas.append(
+                "a tolerância de %s sumiu de `docs/11` ou do conferidor" % rotulo
+            )
+        elif abs(_decimal(no_doc.group(1)) / 100.0 - float(no_codigo.group(1))) > 1e-9:
+            c.falhas.append(
+                "docs/11 diz %s cm de tolerância de %s e o conferidor usa %s m"
+                % (no_doc.group(1), rotulo, no_codigo.group(1))
+            )
+
+    # As três de locomoção: a faixa do conferidor é a faixa publicada do clipe
+    # equivalente do original, sem folga inventada.
+    for nossa, deles in sorted(DIRECAO_LOCOMOCAO.items()):
+        c.contar()
+        no_doc = re.search(
+            r"\| `%s` \| ([0-9],[0-9]+) / [0-9],[0-9]+ / ([0-9],[0-9]+) s \|" % deles, doc
+        )
+        no_codigo = re.search(
+            r'"%s": \(([0-9.]+), ([0-9.]+)\)' % nossa, conferidor
+        )
+        if no_doc is None:
+            c.falhas.append("docs/11: a linha de `%s` sumiu do vocabulário" % deles)
+        elif no_codigo is None:
+            c.falhas.append("a faixa de `%s` sumiu do conferidor do boneco" % nossa)
+        elif (abs(_decimal(no_doc.group(1)) - float(no_codigo.group(1))) > 1e-9
+              or abs(_decimal(no_doc.group(2)) - float(no_codigo.group(2))) > 1e-9):
+            c.falhas.append(
+                "docs/11 publica `%s` de %s a %s e a faixa de `%s` é %s--%s"
+                % (deles, no_doc.group(1), no_doc.group(2), nossa,
+                   no_codigo.group(1), no_codigo.group(2))
+            )
+
+    # Os cinco gestos: a faixa é o par de quartis publicado.
     quartis = re.search(r"p25 \*\*([0-9],[0-9]+)\*\* · p75 \*\*([0-9],[0-9]+)\*\*", doc)
     c.contar()
     if quartis is None:

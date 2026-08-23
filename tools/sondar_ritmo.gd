@@ -233,6 +233,14 @@ func _sondar() -> Array[String]:
 			+ "cadência; o par de controle não distingue nada")
 		)
 
+	# ------------------------------------------- o gesto de caminhada
+	#
+	# O corpo tem que se MEXER enquanto anda, em vez de deslizar. Não foi
+	# conferido quando entrou, e o usuário reportou que continuava parado —
+	# escrever a animação e presumir que ela funciona é a mesma classe de
+	# defeito que a sonda de conjuração existe para pegar.
+	falhas.append_array(await _conferir_caminhada(jogador, meu))
+
 	# ------------------------------------------- o gesto de conjuração
 	#
 	# O corpo tem que FAZER alguma coisa ao conjurar, e voltar ao repouso
@@ -244,11 +252,204 @@ func _sondar() -> Array[String]:
 
 	return falhas
 
+## O corpo se mexe enquanto ANDA.
+func _conferir_caminhada(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
+	var falhas: Array[String] = []
+	var boneco: Boneco = null
+	for filho: Node in jogador.get_children():
+		if filho is Boneco:
+			boneco = filho as Boneco
+	if boneco == null:
+		return ["a cena não tem Boneco"] as Array[String]
+
+	# Solta o alvo e manda andar para longe. `_target` e `target_position` são
+	# privados por convenção, não por linguagem.
+	jogador.set("_target", null)
+	jogador.set("target_position", jogador.global_position + Vector3(0.0, 0.0, -12.0))
+
+	var com_membros: bool = boneco.tem_membros()
+	# **Terceiro corpo possível: o de ESQUELETO.** Quique e bamboleio foram
+	# escritos para uma malha sem osso; com esqueleto quem anda é o clipe, e
+	# medir `position.y` do nó dá zero com a passada perfeita. O termo que serve
+	# aos três é `Boneco.pontos()`, que devolve pontos no mundo.
+	var com_esqueleto: bool = boneco.esqueleto() != null
+	var base_y: float = boneco.position.y
+	var repouso: Dictionary = {}
+	for membro: Node3D in boneco.membros():
+		repouso[membro] = membro.rotation
+
+	# **Amplitude da OSCILAÇÃO, e não desvio do repouso.**
+	#
+	# A primeira versão media a distância até o repouso e ficava satisfeita com
+	# a inclinação, que é CONSTANTE enquanto se anda: 10 graus dão 0,17 rad e
+	# passavam por qualquer piso, mesmo com o quique zerado. Três mutações —
+	# amplitude invisível, fase congelada, repouso não devolvido — passaram
+	# verdes por causa disso. O que distingue animação de postura é a variação
+	# ao longo do tempo.
+	var andou: float = 0.0
+	var mexidos: Dictionary = {}
+	var comeco: Vector3 = jogador.global_position
+	var min_y: float = INF
+	var max_y: float = -INF
+	var min_z: float = INF
+	var max_z: float = -INF
+	var amplitude_de_membro: float = 0.0
+	var extremos: Dictionary = {}
+	var caixa_min := PackedVector3Array()
+	var caixa_max := PackedVector3Array()
+	for _passo: int in 60:
+		await physics_frame
+		await process_frame
+		andou = maxf(andou, jogador.global_position.distance_to(comeco))
+		if com_esqueleto:
+			# **Relativo ao corpo**, senão a translação de andar entraria na
+			# conta e a conferência aprovaria um boneco rígido deslizando.
+			var aqui: PackedVector3Array = boneco.pontos()
+			for i in range(aqui.size()):
+				var p: Vector3 = aqui[i] - jogador.global_position
+				if i >= caixa_min.size():
+					caixa_min.append(p)
+					caixa_max.append(p)
+				else:
+					caixa_min[i] = caixa_min[i].min(p)
+					caixa_max[i] = caixa_max[i].max(p)
+		elif com_membros:
+			for membro: Node3D in boneco.membros():
+				var x: float = membro.rotation.x
+				var par: Vector2 = extremos.get(membro.name, Vector2(INF, -INF))
+				extremos[membro.name] = Vector2(minf(par.x, x), maxf(par.y, x))
+				if membro.rotation.distance_to(repouso[membro]) > 0.01:
+					mexidos[membro.name] = true
+		else:
+			min_y = minf(min_y, boneco.position.y)
+			max_y = maxf(max_y, boneco.position.y)
+			min_z = minf(min_z, boneco.rotation.z)
+			max_z = maxf(max_z, boneco.rotation.z)
+	for nome: String in extremos:
+		var par: Vector2 = extremos[nome]
+		amplitude_de_membro = maxf(amplitude_de_membro, par.y - par.x)
+
+	# **Metro e radiano são conferidos SEPARADO.** Juntá-los num `maxf` faz o
+	# maior mascarar o outro: com 7 graus de bamboleio (0,24 rad) o piso
+	# passava mesmo com o quique reduzido a 4,5 cm, que é a amplitude
+	# invisível que o usuário reportou. Foi o mesmo erro de unidade que já
+	# tinha deixado a inclinação constante mascarar a oscilação inteira.
+	var amplitude_de_osso: float = 0.0
+	for i in range(caixa_min.size()):
+		amplitude_de_osso = maxf(
+			amplitude_de_osso, caixa_min[i].distance_to(caixa_max[i])
+		)
+	var quique: float = 0.0 if (com_membros or com_esqueleto) else max_y - min_y
+	var balanco_lateral: float = 0.0 if (com_membros or com_esqueleto) else max_z - min_z
+	var mexeu: float = quique
+	if com_esqueleto:
+		mexeu = amplitude_de_osso
+	elif com_membros:
+		mexeu = amplitude_de_membro
+	print(("  gesto de caminhada: andou %.2f m, corpo %s, oscilação %.3f"
+		+ ", quique %.3f m, balanço %.3f rad, %d membros")
+		% [andou, _tipo_de_corpo(com_membros, com_esqueleto), mexeu,
+		   quique, balanco_lateral, mexidos.size()])
+	if andou < 0.5:
+		return ["o personagem não andou (%.2f m); a conferência da caminhada "
+			% andou + "não teve o que medir"] as Array[String]
+	# **Um piso de amplitude, e não só "mexeu".** O primeiro valor que escrevi
+	# dava 4,5 cm de quique num corpo de 1,8 m — 2,5%, invisível na tela. Uma
+	# animação que a conferência aprova e o olho não vê não é animação.
+	# 0,10 de AMPLITUDE é o piso do que se vê — 10 cm de quique num corpo de
+	# 1,8 m, ou 6 graus de balanço. Abaixo disso o corpo se mexe no papel e não
+	# na tela.
+	if mexeu < 0.10:
+		falhas.append(
+			("andando %.2f m o corpo oscilou só %.4f: a caminhada não é "
+			+ "visível") % [andou, mexeu]
+		)
+	# O balanço tem piso PRÓPRIO, e é o que impede um componente de cobrir o
+	# outro. 0,06 rad ≈ 3,5 graus.
+	if not com_membros and not com_esqueleto and balanco_lateral < 0.06:
+		falhas.append(
+			("o balanço lateral foi de só %.3f rad; sobe-e-desce sozinho lê "
+			+ "como flutuação, não como passo") % balanco_lateral
+		)
+	if com_membros and mexidos.size() < 2:
+		falhas.append(
+			("a caminhada mexeu só %d membro(s); passada precisa de perna E "
+			+ "braço") % mexidos.size()
+		)
+
+	# E o corpo tem que voltar ao lugar quando o personagem para.
+	#
+	# **Testado em VÁRIAS fases**, e não numa só: parando no fundo do quique o
+	# `y` coincide com o repouso por acaso, e a conferência aprovava um
+	# `_repousar` que não restaurava nada. Fixture degenerado — a mesma classe
+	# que já custou rodadas na perseguição da âncora e na cadência.
+	var pior_fora: float = 0.0
+	for tentativa: int in 4:
+		jogador.set(
+			"target_position", jogador.global_position + Vector3(0.0, 0.0, -4.0)
+		)
+		# Passos diferentes a cada volta, para parar em fases diferentes.
+		for _passo: int in 7 + tentativa * 3:
+			await physics_frame
+			await process_frame
+		jogador.set("target_position", jogador.global_position)
+		jogador.velocity = Vector3.ZERO
+		for _passo: int in 10:
+			await physics_frame
+			await process_frame
+		if not com_membros and not com_esqueleto:
+			pior_fora = maxf(pior_fora, absf(boneco.position.y - base_y))
+			pior_fora = maxf(pior_fora, absf(boneco.rotation.z))
+	if pior_fora > 0.001:
+		falhas.append(
+			("parado, o corpo ficou %.3f fora do repouso da caminhada (pior "
+			+ "de 4 fases)") % pior_fora
+		)
+
+	# **A ordem importa, e custou uma mutação escapando.** O gesto de
+	# conjuração restaura a posição do corpo ao terminar, então conjurar ANTES
+	# desta conferência mascarava um `_repousar` da caminhada que não
+	# restaurava nada — uma conferência apagando o rastro que a outra procura.
+	# **Conjurar ENQUANTO anda.** É o único jeito de ver as duas animações
+	# disputando o mesmo corpo, e a conferência do gesto não alcança isso:
+	# ela para o personagem antes, de propósito. Sem isto, a caminhada podia
+	# largar o corpo inclinado no meio do golpe e ninguém veria.
+	var caster_andando: AbilityCaster = null
+	for filho: Node in jogador.get_children():
+		if filho is AbilityCaster:
+			caster_andando = filho as AbilityCaster
+	if caster_andando != null:
+		caster_andando.book.clear_cooldowns()
+		meu.unit.mana.current = meu.unit.mana.maximum()
+		caster_andando.call("_try_cast", AbilityBook.Slot.Q)
+		var fora_do_lugar: float = 0.0
+		for _passo: int in 40:
+			await physics_frame
+			await process_frame
+			if not com_membros and not com_esqueleto:
+				fora_do_lugar = maxf(fora_do_lugar, absf(boneco.rotation.z))
+		# Enquanto o golpe corre, a caminhada não pode estar torcendo o corpo.
+		if fora_do_lugar > 0.02:
+			falhas.append(
+				("conjurando em movimento, a caminhada continuou torcendo o "
+				+ "corpo em %.3f rad") % fora_do_lugar
+			)
+
+	return falhas
+
 ## O corpo se mexe ao conjurar, e volta ao lugar depois.
 func _conferir_gesto(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
 	var falhas: Array[String] = []
 	var caster: AbilityCaster = null
 	var gesto: Node = null
+	# **O personagem para antes**: a conferência anterior o deixou andando, e
+	# a caminhada mexe o mesmo corpo que o gesto — as duas se atrapalhavam.
+	jogador.set("target_position", jogador.global_position)
+	jogador.velocity = Vector3.ZERO
+	for _passo: int in 12:
+		await physics_frame
+		await process_frame
+
 	var boneco: Boneco = null
 	for filho: Node in jogador.get_children():
 		if filho is AbilityCaster:
@@ -270,6 +471,7 @@ func _conferir_gesto(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
 	# A sonda tem que passar nos DOIS casos: no repositório limpo há o boneco
 	# de caixas, e na máquina de quem importou há a malha.
 	var com_membros: bool = boneco.tem_membros()
+	var com_esqueleto: bool = boneco.esqueleto() != null
 	var repouso: Dictionary = {}
 	for membro: Node3D in boneco.membros():
 		repouso[membro] = membro.rotation
@@ -305,10 +507,19 @@ func _conferir_gesto(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
 	# exatamente o que esta conferência acusou na primeira execução.
 	var maior: float = 0.0
 	var mexidos: Dictionary = {}
+	var antes := PackedVector3Array()
 	for _passo: int in 90:
 		await physics_frame
 		await process_frame
-		if com_membros:
+		if com_esqueleto:
+			var aqui: PackedVector3Array = boneco.pontos()
+			for i in range(aqui.size()):
+				var p: Vector3 = aqui[i] - jogador.global_position
+				if i >= antes.size():
+					antes.append(p)
+				else:
+					maior = maxf(maior, antes[i].distance_to(p))
+		elif com_membros:
 			for membro: Node3D in boneco.membros():
 				var desvio: float = membro.rotation.distance_to(repouso[membro])
 				if desvio > 0.01:
@@ -333,8 +544,12 @@ func _conferir_gesto(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
 			+ "como golpe") % [mexidos.size(), ", ".join(mexidos.keys())]
 		)
 	print("  gesto de conjuração: corpo %s, %d membros mexidos, desvio máximo %.2f"
-		% ["articulado" if com_membros else "inteiriço (malha externa)",
-		   mexidos.size(), maior])
+		% [_tipo_de_corpo(com_membros, com_esqueleto), mexidos.size(), maior])
+	if com_esqueleto:
+		# O clipe leva o corpo para onde a animação quiser e a pose de repouso
+		# volta pelo próprio `idle`; cobrar aqui a volta ao repouso seria cobrar
+		# do esqueleto uma regra que era do gesto procedural.
+		return falhas
 	if com_membros:
 		for membro: Node3D in boneco.membros():
 			if membro.rotation.distance_to(repouso[membro]) > 0.001:
@@ -386,3 +601,12 @@ func _achar_boneco() -> Combatant:
 		if combatant.team != 0 and combatant.is_alive():
 			return combatant
 	return null
+
+
+## Como chamar o corpo que a cena montou, para o relatório dizer qual foi.
+func _tipo_de_corpo(com_membros: bool, com_esqueleto: bool) -> String:
+	if com_esqueleto:
+		return "com esqueleto (malha externa)"
+	if com_membros:
+		return "articulado"
+	return "inteiriço (malha externa)"

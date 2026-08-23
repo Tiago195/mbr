@@ -50,7 +50,14 @@ NOMES_EXIGIDOS = [
 ## e autorado com 1,75 exato, entao qualquer desvio significa que uma medida
 ## saiu de sincronia com as outras. Com a faixa larga de antes (1,60 a 1,90),
 ## encolher a cabeca inteira passava.
-ALTURA_ESPERADA = (1.70, 1.82)
+## A altura do corpo parado, em metros. `docs/11` §2 manda 1,75 m para todo
+## personagem; a folga aqui e so a espessura de uma caixa.
+ALTURA_DA_DIRECAO = 1.75
+## A folga da altura, em metros — publicada em `docs/11` §9 e conferida contra
+## ele. Escrita solta, alargar ate nada reprovar era uma edicao de um digito.
+FOLGA_DA_ALTURA = 0.04
+ALTURA_ESPERADA = (ALTURA_DA_DIRECAO - FOLGA_DA_ALTURA,
+                   ALTURA_DA_DIRECAO + FOLGA_DA_ALTURA)
 
 ## ------------------------------------------------------------------ arte
 ##
@@ -62,28 +69,65 @@ ALTURA_ESPERADA = (1.70, 1.82)
 ## sessao o boneco anda para um lado e o texto para o outro. Ja aconteceu com
 ## prosa neste projeto quatro vezes seguidas.
 
-## `osso: (fracao da altura, folga)`. A folga e a metade da faixa medida entre
-## os 25 campeoes, arredondada para cima — nao um numero escolhido.
-PROPORCAO_ESPERADA = {
-	"pe_D": (0.096, 0.035),      # tornozelo: medido 0,058 a 0,123
-	"canela_D": (0.287, 0.045),  # joelho:    medido 0,253 a 0,328
-	"coxa_D": (0.486, 0.050),    # quadril:   medido 0,417 a 0,512
-	"peito": (0.657, 0.045),     # peito:     medido 0,602 a 0,687
-	"cabeca": (0.763, 0.040),    # pescoco:   medido 0,720 a 0,795
-	"braco_D": (0.727, 0.045),   # ombro:     medido 0,672 a 0,753
+## `medida: (mediana, minimo, maximo)` — os tres numeros que `docs/11` publica,
+## medidos em 27 campeoes do original.
+##
+## **A folga nao e escrita, e DERIVADA:** meia faixa medida, arredondada para
+## cima em passos de meio ponto percentual. Escrever a folga a mao foi um erro
+## real — `VAO_DOS_QUADRIS` tinha 0,035 onde a regra dava 0,020, e a docstring
+## logo acima dele afirmava que a folga seguia a regra. Justificativa gravada
+## que era falsa, terceira ocorrencia neste projeto.
+##
+## E derivar fecha uma classe inteira: com a folga escrita, alargar a tolerancia
+## ate nada reprovar era uma edicao de um digito que passava por tudo.
+FAIXA_MEDIDA = {
+	"pe_D": (0.093, 0.057, 0.123),      # tornozelo
+	"canela_D": (0.283, 0.253, 0.328),  # joelho
+	"coxa_D": (0.485, 0.417, 0.512),    # quadril
+	"peito": (0.656, 0.602, 0.687),     # peito
+	"cabeca": (0.763, 0.708, 0.795),    # base do pescoco
+	"braco_D": (0.725, 0.672, 0.753),   # junta do ombro
 }
-## `(fracao, folga)` para as larguras.
-VAO_DOS_OMBROS = (0.175, 0.045)   # medido 0,162 a 0,241
-VAO_DOS_QUADRIS = (0.129, 0.035)
-ENVERGADURA = (0.901, 0.060)      # medido 0,855 a 0,966
+FAIXA_DAS_LARGURAS = {
+	"ombros": (0.175, 0.162, 0.241),
+	"quadris": (0.129, 0.105, 0.145),
+	# Junta a junta, parando no punho.
+	"maos": (0.629, 0.588, 0.703),
+	# Ponta a ponta da malha, mao inclusa.
+	"envergadura": (0.895, 0.808, 0.966),
+}
+## O passo do arredondamento da folga, em fracao da altura.
+PASSO_DA_FOLGA = 0.005
+
+
+def folga_de(faixa: tuple) -> float:
+	"""Meia faixa medida, arredondada para cima no passo declarado."""
+	meia = (faixa[2] - faixa[1]) * 0.5
+	passos = int(meia / PASSO_DA_FOLGA)
+	if meia - passos * PASSO_DA_FOLGA > 1e-9:
+		passos += 1
+	return passos * PASSO_DA_FOLGA
+
+
+PROPORCAO_ESPERADA = {
+	osso: (faixa[0], folga_de(faixa)) for osso, faixa in FAIXA_MEDIDA.items()
+}
+VAO_DOS_OMBROS = (FAIXA_DAS_LARGURAS["ombros"][0], folga_de(FAIXA_DAS_LARGURAS["ombros"]))
+VAO_DOS_QUADRIS = (FAIXA_DAS_LARGURAS["quadris"][0], folga_de(FAIXA_DAS_LARGURAS["quadris"]))
+VAO_DAS_MAOS = (FAIXA_DAS_LARGURAS["maos"][0], folga_de(FAIXA_DAS_LARGURAS["maos"]))
+ENVERGADURA = (FAIXA_DAS_LARGURAS["envergadura"][0],
+               folga_de(FAIXA_DAS_LARGURAS["envergadura"]))
 
 ## A faixa de duracao de cada animacao, em segundos, tirada do vocabulario do
 ## original. As tres de locomocao usam a faixa do clipe equivalente; os cinco
 ## gestos usam os quartis dos clipes de habilidade (p25 0,83 -- p75 1,40).
+## As faixas de locomocao sao a faixa MEDIDA do clipe equivalente, sem folga:
+## sao publicadas em `docs/11` e conferidas contra ela. Com folga inventada,
+## alargar uma delas ate nada reprovar passava por tudo.
 DURACAO_ESPERADA = {
-	"parado": (1.20, 5.40),      # `idle`  medido 1,27 a 5,33
-	"andando": (1.05, 1.65),     # `walk`  medido 1,07 a 1,60
-	"correndo": (0.65, 1.15),    # `run`   medido 0,67 a 1,13
+	"parado": (1.27, 5.33),      # `idle`  medido nos 32
+	"andando": (1.07, 1.60),     # `walk`  medido nos 32
+	"correndo": (0.67, 1.13),    # `run`   medido nos 32
 	"estocada": (0.83, 1.40),
 	"giro": (0.83, 1.40),
 	"salto": (0.83, 1.40),
@@ -173,7 +217,6 @@ def medir(armature, malha, acao) -> dict:
 		"chao_maximo": max(chao_por_quadro),
 		"topo": topo,
 		"movimento": amplitude,
-		"quadros": fim - inicio + 1,
 		"duracao": (fim - inicio) / CADENCIA,
 	}
 
@@ -249,25 +292,38 @@ def conferir_proporcao(armature, malha) -> list:
 	# Envergadura: os bracos ficam CAIDOS no repouso, entao ela nao da para ser
 	# lida direto. Somar dois bracos e o vao entre eles da o mesmo numero, e e
 	# esse numero que o original mede com os bracos abertos em T.
-	if ombros is not None and "braco_D" in ossos and "antebraco_D" in ossos:
-		# **A ponta do braco vem da MALHA, nao do osso.** O glTF nao guarda o
-		# comprimento de um osso — so a posicao da junta — e o importador do
-		# Blender INVENTA a cauda. Lendo `tail_local` a envergadura saia 0,857
-		# onde a construcao da 0,901, e a diferenca era pura invencao do
-		# importador. O ponto mais baixo dos vertices presos ao antebraco e o
-		# fim do braco de verdade.
-		ponta = _fundo_do_grupo(malha, "antebraco_D")
-		if ponta is None:
-			reprovas.append("nao achei os vertices do antebraco para medir o braco")
-			return reprovas
-		braco = (ossos["braco_D"].head_local.z - ponta) / altura
-		env = ombros + 2.0 * braco
-		ok = abs(env - ENVERGADURA[0]) <= ENVERGADURA[1]
+	# **Duas medidas de braco, e nao uma.** Junta a junta para no pulso;
+	# ponta a ponta inclui a mao. Conferir so a segunda deixa o boneco acertar
+	# o total com um antebraco comprido e nenhuma mao — foi o que aconteceu, e
+	# o numero fechava.
+	#
+	# Os bracos ficam CAIDOS no repouso, entao nenhuma das duas da para ler
+	# direto no eixo X. Somar o vao dos ombros com dois compimentos de braco da
+	# o mesmo numero que o original mede com os bracos abertos em T.
+	if ombros is None:
+		return reprovas
+
+	def alcance(rotulo, ate, alvo):
+		if ate is None:
+			reprovas.append("nao consegui medir %s" % rotulo)
+			return
+		v = ombros + 2.0 * (ossos["braco_D"].head_local.z - ate) / altura
+		ok = abs(v - alvo[0]) <= alvo[1]
 		print("[confere]   %-10s %.3f  (direcao %.3f +-%.3f)  %s" % (
-			"envergad.", env, ENVERGADURA[0], ENVERGADURA[1], "ok" if ok else "FORA"))
+			rotulo, v, alvo[0], alvo[1], "ok" if ok else "FORA"))
 		if not ok:
-			reprovas.append("envergadura em %.3f da altura, fora de %.3f +-%.3f"
-			                % (env, ENVERGADURA[0], ENVERGADURA[1]))
+			reprovas.append("%s em %.3f da altura, fora de %.3f +-%.3f"
+			                % (rotulo, v, alvo[0], alvo[1]))
+
+	if "mao_D" not in ossos:
+		reprovas.append("o boneco nao tem osso de mao — sem ele o alcance do "
+		                "braco e o da mao viram o mesmo numero")
+		return reprovas
+	alcance("vao maos", ossos["mao_D"].head_local.z, VAO_DAS_MAOS)
+	# **A ponta vem da MALHA, nao do osso.** O glTF nao guarda o comprimento de
+	# um osso, so a posicao da junta, e o importador do Blender INVENTA a cauda.
+	# Lendo `tail_local` a envergadura saia 0,857 onde a construcao da 0,895.
+	alcance("envergad.", _fundo_do_grupo(malha, "mao_D"), ENVERGADURA)
 	return reprovas
 
 

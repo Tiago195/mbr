@@ -144,6 +144,10 @@ def censo_de_animacao(UnityPy):
 			"taxa": d.get("m_SampleRate"),
 			"eventos": len(d.get("m_Events") or []),
 		}
+	bases = []
+	for obj in objetos:
+		if obj.type.name == "AnimatorController":
+			bases.append(obj.read_typetree().get("m_Name") or "?")
 	perdidos = 0
 	for obj in objetos:
 		if obj.type.name != "AnimatorOverrideController":
@@ -163,6 +167,11 @@ def censo_de_animacao(UnityPy):
 		print("  AVISO: %d referencias de clipe nao resolvidas" % perdidos)
 
 	print("== ANIMACAO ==")
+	# **Este censo le UM bundle.** `_animation.pak` guarda a animacao de
+	# personagem; o jogo inteiro tem mais clipe do que isto (cenario, efeito,
+	# interface). Dizer "o original tem 1350 clipes" sem o escopo e afirmar
+	# sobre o jogo o que se mediu num arquivo.
+	print("  escopo: _animation.pak, so ele")
 	print("  objetos no _animation.pak:", dict(tipos))
 	taxas = Counter(c["taxa"] for c in clipes.values())
 	print("  cadencia dos clipes:", taxas.most_common())
@@ -181,6 +190,10 @@ def censo_de_animacao(UnityPy):
 			partida[curto] = pares
 
 	print("  campeoes com controlador de partida:", len(partida))
+	# Os tres `AnimatorController` deste bundle sao os de saguao e queda. O
+	# controlador base de PARTIDA vive fora daqui, e por isso os nomes de
+	# ESTADO nao aparecem em lugar nenhum deste censo — so os nomes de clipe.
+	print("  controladores base neste bundle:", sorted(bases))
 	print("  formas de campeao ignoradas:", sorted(FORMAS))
 	print(" ", faixa("vagas preenchidas por campeao", [len(p) for p in partida.values()], 0))
 
@@ -194,8 +207,12 @@ def censo_de_animacao(UnityPy):
 				dur[p["nome"]].append(p["duracao"])
 			loop[p["nome"]].append(p["loop"])
 
+	# O limiar e >=30 de 32; quantos estao em TODOS e outra conta, e e ela que
+	# o documento afirma. Publicar so o limiar deixava a afirmacao sem teste.
 	universais = sorted(n for n, s in donos.items() if len(s) >= 30)
-	print("  clipes UNIVERSAIS (>=30 dos %d campeoes): %d" % (len(partida), len(universais)))
+	em_todos = sorted(n for n in universais if len(donos[n]) == len(partida))
+	print("  clipes UNIVERSAIS (>=30 dos %d campeoes): %d, dos quais %d estao em TODOS"
+	      % (len(partida), len(universais), len(em_todos)))
 	for n in universais:
 		v = sorted(dur[n])
 		lp = Counter(loop[n])
@@ -219,30 +236,60 @@ def censo_de_animacao(UnityPy):
 		raros = {p["nome"] for p in partida[k] if len(donos[p["nome"]]) <= 4}
 		par = max(((len(raros & {q["nome"] for q in partida[j]}), j)
 		           for j in partida if j != k), default=(0, "?"))
-		print("    %-10s divide %d clipes pouco-comuns com %s" % (k, par[0], par[1]))
+		# **Quanto dividem, sobre quantos tem.** "Divide 11" sem o denominador
+		# vira "divide o kit inteiro" na primeira vez que alguem resume — e
+		# virou. Harang divide 11 de 16, o que nao e o conjunto inteiro.
+		outros = {q["nome"] for q in partida[par[1]] if len(donos[q["nome"]]) <= 4}
+		print("    %-10s divide %d dos %d clipes pouco-comuns dele com %s "
+		      "(que tem %d)" % (k, par[0], len(raros), par[1], len(outros)))
 
-	hab = sorted(x for n, s in donos.items() if len(s) <= 2 for x in dur[n])
+	# **O limiar e uma decisao, e ela aparece.** "Habilidade" aqui e clipe de no
+	# maximo DOIS campeoes: quatro pares dividem quase todo o kit, e exigir um
+	# dono so jogaria fora metade das habilidades desses oito. Com `== 1` a
+	# mediana vai de 1,07 para 1,17 e o p75 de 1,40 para 1,47 — e sao esses
+	# quartis que viram a faixa de duracao dos nossos gestos.
+	LIMIAR_DE_HABILIDADE = 2
+	hab = sorted(x for n, s in donos.items()
+	             if len(s) <= LIMIAR_DE_HABILIDADE for x in dur[n])
+	print("  habilidade = clipe de no maximo %d campeoes" % LIMIAR_DE_HABILIDADE)
 	print(" ", faixa("duracao dos clipes de HABILIDADE (s)", hab))
 	print("    quartis: p25 %.2f  p75 %.2f  p90 %.2f" % (
 		hab[len(hab) // 4], hab[len(hab) * 3 // 4], hab[len(hab) * 9 // 10]))
 	quadros = Counter(round(x * 30) for x in hab)
 	print("    em quadros a 30 fps, os mais comuns:", quadros.most_common(6))
 
-	# a conferencia do _f/_b: conjurar andando dura o ciclo de corrida
-	bate, total = 0, 0
-	for k, pares in partida.items():
-		nomes = {p["nome"]: p["duracao"] for p in pares}
-		if "run" not in nomes or "throw_f" not in nomes:
-			continue
-		total += 1
-		if abs((nomes["throw_f"] or 0) - (nomes["run"] or 0)) < 0.02:
-			bate += 1
-	print("  throw_f com a MESMA duracao de run: %d de %d campeoes" % (bate, total))
+	# A conferencia do _f/_b: conjurar andando dura o ciclo de corrida. Os DOIS
+	# sao medidos — publicar so o `_f` ja fez o documento dizer "29 dos 32" de
+	# uma regra que o `_b` cumpre em 30.
+	corridas = {}
+	for sufixo in ("throw_f", "throw_b"):
+		bate, total, fora = 0, 0, []
+		for k, pares in partida.items():
+			nomes = {p["nome"]: p["duracao"] for p in pares}
+			if "run" not in nomes or sufixo not in nomes:
+				continue
+			total += 1
+			corridas[k] = nomes["run"]
+			if abs((nomes[sufixo] or 0) - (nomes["run"] or 0)) < 0.02:
+				bate += 1
+			else:
+				fora.append(k)
+		print("  %s com a MESMA duracao de run: %d de %d campeoes  (fora: %s)"
+		      % (sufixo, bate, total, ", ".join(sorted(fora)) or "ninguem"))
+	if corridas:
+		ordenadas = sorted(corridas.items(), key=lambda x: x[1])
+		print("    corrida mais CURTA: %s %.2f s;  mais LONGA: %s %.2f s"
+		      % (ordenadas[0][0], ordenadas[0][1], ordenadas[-1][0], ordenadas[-1][1]))
 
+	# Nomes e INSTANCIAS sao contas diferentes, e o documento ja usou a palavra
+	# "clipes" para as duas no mesmo paragrafo.
 	com_evento = {p["nome"] for pares in partida.values() for p in pares if p["eventos"]}
 	distintos = {p["nome"] for pares in partida.values() for p in pares}
-	print("  clipes de partida COM evento de animacao: %d de %d  ->  %s" % (
+	inst_com = sum(1 for pares in partida.values() for p in pares if p["eventos"])
+	inst_tot = sum(len(pares) for pares in partida.values())
+	print("  NOMES de clipe de partida com evento: %d de %d  ->  %s" % (
 		len(com_evento), len(distintos), ", ".join(sorted(com_evento))))
+	print("  INSTANCIAS com evento: %d de %d" % (inst_com, inst_tot))
 
 	for rotulo, grupo in (("QUEDA", caindo), ("SAGUAO", saguao)):
 		d2 = defaultdict(set)
@@ -335,11 +382,21 @@ def censo_de_proporcao(UnityPy):
 	print("  malhas lidas: %d   avatares humanoides lidos: %d" % (len(malhas), len(avatares)))
 
 	linhas = []
+	faltaram = []
 	for p in PERSONAGENS:
-		corpo = malhas.get((p + "_body").lower())
+		# **Nem todo corpo se chama `X_Body`.** Odri e Rukh nomeiam a malha do
+		# corpo so com o nome do campeao, e a versao anterior os descartava
+		# calada — dois campeoes a menos numa mediana que o documento publica.
+		# O Rukh, sozinho, baixa o minimo da envergadura de 0,855 para 0,808, e
+		# e desse minimo que sai a folga da conferencia do nosso boneco.
+		corpo = malhas.get((p + "_body").lower()) or malhas.get(p.lower())
 		cabeca = malhas.get((p + "_head").lower())
 		avatar = avatares.get((p + "avatar").lower())
 		if not corpo or not cabeca or not avatar:
+			faltaram.append("%s (%s)" % (p, ", ".join(
+				rotulo for rotulo, tem in
+				(("corpo", corpo), ("cabeca", cabeca), ("avatar", avatar))
+				if not tem)))
 			continue
 		# **Vertical e o Z.** A malha e autorada Z para cima; o Y da caixa e a
 		# profundidade do corpo.
@@ -352,15 +409,31 @@ def censo_de_proporcao(UnityPy):
 		quadril = oss["Hips"][1] - base
 		ombros = (abs(oss["LeftUpperArm"][0] - oss["RightUpperArm"][0])
 		          if "LeftUpperArm" in oss and "RightUpperArm" in oss else None)
+		quadris = (abs(oss["LeftUpperLeg"][0] - oss["RightUpperLeg"][0])
+		           if "LeftUpperLeg" in oss and "RightUpperLeg" in oss else None)
+		# **O vao das MAOS, e ele nao e a envergadura.** A envergadura da malha
+		# vai ponta a ponta e inclui a mao inteira; o vao das juntas para no
+		# punho. Publicar so um dos dois deixa qualquer copia nossa acertar o
+		# numero alongando o antebraco no lugar de ter mao.
+		maos = (abs(oss["LeftHand"][0] - oss["RightHand"][0])
+		        if "LeftHand" in oss and "RightHand" in oss else None)
 		escada = {n: (v[1] - base) / altura for n, v in oss.items()}
 		linhas.append({
 			"pers": p, "altura": altura, "escada": escada,
 			"pescoco": pescoco / altura, "cranio": cranio / altura,
 			"quadril": quadril / altura,
 			"ombros": (ombros / altura) if ombros else None,
+			"quadris": (quadris / altura) if quadris else None,
+			"maos": (maos / altura) if maos else None,
 			"envergadura": corpo["meia"][0] * 2 / altura,
 			"nos": avatar["nos"], "verts": corpo["verts"], "base": base,
 		})
+
+	# **Quem cai fora tem que APARECER.** Um campeao descartado em silencio e
+	# uma mediana calculada sobre outra populacao que a declarada, e nenhuma
+	# das duas aparece errada.
+	if faltaram:
+		print("  sem malha ou avatar nos bundles locais: %s" % "; ".join(faltaram))
 
 	_conferir_espacos(linhas)
 
@@ -387,8 +460,11 @@ def censo_de_proporcao(UnityPy):
 	      "   humano %.3f" % HUMANO["quadril"])
 	print(" ", faixa("ombros / altura", [l["ombros"] for l in bons if l["ombros"]], 3),
 	      "   humano %.3f" % HUMANO["ombros"])
-	print(" ", faixa("envergadura / altura", [l["envergadura"] for l in bons], 3),
-	      "   humano ~1.00")
+	print(" ", faixa("vao dos quadris / altura", [l["quadris"] for l in bons if l["quadris"]], 3))
+	print(" ", faixa("vao das MAOS / altura (juntas)",
+	                 [l["maos"] for l in bons if l["maos"]], 3))
+	print(" ", faixa("envergadura / altura (malha, ponta a ponta)",
+	                 [l["envergadura"] for l in bons], 3), "   humano ~1.00")
 	# **A definicao importa mais que o numero.** "Cabecas de altura" so quer
 	# dizer alguma coisa com a linha de corte declarada: aqui, cabeca e tudo o
 	# que fica ACIMA DA BASE DO PESCOCO. Medir do cranio da outro numero, e sem
@@ -438,17 +514,28 @@ def censo_de_paleta(UnityPy):
 				if re.search(r"(^|[_-])" + re.escape(p) + r"($|[_-])", n) or n.startswith(p):
 					resolucoes[(d.get("m_Width"), d.get("m_Height"))] += 1
 					break
-			if n.startswith("tex_") and n[4:] in nomes and n[4:] not in achadas:
+			# **Nem toda textura de corpo tem o prefixo `tex_`.** `bastine` e
+			# `odri` sao 2048x2048 de corpo e o filtro antigo as jogava fora,
+			# o que fazia a paleta ser publicada sobre 4 campeoes em vez de 6 —
+			# e o brilho minimo passar de 0,56 para 0,42.
+			alvo = n[4:] if n.startswith("tex_") else n
+			if (alvo in nomes and alvo not in achadas
+					and d.get("m_Width") == 2048 and d.get("m_Height") == 2048):
 				try:
 					img = obj.read().image
 				except Exception:
 					img = None
 				if img is not None:
-					achadas[n[4:]] = img
+					achadas[alvo] = img
 
 	print()
 	print("== PALETA ==")
 	print("  resolucoes de textura ligadas a personagem:", resolucoes.most_common(6))
+	# Quantos campeoes tem QUALQUER textura aqui — o resto mora nos
+	# Addressables do servidor, que morreu. Sem este numero, "cada campeao tem
+	# uma textura 2048" generaliza de 6 para 32.
+	print("  campeoes com textura de corpo 2048 nos bundles locais: %d de %d"
+	      % (len(achadas), len(PERSONAGENS)))
 	sats, brilhos, cinzas = [], [], []
 	for p in sorted(achadas):
 		px = list(achadas[p].convert("RGBA").resize((64, 64)).getdata())
