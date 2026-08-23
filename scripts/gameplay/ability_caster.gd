@@ -88,6 +88,9 @@ func adopt_kit(profile: ActorProfile, catalog: AbilityCatalog, level: int) -> in
 	# tem outra habilidade.
 	book.clear_cooldowns()
 	book.clear_scheduled()
+	# E as correntes de combo, pela mesma razão: corrente armada é estado de
+	# quem estava jogando aquele kit, e o elo seguinte dele não existe mais.
+	book.clear_combos()
 	return profile.equip_book(book, catalog, _combatant.unit, level)
 
 func _unhandled_input(event: InputEvent) -> void:

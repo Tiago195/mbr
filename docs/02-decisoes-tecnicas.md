@@ -989,3 +989,120 @@ graça por andarem junto com o código.
 **O modo de falha é o que tornava isto urgente:** verde na máquina que escreve,
 vermelho só na máquina sem a Godot. Quem introduz nunca vê; quem clona, sim. É
 essa assimetria que explica as cinco recorrências.
+
+## 20. A "lacuna do arco" não é lacuna de combate: é asset
+
+**Decidido em 23/08/2026**, antes de escrever uma linha — remedindo, como as
+quatro lacunas anteriores ensinaram.
+
+`ZMoveCurvePath` e `YMoveCurvePath` **não contêm números**. Contêm caminhos de
+arquivo: `GameData/Curve/MoveCurve_AliciaBladeRush`, `CCCurve_KaibaRushZ`. A
+curva em si vive num asset que não extraímos e que não é tabela de design — é
+animação. Pela regra de escopo (`docs/01`), arte não entra.
+
+Medido pelo caminho que o jogo percorre: **22 dos 127 espaços de campeão**
+citam alguma curva — 6 em Y (arco vertical) e 16 só em Z (perfil de velocidade
+ao longo do deslocamento). E dentro desses 22 espaços há **3 efeitos de
+deslocamento** ao todo. Ou seja, na esmagadora maioria a curva descreve o
+movimento da ANIMAÇÃO, não o do combate.
+
+**O projeto já tinha decidido isto, noutro lugar.** `docs/10` lista "Curva de
+deslocamento, `MoveCurve`, 154" na seção *"Precisam de sistema que não é de
+combate"*, com a justificativa exata: *"É camada visual, e depende de asset"*.
+A tabela das seis lacunas a listava assim mesmo, como se fosse trabalho de
+combate — duas partes da documentação discordando, e a tabela ganhando por ser
+a que se lê primeiro.
+
+O que dela é mecânico já existe: deslocamento existe (`DisplacementEffect`) e
+ficar no ar existe (`StatusSet.Kind.AIRBORNE`). O que falta é a **forma** do
+movimento, que só se vê com modelo 3D e animação — Fase 6.
+
+**Fica registrada como lacuna de ARTE**, e sai da tabela de trabalho de
+combate. Quando os personagens deixarem de ser cápsulas, ela volta com o
+sistema que a resolve, que é curva de animação e não vocabulário de habilidade.
+
+## 21. A corrente de combo troca a habilidade ANTES de checar a recarga
+
+**Decidido em 23/08/2026**, fechando a sexta e última lacuna da tabela.
+
+`ComboSkillInfo_SkillID`, `_StartTime` e `_LimitTime`: apertar o mesmo botão
+dentro de uma janela conjura **outra habilidade**. O elo seguinte é uma
+habilidade inteira e diferente — `Impact1` muda em 121 dos 125 pares, `CoolTime`
+em 86, `CostValue` em 75 —, e por isso ele é um id do catálogo e não um
+modificador do primeiro.
+
+### O que faz a mecânica valer a pena
+
+A troca acontece **antes de `_check`**, e é a decisão inteira em uma linha. O
+elo seguinte tem id próprio, a recarga registrada é a do elo anterior, e por
+isso o segundo golpe sai **sem esperar a recarga do primeiro**. Trocar depois
+seria cobrar a recarga errada e a corrente viraria decoração: o jogador
+apertaria de novo e ouviria "em recarga".
+
+Armar a corrente acontece dentro de `_charge`, junto da mana, da recarga e do
+reset de auto-ataque — o instante em que a conjuração deixou de poder ser
+recusada. Tentativa recusada não arma nada, pela mesma razão pela qual não
+gasta nada.
+
+### O que a medição mudou, de novo
+
+A tabela dizia 14. Medido pelo caminho que o jogo percorre,
+**4 dos 127 espaços** abrem corrente — e o caminho até lá tem quatro achados:
+
+- **O ataque básico ficou de fora, e por dado.** 23 dos 34 campeões têm combo
+  no básico, o que parecia dobrar o trabalho. Mas o elo 2 é **idêntico ao elo 1
+  no nosso vocabulário** nos 23 — mesma forma, mesmo raio, mesmo dano, mesma
+  escala. A diferença entre os dois `Impact` é animação e som. Implementá-lo
+  não produziria nenhuma diferença observável: é a mesma classe da decisão 20.
+- **Corrente para o vazio é pior que corrente nenhuma.** Das 11 correntes que
+  chegam aos espaços de campeão, 7 apontam para um elo sem efeito no nosso
+  vocabulário — o golpe dele caiu numa lacuna. Encadear esses daria uma
+  habilidade que o jogador conjura e que não faz nada, quando hoje ele ao menos
+  repete o primeiro golpe. O tradutor recusa: **21 correntes** foram recusadas
+  por isso, e a recusa é contada.
+- **E a primeira guarda era frouxa.** Ela olhava o XML — se o destino
+  referencia algum impacto que existe —, porque é a única coisa disponível
+  enquanto as habilidades são traduzidas uma a uma. Mas um impacto pode existir
+  e não virar pulso com efeito, quando o que ele fazia caiu numa lacuna: dois
+  espaços de campeão passavam pela fresta e entregariam um elo que não faz
+  nada. Um passe final, com o corpus pronto, **poda 15 correntes** — e foi a
+  asserção numérica que denunciou a diferença entre o 4 que eu tinha medido e
+  o 6 que o código emitia.
+- **E há habilidade hoje MUDA por causa disso.** O E do Miru tem, no elo 1,
+  apenas um efeito de recarga com raio 0,8 — o golpe de verdade (266 de dano
+  mais controle) está no elo 2, inalcançável. Rukh e Siu são iguais: o segundo
+  golpe é o grande.
+
+No corpus inteiro são **89 habilidades** com corrente emitida.
+
+### Duas armadilhas pagas aqui
+
+- **A chave da corrente é a RAIZ, não o grupo de quem armou.** O jogador aperta
+  sempre a mesma tecla, e é a habilidade daquela tecla que a engine recebe: numa
+  corrente de três elos, o terceiro aperto chega de novo como o elo 1. Guardando
+  sob o grupo do elo 2, a corrente morria no meio — e o comentário que eu tinha
+  escrito no código afirmava exatamente o contrário. Quem pegou foi o teste de
+  três elos.
+- **O elo seguinte mora no LIVRO, não dentro da `Ability`.** `Ability` é
+  `Resource`, que é `RefCounted`, e A apontando para B com B apontando para A
+  nunca chegaria a contagem zero. Medido: hoje o corpus não tem ciclo, mas
+  depender disso seria depender do dado em vez do desenho — e este projeto já
+  vazou 150 instâncias por um ciclo assim.
+
+### Como isto é conferido
+
+- `tests/test_combo.gd`: 14 testes, e a metade de baixo é sobre quem **não**
+  recebe a corrente — sem corrente, fora da janela, antes de ela abrir.
+- `tools/sondar_campeoes.gd` aperta o mesmo espaço uma segunda vez, num ciclo
+  **isolado**: recarga limpa, conjura, tica só até a janela ABRIR, aperta de
+  novo. Medido: **4 espaços abrem corrente e 4 entregam o elo seguinte.**
+- A recarga NÃO é limpa antes do segundo aperto, de propósito: é passar por
+  cima dela que faz a corrente valer a pena, e limpá-la esconderia justamente
+  o defeito procurado.
+- O ciclo é isolado porque a primeira versão o pôs no meio do laço das marcas,
+  e a segunda conjuração criava golpes atrasados que contaminavam a conferência
+  da perseguição — duas conferências dividindo o mesmo laço se atrapalham.
+- Seis mutações, todas exigidas em vermelho. Uma escapou na primeira tentativa:
+  o teste do consumo dava ao elo seguinte uma recarga de 10 s, e assim "a
+  corrente foi consumida" e "o elo está em recarga" produziam o mesmo
+  `ON_COOLDOWN`. **Fixture degenerado outra vez**, e a mutação o pegou.

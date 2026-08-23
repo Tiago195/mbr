@@ -352,7 +352,7 @@ posterior:
   custa 1000. Ela era a lacuna mais cara da lista, e era a que sustentava um
   número inventado — os 45 s de recarga que a suprema recebia por não haver
   carga.
-- **Corrente de combo** (125). Conjurar A dentro de uma janela troca A por B.
+- ~~**Corrente de combo**~~ (125) — **fechada**, decisão 21. Conjurar A dentro de uma janela troca A por B.
   É boa parte do que dava textura ao corpo a corpo do original.
 - **Janelas de cancelamento** (72). Nós temos um booleano; o original tem
   quatro instantes por habilidade. É onde mora o "feel".

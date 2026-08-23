@@ -204,6 +204,7 @@ func equip_book(
 		)
 		var ability: Ability = ability_for(catalog, grupo, level)
 		book.learn(espacos[indice], ability, owner)
+		_ensinar_corrente(book, catalog, ability)
 		if ability != null:
 			preenchidos += 1
 
@@ -218,9 +219,30 @@ func equip_book(
 	# inofensivo hoje e latente amanhã.
 	var suprema: Ability = ultimate_for(catalog, level)
 	book.learn(AbilityBook.Slot.R, suprema, owner)
+	_ensinar_corrente(book, catalog, suprema)
 	if suprema != null:
 		preenchidos += 1
 	return preenchidos
+
+## Resolve a corrente de combo desta habilidade e a ensina ao livro.
+##
+## Feito AQUI, e não dentro do livro: quem tem o catálogo é o perfil, e o livro
+## não deve conhecê-lo. E a referência ao elo seguinte fica no livro em vez de
+## dentro da `Ability`, para não criar ciclo entre `Resource` — ver
+## `ability_book.gd`.
+##
+## Percorre a corrente inteira, porque há correntes de três elos: sem isto o
+## terceiro nunca seria alcançável.
+static func _ensinar_corrente(
+		book: AbilityBook, catalog: AbilityCatalog, ability: Ability
+) -> void:
+	var atual: Ability = ability
+	var vistos: Dictionary = {}
+	while atual != null and atual.has_combo() and not vistos.has(atual.id):
+		vistos[atual.id] = true
+		var proxima: Ability = catalog.get_ability(atual.combo_next_id)
+		book.teach_combo(atual, proxima)
+		atual = proxima
 
 ## O ranque jogável de um grupo, ou nulo quando o grupo não existe ou o nível
 ## não alcança nem o primeiro.

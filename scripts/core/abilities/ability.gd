@@ -111,6 +111,32 @@ enum Aim {
 ## suprema de ninguém.
 @export var uses_ultimate_charge: bool = false
 
+@export_group("Corrente de combo")
+## A habilidade que a PRÓXIMA conjuração deste espaço vira, se ela vier dentro
+## da janela. Vazio = não encadeia.
+##
+## `ComboSkillInfo_SkillID` do original, em 125 habilidades. O elo seguinte é
+## uma habilidade INTEIRA e diferente — `Impact1` muda em 121 dos 125 pares —,
+## e por isso ele é um id do catálogo e não um modificador.
+##
+## Medido, vale para **4 dos 127 espaços de campeão**, e não para 14: em 7 o
+## elo seguinte não tem efeito nenhum no nosso vocabulário, e encadeá-lo daria
+## uma habilidade que não faz nada. O tradutor só emite corrente quando o
+## destino tem pulso útil — corrente para o vazio é pior que corrente nenhuma.
+@export var combo_next_id: StringName = &""
+
+## Quanto tempo depois da conjuração a janela ABRE, em segundos.
+## `ComboSkillInfo_StartTime`: 0 em 75 habilidades, 1 em 33.
+@export var combo_window_start: float = 0.0
+
+## Quanto a janela dura depois de abrir. `ComboSkillInfo_LimitTime`: 3 em 52
+## habilidades, 0,5 em 33.
+@export var combo_window_length: float = 0.0
+
+## Verdadeiro quando esta habilidade encadeia noutra.
+func has_combo() -> bool:
+	return not combo_next_id.is_empty() and combo_window_length > 0.0
+
 @export_group("Progressão")
 ## Nível da habilidade, 1 a 5. O original guarda cada ranque como uma linha
 ## separada de `skill_xml` compartilhando o mesmo `SkillGroupID` — quer dizer,

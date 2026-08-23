@@ -41,6 +41,31 @@ class Scheduled extends RefCounted:
 
 var _scheduled: Array[Scheduled] = []
 
+## Correntes de combo armadas, pela RAIZ de cada corrente.
+##
+## `{ raiz: { "ability": Ability, "espera": float, "restante": float } }`.
+## `espera` é quanto falta para a janela ABRIR; `restante`, quanto falta para
+## ela fechar. Enquanto a janela não abriu, apertar de novo conjura a
+## habilidade original — que é o que o original faz.
+##
+## **A chave é a raiz, e não o grupo de quem armou.** O jogador aperta sempre a
+## MESMA tecla, e é a habilidade daquela tecla que a engine recebe: numa
+## corrente de três elos, o segundo aperto entrega o elo 2 e o terceiro chega
+## de novo como o elo 1. Guardando sob o grupo do elo 2, o terceiro aperto não
+## acharia nada e a corrente morreria no meio — foi exatamente o que o teste de
+## três elos pegou, e o comentário anterior aqui afirmava o contrário.
+var _combos: Dictionary = {}
+
+## O elo seguinte de cada corrente, por `group_id` de quem a abre.
+##
+## Preenchido por `teach_combo`, que quem chama resolve no catálogo. **A
+## referência mora aqui e não dentro da `Ability`** de propósito: `Ability` é
+## `Resource`, que é `RefCounted`, e A apontando para B com B apontando para A
+## nunca chegaria a contagem zero — a Godot não coleta ciclos, e este projeto
+## já vazou 150 instâncias por causa disso. Medido: hoje o corpus não tem
+## ciclo, mas depender disso seria depender do dado, não do desenho.
+var _correntes: Dictionary = {}
+
 ## Os projéteis que este combatente tem no ar.
 ##
 ## Fica aqui, junto dos pulsos marcados, porque é a mesma espécie de coisa: um
@@ -137,6 +162,12 @@ static func _alcanca(request: Unit.CooldownRequest, ability: Ability) -> bool:
 func clear_cooldowns() -> void:
 	_cooldowns.clear()
 
+## Esquece TODAS as correntes armadas. Usado ao trocar de campeão e ao morrer:
+## corrente é estado de quem estava jogando aquele kit.
+func clear_combos() -> void:
+	_combos.clear()
+	_correntes.clear()
+
 # ---------------------------------------------------------------- conjuração
 
 func is_casting() -> bool:
@@ -197,6 +228,97 @@ func schedule(
 	_scheduled.append(entry)
 	return entry
 
+# ---------------------------------------------------------------- combo
+
+## Ensina ao livro qual é o elo seguinte de uma habilidade.
+##
+## Quem chama resolve no catálogo — `ActorProfile.equip_book` tem o catálogo, e
+## o livro não deve ter. Ensinar `null` apaga a corrente.
+func teach_combo(ability: Ability, proxima: Ability) -> void:
+	if ability == null:
+		return
+	if proxima == null:
+		_correntes.erase(ability.group_id)
+		return
+	_correntes[ability.group_id] = proxima
+
+## Avança a corrente: consome a que entregou esta habilidade e arma a próxima.
+##
+## Chamada quando a conjuração é ACEITA — o mesmo instante da mana e da
+## recarga. Uma tentativa recusada não avança nada, pela mesma razão pela qual
+## não gasta nada.
+##
+## Consumir e armar são **um passo só** de propósito: separados, era preciso
+## saber de fora qual chave usar, e é justamente a chave que a corrente de três
+## elos revelou estar errada.
+func arm_combo(saiu: Ability) -> void:
+	if saiu == null:
+		return
+	# Onde esta corrente mora: a chave da RAIZ quando este golpe veio de uma
+	# corrente, e a dele próprio quando ele a está começando.
+	var chave: StringName = saiu.group_id
+	for grupo: StringName in _combos:
+		if (_combos[grupo]["ability"] as Ability) == saiu:
+			chave = grupo
+			break
+	_combos.erase(chave)
+
+	if not saiu.has_combo():
+		return
+	var proxima: Ability = _correntes.get(saiu.group_id, null) as Ability
+	if proxima == null:
+		return
+	_combos[chave] = {
+		"ability": proxima,
+		"espera": maxf(saiu.combo_window_start, 0.0),
+		"restante": saiu.combo_window_length,
+	}
+
+## A habilidade que sai DE VERDADE ao conjurar esta.
+##
+## Devolve o elo seguinte quando a corrente está armada e a janela ABERTA;
+## senão devolve a própria. É por passar por aqui que apertar o mesmo botão
+## dentro da janela dá o segundo golpe **sem esperar a recarga do primeiro**:
+## o elo seguinte tem id próprio, e a recarga registrada é a do elo anterior.
+func combo_replacement(ability: Ability) -> Ability:
+	if ability == null:
+		return ability
+	var armado: Variant = _combos.get(ability.group_id)
+	if not armado is Dictionary:
+		return ability
+	var dados: Dictionary = armado
+	if float(dados["espera"]) > 0.0:
+		return ability
+	return dados["ability"] as Ability
+
+## Esquece a corrente que esta habilidade tinha armado.
+func clear_combo(ability: Ability) -> void:
+	if ability != null:
+		_combos.erase(ability.group_id)
+
+
+
+func combo_count() -> int:
+	return _combos.size()
+
+func _avancar_combos(delta: float) -> void:
+	if _combos.is_empty():
+		return
+	var vencidos: Array = []
+	for grupo: StringName in _combos:
+		var dados: Dictionary = _combos[grupo]
+		var espera: float = float(dados["espera"]) - delta
+		dados["espera"] = maxf(espera, 0.0)
+		# A janela só começa a correr depois de abrir. Descontar o tempo de
+		# espera do prazo encurtaria a janela de quem tem `StartTime` alto —
+		# são 33 habilidades com 1 segundo de espera.
+		if espera <= 0.0:
+			dados["restante"] = float(dados["restante"]) + minf(espera, 0.0)
+			if float(dados["restante"]) <= 0.0:
+				vencidos.append(grupo)
+	for grupo: StringName in vencidos:
+		_combos.erase(grupo)
+
 func has_scheduled() -> bool:
 	return not _scheduled.is_empty()
 
@@ -238,6 +360,7 @@ func clear_scheduled() -> int:
 ## `03-sistemas-de-jogo.md` manda definir uma vez no sistema e não por
 ## habilidade.
 func advance_time(delta: float, caster: Unit = null) -> void:
+	_avancar_combos(delta)
 	var finished: Array = []
 	for id: StringName in _cooldowns:
 		_cooldowns[id] -= delta

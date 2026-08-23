@@ -481,7 +481,8 @@ CONSULTADAS = {
         "UI_Type", "UI_Params", "AI_SkillRange", "MovingOnSkill",
         "SkillCancelableTime", "AtlasName", "ButtonIconPath", "CastingTime",
         "RemoveCC", "RemoveDebuff", "UseChainBreak", "UltimateCharge",
-        "ResetAttackCoolTime",
+        "ResetAttackCoolTime", "ComboSkillInfo_SkillID",
+        "ComboSkillInfo_StartTime", "ComboSkillInfo_LimitTime",
         "__tabela",
     } | {f"Impact{n}" for n in range(1, 13)}
       | {f"StatType{n}" for n in range(1, 5)}
@@ -2025,8 +2026,7 @@ class Tradutor:
                 self.r.usou("passiva de ranque")
                 passivas.append(mod)
 
-        if skill.get("ComboSkillInfo_SkillID"):
-            self.r.lacuna("ComboSkillInfo (corrente de combo)", onde)
+
         if skill.get("ZMoveCurvePath") or skill.get("YMoveCurvePath"):
             self.r.lacuna("curva de deslocamento (MoveCurve)", onde)
         if skill.get("CancelForbidStartTime"):
@@ -2036,6 +2036,7 @@ class Tradutor:
         # habilidade ainda não aprendida, e por isso não referencia impacto
         # nenhum. Marcá-la evita que o relatório conte 115 modelos como 115
         # falhas de tradução.
+        corrente = self._corrente(skill, onde)
         zera_cadencia = booleano(skill.get("ResetAttackCoolTime"))
         if zera_cadencia:
             self.r.usou("reset de auto-ataque (ResetAttackCoolTime)")
@@ -2074,9 +2075,60 @@ class Tradutor:
             # Era lacuna registrada — e é o que dá ritmo ao corpo a corpo, onde
             # encaixar a habilidade entre dois golpes é a jogada.
             "resets_attack_cooldown": zera_cadencia,
+            # Corrente de combo: apertar de novo dentro da janela conjura
+            # OUTRA habilidade. Vazio quando não encadeia, ou quando o destino
+            # não tem efeito nenhum — ver `_corrente`.
+            "combo_next_id": corrente[0],
+            "combo_window_start": corrente[1],
+            "combo_window_length": corrente[2],
             "pulses": pulsos,
             "passive_effects": passivas,
         }
+
+    def _corrente(self, skill: dict[str, str], onde: str) -> tuple:
+        """`ComboSkillInfo_*` -> id do elo seguinte e a janela.
+
+        **Só emite quando o destino faz alguma coisa.** Medido: das 11
+        correntes que chegam aos espaços de campeão, 7 apontam para um elo sem
+        efeito nenhum no nosso vocabulário — o conteúdo dele caiu numa lacuna,
+        ou ele é elo de animação. Encadear esses daria uma habilidade que o
+        jogador conjura e que não faz nada, o que é PIOR que não encadear:
+        hoje ele repete o primeiro golpe, que ao menos acontece.
+
+        Devolve `("", 0, 0)` quando não há corrente utilizável.
+        """
+        alvo = (skill.get("ComboSkillInfo_SkillID") or "").strip()
+        if not alvo:
+            return "", 0.0, 0.0
+        destino = self.t.skills.get(alvo)
+        if destino is None:
+            self.r.lacuna("corrente de combo para skill inexistente", onde)
+            return "", 0.0, 0.0
+        if not self._tem_impacto(destino):
+            self.r.lacuna(
+                "corrente de combo para elo sem efeito (o golpe caiu em lacuna)",
+                onde,
+            )
+            return "", 0.0, 0.0
+        self.r.usou("corrente de combo")
+        return (
+            f"rc_{alvo}",
+            num(skill.get("ComboSkillInfo_StartTime"), 0.0),
+            num(skill.get("ComboSkillInfo_LimitTime"), 0.0),
+        )
+
+    def _tem_impacto(self, skill: dict[str, str]) -> bool:
+        """Se esta linha de `skill` referencia algum impacto que existe.
+
+        É a aproximação mais barata de "o elo faz alguma coisa", e é feita
+        sobre o XML porque o pulso traduzido do destino ainda não existe quando
+        esta função roda — as habilidades são traduzidas uma a uma.
+        """
+        for n in range(1, 13):
+            alvo = (skill.get(f"Impact{n}") or "").strip()
+            if alvo and alvo in self.t.impacts:
+                return True
+        return False
 
     def _purificacao(self, skill: dict[str, str], onde: str) -> dict | None:
         """`RemoveCC` e `RemoveDebuff` -> um pulso de purificação no conjurador."""
@@ -2463,6 +2515,37 @@ class Tradutor:
 # Receitas de fabricação
 # --------------------------------------------------------------------------
 
+def podar_correntes(habilidades: list[dict], relatorio: "Relatorio") -> None:
+    """Apaga a corrente de combo cujo destino ficou sem efeito na TRADUÇÃO.
+
+    A guarda de `_corrente` olha o XML — se o destino referencia algum impacto
+    que existe. É a única coisa disponível enquanto as habilidades são
+    traduzidas uma a uma, e ela é MAIS FROUXA do que a promessa: um impacto
+    pode existir e ainda assim não virar pulso com efeito, porque o que ele
+    fazia caiu numa lacuna.
+
+    Medido: dois espaços de campeão passavam por essa fresta e entregariam um
+    elo que não faz nada — exatamente o que a guarda existe para impedir. Este
+    passe roda com o corpus inteiro pronto, que é quando dá para saber.
+    """
+    por_id = {h["id"]: h for h in habilidades}
+    for h in habilidades:
+        alvo = h.get("combo_next_id")
+        if not alvo:
+            continue
+        destino = por_id.get(alvo)
+        util = destino is not None and any(p["effects"] for p in destino["pulses"])
+        if util:
+            continue
+        h["combo_next_id"] = ""
+        h["combo_window_start"] = 0.0
+        h["combo_window_length"] = 0.0
+        relatorio.lacuna(
+            "corrente de combo podada (o elo traduzido ficou sem efeito)",
+            "skill %s" % h["source_id"],
+        )
+
+
 def ligar_receitas(itens: list[dict], tabelas: Tabelas, relatorio: Relatorio) -> None:
     """Preenche `built_from` a partir de `craft_recipe_xml`.
 
@@ -2764,6 +2847,8 @@ def main() -> int:
         tradutor.habilidade(skill)
         for skill in sorted(tabelas.skills.values(), key=lambda s: int(s["Id"]))
     ]
+    podar_correntes(habilidades, relatorio)
+
     itens = [
         tradutor.item(equip)
         for equip in sorted(tabelas.equipment.values(), key=lambda e: int(e["Id"]))

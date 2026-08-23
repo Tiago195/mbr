@@ -213,6 +213,12 @@ func _sondar() -> Array[String]:
 	## da cadência: se um zerar, a conferência virou tautologia.
 	var perseguiram: int = 0
 	var ficaram: int = 0
+	## Espaços cuja habilidade abre corrente de combo, e quantos entregaram o
+	## elo seguinte ao serem apertados de novo dentro da janela. Os dois são
+	## piso: se `entregaram` cair a zero a mecânica parou de funcionar, e se
+	## `com_corrente` cair a zero a conferência deixou de ter o que olhar.
+	var com_corrente: int = 0
+	var entregaram: int = 0
 	## Golpes atrasados de conjuração COM TEMPO, que a conferência da
 	## perseguição não alcança. Publicado, e não silencioso: cobertura que
 	## encolhe sem avisar é o sintoma que este projeto mais persegue.
@@ -637,6 +643,69 @@ func _sondar() -> Array[String]:
 					ability.display_name, saiu, _encurtar(chave), devia
 				])
 
+		# **A corrente de combo, num ciclo isolado.**
+		#
+		# Fora do fluxo das marcas de propósito: a segunda conjuração cria
+		# golpes atrasados próprios, e medi-los junto contaminava a conferência
+		# da perseguição — o `onde_conjurou` era do primeiro aperto. Duas
+		# conferências dividindo o mesmo laço se atrapalham.
+		#
+		# O ciclo é: recarga limpa, conjura, tica só até a janela ABRIR, e
+		# aperta de novo. A recarga do primeiro elo fica de pé, porque é
+		# passar por cima dela que faz a corrente valer a pena — limpá-la antes
+		# do segundo aperto esconderia exatamente o defeito que se procura.
+		for slot: AbilityBook.Slot in [
+			AbilityBook.Slot.Q, AbilityBook.Slot.W,
+			AbilityBook.Slot.E, AbilityBook.Slot.R,
+		]:
+			var ability: Ability = caster.book.ability_in(slot)
+			if ability == null or not ability.has_combo():
+				continue
+			com_corrente += 1
+			unit.position = POSICAO_DA_SONDA
+			caster.book.clear_cooldowns()
+			caster.book.clear_scheduled()
+			unit.mana.current = unit.mana.maximum()
+			unit.ultimate_charge.restore(unit.ultimate_charge.maximum())
+			var mira: AbilityCast = _mirar(ability, unit, int(slot))
+			var alvos: Array = Combatant.all_units(self)
+			var primeira: CastResult = AbilityEngine.cast(
+				caster.book, ability, mira, alvos
+			)
+			if primeira == null or not (primeira.succeeded() or primeira.started()):
+				continue
+			# Só até a janela abrir. Ticar até o fim fecharia janelas curtas —
+			# 33 habilidades duram 0,5 s — e a conferência acusaria a mecânica
+			# por um defeito da própria sonda.
+			var espera: int = int(ceil(ability.combo_window_start * 60.0)) + 1
+			for _passo: int in espera:
+				unit.advance_time(1.0 / 60.0)
+				caster.tick(1.0 / 60.0)
+			var segunda: CastResult = AbilityEngine.cast(
+				caster.book, ability, mira, alvos
+			)
+			if segunda != null and segunda.ability != null 					and segunda.ability.id != ability.id:
+				entregaram += 1
+			elif segunda != null and segunda.status == CastResult.Status.ON_COOLDOWN:
+				falhas.append(
+					("%s %s (%s): apertar de novo na janela deu ON_COOLDOWN — a "
+					+ "corrente não passou por cima da recarga do primeiro elo")
+						% [profile.id, AbilityBook.Slot.keys()[slot],
+						   ability.display_name]
+				)
+			else:
+				falhas.append(
+					("%s %s (%s): apertar de novo na janela não entregou o elo "
+					+ "seguinte (status %s)") % [
+						profile.id, AbilityBook.Slot.keys()[slot],
+						ability.display_name,
+						CastResult.Status.keys()[segunda.status] if segunda != null else "nulo",
+					]
+				)
+		caster.book.clear_cooldowns()
+		caster.book.clear_scheduled()
+		unit.position = POSICAO_DA_SONDA
+
 		# A carga fica NÃO-ZERO ao sair deste campeão, para o próximo ter o que
 		# zerar. Sem isto a conferência de "trocar de campeão zera a carga" não
 		# distingue nada: a suprema é o último espaço testado, e conjurá-la já
@@ -677,6 +746,8 @@ func _sondar() -> Array[String]:
 	# projeto trata stderr não-vazio como falha, e foi assim que este apareceu.
 	print(("  âncora de golpe atrasado: %d seguiram o conjurador, %d seguiram "
 		+ "o alvo, %d ficaram") % [perseguiram, alvo_seguido, ficaram])
+	print("  corrente de combo: %d espaços abrem, %d entregaram o elo seguinte"
+		% [com_corrente, entregaram])
 	print(("  ...e fora de alcance: %d de conjuração com tempo, %d `TARGET` "
 		+ "sem unidade apontada") % [pulados, alvo_sem_mira])
 
@@ -755,6 +826,17 @@ func _sondar() -> Array[String]:
 		falhas.append(
 			("só %d golpes atrasados ficaram onde foram plantados; algo está "
 			+ "fazendo área de chão perseguir") % ficaram
+		)
+	# Pisos das duas metades da corrente. Medidos na árvore limpa.
+	if com_corrente < 4:
+		falhas.append(
+			("só %d espaços de campeão abrem corrente de combo; o tradutor "
+			+ "parou de emiti-la") % com_corrente
+		)
+	if entregaram < com_corrente:
+		falhas.append(
+			("%d espaços abrem corrente e só %d entregaram o elo seguinte")
+				% [com_corrente, entregaram]
 		)
 	if conferidos < 100:
 		falhas.append(

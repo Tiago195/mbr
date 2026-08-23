@@ -651,6 +651,53 @@ MARCA_DE_TESTE = "tudo certo por aqui"
 ## `_rodar_suite`. Um a mais obriga quem o escrever a declarar o custo.
 PORTOES_DA_ENGINE = 4
 
+## Os sistemas já fechados, pelo nome com que os documentos os citam.
+##
+## `(nome, decisão)`. Existe porque o mesmo item ficou **aberto num documento e
+## fechado noutro** duas vezes seguidas: o arco entre as duas tabelas do
+## `CLAUDE.md`, e a corrente de combo entre o `CLAUDE.md` e o
+## `docs/04-roadmap.md`. Nos dois casos o arquivo desatualizado era o
+## `CLAUDE.md` — o que toda sessão é mandada ler inteiro, e primeiro.
+##
+## A conferência exige que, onde o nome aparecer numa linha de lista ou de
+## tabela, ele esteja RISCADO. É a mesma disciplina das duas tabelas, agora
+## entre arquivos.
+SISTEMAS_FECHADOS = [
+    ("Carga de suprema", 17),
+    ("Corrente de combo", 21),
+]
+
+## Onde os sistemas fechados são citados.
+DOCUMENTOS_DE_ESTADO = [
+    "CLAUDE.md",
+    "docs/04-roadmap.md",
+    "docs/10-traducao-do-original.md",
+]
+
+
+def _lacunas_da_tabela(claude: str) -> list[int]:
+    """Os números das seis lacunas, LIDOS da primeira tabela.
+
+    Derivado e não escrito à mão: uma lacuna nova entraria nas tabelas e não
+    na lista, e passaria sem conferência — o mesmo resíduo de
+    `PORTOES_DA_ENGINE`, que continua literal por não ter de onde derivar.
+    """
+    # Casa o cabeçalho pelo começo: o resto dele descreve o ESTADO da tabela
+    # e muda quando o estado muda — foi assim que esta leitura ficou órfã ao
+    # "onde ela está" virar "como ela terminou".
+    achado = re.search(r"^#### A tabela,.*$", claude, re.M)
+    inicio = achado.start() if achado else -1
+    if inicio < 0:
+        return []
+    numeros: list[int] = []
+    for linha in claude[inicio:].splitlines():
+        if linha.startswith("####") and numeros:
+            break
+        achado = re.match(r"\| ~?~?\*?\*?(\d+)\*?\*?~?~? \|", linha)
+        if achado:
+            numeros.append(int(achado.group(1)))
+    return numeros
+
 ## Os jeitos de uma sonda mentir. O primeiro é o que aconteceu de verdade: um
 ## acesso a propriedade inexistente empurra erro, devolve nulo, o laço segue, e
 ## a sonda imprime `[ok]` com `EXIT=0`.
@@ -948,6 +995,9 @@ def main() -> int:
     # não muda nada. Foi essa distinção que reformulou a lacuna.
     espacos_que_perseguem = 0
     campeoes_que_perseguem: set = set()
+    # Espaços cuja habilidade abre corrente de combo. O tradutor só emite
+    # corrente quando o destino faz alguma coisa — ver `_corrente`.
+    espacos_com_corrente = 0
     for a in atores:
         if a["usage"] != "Player" or not a["ability_groups"]:
             continue
@@ -972,6 +1022,8 @@ def main() -> int:
             ):
                 espacos_que_perseguem += 1
                 campeoes_que_perseguem.add(a["id"])
+            if escolhida.get("combo_next_id"):
+                espacos_com_corrente += 1
             if escolhida.get("resets_attack_cooldown"):
                 espacos_com_reset += 1
                 campeoes_com_reset.add(a["id"])
@@ -1117,6 +1169,42 @@ def main() -> int:
     doc02_ritmo = ler("docs/02-decisoes-tecnicas.md")
     ability_gd = ler("scripts/core/abilities/ability.gd")
 
+    # ------------------------------------------- corrente de combo
+    c.afirma("ability.gd espaços com corrente", ability_gd,
+             r"vale para \*\*(\d+) dos \d+ espaços de campeão\*\*",
+             espacos_com_corrente)
+    c.afirma("docs/02 espaços com corrente", doc02_ritmo,
+             r"\*\*(\d+) dos 127 espaços\*\* abrem corrente",
+             espacos_com_corrente)
+    # E o corpus tem que concordar com o contador do tradutor.
+    c.contar()
+    do_corpus = sum(1 for h in habilidades if h.get("combo_next_id"))
+    # O contador de emissões conta o que o tradutor EMITIU; a poda vem depois,
+    # com o corpus pronto. Comparar sem descontar acusaria a poda de ser um
+    # defeito — e é ela que impede a corrente para o vazio.
+    podadas = _emissoes_lacuna(
+        relatorio, "corrente de combo podada (o elo traduzido ficou sem efeito)"
+    )
+    do_relatorio = _emissoes(relatorio, "corrente de combo") - podadas
+    if do_corpus != do_relatorio:
+        c.falhas.append(
+            "corrente de combo: o corpus tem %d e o RELATORIO conta %d "
+            "(emitidas menos %d podadas)" % (do_corpus, do_relatorio, podadas)
+        )
+    # A guarda que recusa corrente para elo sem efeito é o que impede a
+    # mecânica de virar armadilha; se ela parar de disparar, o número cai.
+    c.afirma("docs/02 correntes podadas", doc02_ritmo,
+             r"\*\*poda (\d+) correntes\*\*",
+             _emissoes_lacuna(
+                 relatorio,
+                 "corrente de combo podada (o elo traduzido ficou sem efeito)"))
+    c.afirma("docs/02 correntes recusadas", doc02_ritmo,
+             r"\*\*(\d+) correntes\*\* foram recusadas",
+             _emissoes_lacuna(
+                 relatorio,
+                 "corrente de combo para elo sem efeito "
+                 "(o golpe caiu em lacuna)"))
+
     # -------------------------------------------- perseguição da âncora
     pulso_gd = ler("scripts/core/abilities/ability_pulse.gd")
     atrasados = [
@@ -1188,6 +1276,126 @@ def main() -> int:
              r"\*\*43 → (\d+)\*\*", espacos_com_reset)
     c.afirma("CLAUDE.md reconto: perseguição", claude,
              r"\*\*35 → (\d+)\*\*", espacos_que_perseguem)
+    # ------------------- as duas tabelas das seis lacunas têm que concordar
+    #
+    # O `CLAUDE.md` lista as seis lacunas DUAS vezes, e as duas listas
+    # discordaram: a de cima marcava o arco como fora de escopo e a de baixo
+    # continuava a listar como trabalho aberto — no mesmo commit em que a
+    # decisão 20 explica que documentação discordando é o defeito, e no arquivo
+    # que toda sessão é mandada ler inteiro.
+    #
+    # Nada pegava: as linhas fechadas carregam números que esta ferramenta
+    # confere, e a única que ficou para trás não tinha número nenhum.
+    # **O parágrafo de ABERTURA da seção também é afirmação.**
+    #
+    # Ele dizia "a sessão está no meio dela" com as seis linhas da tabela
+    # riscadas — e é o texto que a próxima sessão lê PRIMEIRO, sob um banner
+    # que manda parar e ler. Quatro rodadas seguidas de revisão caíram nesta
+    # mesma classe, e três delas foram em prosa, que nenhuma varredura de
+    # linha de lista alcança.
+    c.contar()
+    riscadas_na_tabela = len(re.findall(r"\| ~~\d+~~ \|", claude))
+    lead = re.search(
+        r"\*\*as (uma|duas|três|quatro|cinco|seis) lacunas estão resolvidas\*\*",
+        claude, re.I
+    )
+    if lead is None:
+        c.falhas.append(
+            "o parágrafo de abertura de `Onde parar de ler` não diz mais "
+            "quantas lacunas estão resolvidas; a conferência ficou órfã"
+        )
+    else:
+        dito = {"uma": 1, "duas": 2, "três": 3, "quatro": 4,
+                "cinco": 5, "seis": 6}[lead.group(1).lower()]
+        # As duas tabelas repetem cada lacuna, daí a metade.
+        if dito != riscadas_na_tabela // 2:
+            c.falhas.append(
+                "a abertura diz `%s lacunas estão resolvidas` e as tabelas têm "
+                "%d linhas riscadas (%d lacunas)"
+                % (lead.group(1), riscadas_na_tabela, riscadas_na_tabela // 2)
+            )
+
+    # **Os números da abertura, derivados do corpus.**
+    #
+    # A reescrita da abertura introduziu uma afirmação NOVA e errada — "os 99
+    # mobs já estão traduzidos com kit", quando 28 dos 99 têm `ability_groups`,
+    # que é o que "com kit" significa nas outras quatro ocorrências do
+    # repositório. Não era prosa envelhecida: era falsidade nova, na frase que
+    # aponta o próximo passo, sob o banner "PARE AQUI E LEIA".
+    mobs = [a for a in atores if a["usage"] == "Monster"]
+    c.afirma("CLAUDE.md mobs traduzidos", claude,
+             r"\*\*(\d+) mobs\*\*", len(mobs))
+    c.afirma("CLAUDE.md mobs com kit", claude,
+             r"\*\*(\d+) têm kit\*\*",
+             sum(1 for a in mobs if a["ability_groups"]))
+    c.afirma("CLAUDE.md mobs com ataque básico", claude,
+             r"\*\*(\d+) têm ataque básico\*\*",
+             sum(1 for a in mobs if a.get("basic_attack_group")))
+    c.afirma("CLAUDE.md mobs com AIPath", claude,
+             r"\*\*(\d+) têm `AIPath`\*\*",
+             sum(1 for a in mobs if a.get("ai_profile")))
+
+    lacunas_da_tabela = _lacunas_da_tabela(claude)
+    c.contar()
+    if len(lacunas_da_tabela) != 6:
+        c.falhas.append(
+            "a primeira tabela das lacunas tem %d linhas e a seção fala em "
+            "seis; a leitura dela ficou órfã" % len(lacunas_da_tabela)
+        )
+    for lacuna in lacunas_da_tabela:
+        c.contar()
+        riscadas = len(re.findall(r"\| ~~%d~~ \|" % lacuna, claude))
+        abertas = len(re.findall(r"\| \*?\*?%d\*?\*? \|" % lacuna, claude))
+        if riscadas == 2 and abertas == 0:
+            continue
+        c.falhas.append(
+            "a lacuna %d aparece %d vez(es) riscada e %d aberta nas duas "
+            "tabelas do `CLAUDE.md`; elas têm que concordar sobre o estado"
+            % (lacuna, riscadas, abertas)
+        )
+
+    # ------------------- sistema fechado tem que estar fechado em TODO lugar
+    for nome, decisao in SISTEMAS_FECHADOS:
+        for documento in DOCUMENTOS_DE_ESTADO:
+            c.contar()
+            texto = ler(documento)
+            # "Riscado em qualquer lugar da linha" e não "riscado no nome":
+            # numa tabela o traço costuma cair sobre o NÚMERO da lacuna, e
+            # exigi-lo no nome acusaria linhas que já estão fechadas.
+            abertos = [
+                linha.strip() for linha in texto.splitlines()
+                if ("**%s**" % nome) in linha
+                and (linha.startswith("- ") or linha.startswith("| "))
+                and "~~" not in linha
+            ]
+            if abertos:
+                c.falhas.append(
+                    "`%s` ainda lista `%s` como aberto (%d linha(s)), e a "
+                    "decisão %d o fechou: %s"
+                    % (documento, nome, len(abertos), decisao, abertos[0][:70])
+                )
+
+    # O numeral por extenso contra a lista que ele conta. Já foi "três" sobre
+    # cinco pares, e o mesmo defeito já existiu em `docs/10` com "Dois bugs".
+    c.contar()
+    frase = re.search(
+        r"As (uma|duas|três|quatro|cinco|seis) fechadas\s+mudaram de número:"
+        r"([^.]*)", claude, re.S
+    )
+    if frase is None:
+        c.falhas.append("a frase dos recontos sumiu do `CLAUDE.md`")
+    else:
+        escrito = {"uma": 1, "duas": 2, "três": 3, "quatro": 4,
+                   "cinco": 5, "seis": 6}[frase.group(1)]
+        pares = len(re.findall(r"→", frase.group(2)))
+        if escrito != pares:
+            c.falhas.append(
+                "o `CLAUDE.md` diz `%s fechadas` e lista %d recontos"
+                % (frase.group(1), pares)
+            )
+
+    c.afirma("CLAUDE.md reconto: corrente de combo", claude,
+             r"\*\*14 → (\d+)\*\*", espacos_com_corrente)
     c.afirma("CLAUDE.md espaços que enchem a carga", claude,
              r"\*\*(\d+) dos \d+ espaços\*\*\s*\|", espacos_com_carga)
 
@@ -1442,9 +1650,11 @@ def main() -> int:
     # conferência apontava para uma linha do relatório que não existe mais, e
     # conferência órfã é tão ruim quanto nenhuma — ela reprova por um motivo
     # que não é o defeito.
+    # A do combo saiu quando a lacuna fechou: ela apontava para uma linha do
+    # relatório que deixou de existir, e ficaria órfã — reprovando por um
+    # motivo que não é o defeito. O que o roadmap diz sobre o combo agora é
+    # conferido pelo bloco da decisão 21.
     for rotulo, chave, padrao in (
-        ("combo", "ComboSkillInfo (corrente de combo)",
-         r"\*\*Corrente de combo\*\* \((\d+)\)"),
         ("cancelamento", "janela de cancelamento por tempo",
          r"\*\*Janelas de cancelamento\*\* \((\d+)\)"),
     ):
@@ -1463,7 +1673,6 @@ def main() -> int:
     # Cada par é (rótulo na tabela do doc, chave no RELATORIO.md). Quando a
     # linha soma várias lacunas, a lista tem mais de uma chave.
     LACUNAS_DO_DOC = [
-        (r"`ComboSkillInfo`, (\d+)", ["ComboSkillInfo (corrente de combo)"]),
         (r"e três irmãs, (\d+)", ["janela de cancelamento por tempo"]),
         (r"`Link`, (\d+)",
          ["Link (corrente que liga dois alvos e rompe na distância)"]),

@@ -118,6 +118,9 @@ static func build(data: Dictionary) -> Ability:
 	ability.rank = int(data.get("rank", 1))
 	ability.level_requirement = int(data.get("level_requirement", 0))
 	ability.cooldown = float(data.get("cooldown", 0.0))
+	ability.combo_next_id = StringName(data.get("combo_next_id", ""))
+	ability.combo_window_start = float(data.get("combo_window_start", 0.0))
+	ability.combo_window_length = float(data.get("combo_window_length", 0.0))
 	ability.resets_attack_cooldown = bool(
 		data.get("resets_attack_cooldown", false)
 	)

@@ -100,6 +100,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `stat:mana_regen` | 121 |
 | `stat:out_of_combat_health_regen` | 119 |
 | `stat:attack_range` | 112 |
+| `corrente de combo` | 104 |
 | `stat:ability_power` | 103 |
 | `gatilho BASIC_ATTACK_HIT` | 101 |
 | `periodic` | 99 |
@@ -217,7 +218,6 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | TriggerTiming=Arrived no pulso (aproximado pelo atraso e pela velocidade do projétil) | 143 |  |
 | tabela de loot: o que dropa (`DropItemTableIDs` em actor) | 141 |  |
 | geometria inventada: largura do projétil (o original guarda o colisor fora do XML) | 139 | skill 1000800 |
-| ComboSkillInfo (corrente de combo) | 125 | skill 1000000 |
 | projétil teleguiado (`TrackingMode` em skill) | 118 |  |
 | ataque básico sem alcance declarado | 106 | actor 1000701 |
 | tempo de ar do arremesso (o original guarda a subida numa curva fora do XML; usamos 0.9s) | 103 | skill 1000800 |
@@ -242,6 +242,7 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | tabela de loot: grupo de drop (`DropGroupId` em actor) | 23 |  |
 | PingList (aviso na interface, não é combate) | 22 | skill 3001000 |
 | invocação que dispara os gatilhos do dono (`UseSummonerDamageTrigger` em actor) | 22 |  |
+| corrente de combo para elo sem efeito (o golpe caiu em lacuna) | 21 | skill 1012100 |
 | StatType=PhysicalDamageAmp_SkillE | 21 | skill 1025101 |
 | TriggerTiming=OutCombat | 21 | equipment 1060004 |
 | buff ao terminar a interação (`InteractionEndBuffId` em actor) | 21 |  |
@@ -254,6 +255,7 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | vários interagindo ao mesmo tempo (`MultiInteraction` em actor) | 17 |  |
 | buff enquanto a interação corre (`InteractionStartBuffId` em actor) | 17 |  |
 | BuffReleaseCondition=InteractionStart | 16 | skill 1003401 |
+| corrente de combo podada (o elo traduzido ficou sem efeito) | 15 | skill 1016201 |
 | habilidade que dispara um ataque básico ao terminar (`ReleaseAutoAttack` em skill) | 15 |  |
 | TriggerTiming=OnHitWall no pulso (sem aproximação) | 10 |  |
 | TriggerTiming=OnHitActorObject no pulso (sem aproximação) | 10 |  |

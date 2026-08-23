@@ -44,13 +44,25 @@ static func cast(
 		aim: AbilityCast,
 		candidates: Array
 ) -> CastResult:
+	# **A corrente de combo troca a habilidade ANTES de qualquer checagem.**
+	#
+	# É isso que faz o segundo golpe sair sem esperar a recarga do primeiro: o
+	# elo seguinte tem id próprio, a recarga registrada é a do elo anterior, e
+	# o `_check` roda sobre quem vai sair de verdade. Trocar depois seria
+	# cobrar a recarga errada; trocar antes é o desenho.
+	#
+	# Fora da janela — ou sem corrente armada — devolve a própria, e nada disto
+	# se nota.
+	if book != null:
+		ability = book.combo_replacement(ability)
+
 	var refusal: CastResult = _check(book, ability, aim)
 	if refusal != null:
 		return refusal
 
 	if ability.cast_time > 0.0:
 		book.begin_cast(ability, aim, aim.caster)
-		_charge(ability, aim.caster)
+		_charge(book, ability, aim.caster)
 		return CastResult.of(CastResult.Status.CASTING, ability)
 
 	return _apply(book, ability, aim, candidates, true)
@@ -198,7 +210,7 @@ static func _in_range(ability: Ability, aim: AbilityCast) -> bool:
 ## O que acontece no instante em que a conjuração COMEÇA: custo, carga e o
 ## reset do ataque básico. Um ponto só, chamado uma vez por conjuração aceita,
 ## tanto na instantânea quanto na de tempo.
-static func _charge(ability: Ability, caster: Unit) -> void:
+static func _charge(book: AbilityBook, ability: Ability, caster: Unit) -> void:
 	if ability.mana_cost > 0.0:
 		caster.mana.spend(ability.mana_cost)
 	# A suprema gasta a carga INTEIRA, e no mesmo instante da mana: quem for
@@ -214,6 +226,15 @@ static func _charge(ability: Ability, caster: Unit) -> void:
 	# recusada — o mesmo instante em que a mana já foi cobrada.
 	if ability.resets_attack_cooldown:
 		caster.reset_attack_cooldown()
+	# **E arma a corrente de combo.** No mesmo instante da mana, da recarga e do
+	# reset, e pelo mesmo motivo: é aqui que a conjuração deixou de poder ser
+	# recusada. Armar antes daria corrente por apertar botão em recarga.
+	#
+	# A corrente de quem SAIU é esquecida: um elo consumido não pode ser
+	# reconjurado pela janela antiga. Sem isso, apertar três vezes daria o
+	# segundo golpe duas vezes.
+	if book != null:
+		book.arm_combo(ability)
 
 # ---------------------------------------------------------------- aplicação
 
@@ -225,7 +246,7 @@ static func _apply(
 		charge_now: bool
 ) -> CastResult:
 	if charge_now:
-		_charge(ability, aim.caster)
+		_charge(book, ability, aim.caster)
 
 	# As âncoras são todas calculadas AGORA, mesmo as dos pulsos atrasados.
 	# `Origin.PREVIOUS` encadeia aqui, na ordem declarada, e o resultado fica

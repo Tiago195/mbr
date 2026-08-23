@@ -214,19 +214,37 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 
 ## Estado atual
 
-> Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **459 testes, 1264 asserções**, todos verdes, stderr limpo.
+> Última atualização: **23/08/2026**. Repositório em `github.com:Tiago195/mbr`,
+> branch `master`. **473 testes, 1299 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
 > **PARE AQUI E LEIA.** Esta seção é o ponto de partida da próxima sessão.
 
 O usuário testou os campeões em jogo e disse: *"achei vários problemas com as
-skills, várias não estão funcionando como deveria"*. Medido, não é bug de
-tradução — são as lacunas registradas. Elas viraram uma **tabela de trabalho**,
-e a sessão está no meio dela.
+skills, várias não estão funcionando como deveria"*. Medido, não era bug de
+tradução — eram as lacunas registradas. Elas viraram uma tabela de trabalho, e
+**as seis lacunas estão resolvidas**: cinco fechadas por decisão e uma
+classificada como arte.
 
-#### A tabela, e onde ela está
+**A tabela acabou. O próximo trabalho não sai dela.** O que falta para o jogo
+deixar de ser sandbox continua sendo o que sempre foi — **oposição, mapa e
+loot** —, e nenhuma quantidade de refinamento de habilidade conserta um boneco
+parado.
+
+O que existe traduzido para começar por oposição: **99 mobs**, dos quais
+**28 têm kit** (`ability_groups`, o mesmo sentido de "campeões com kit"),
+**97 têm ataque básico** e **98 têm `AIPath`** — que está guardada e **ainda
+sem consumidor**. Ou seja: há de onde partir, e não é um sistema pronto
+esperando ser ligado.
+
+**O que exige o usuário, e vem antes.** Em **23/08/2026** ele testou em jogo e
+validou a telegrafia, a carga de suprema e o ritmo do reset de auto-ataque
+(*"bom, melhorou"*). **Continua sem ver a perseguição da âncora e a corrente de
+combo** — as duas são sensação de jogo, e as sondas sabem que não quebrou, não
+que ficou bom. É a lista completa do que falta de olho humano; não há outra.
+
+#### A tabela, e como ela terminou
 
 | Quantas | O que o original faz e nós não | Estado |
 |---|---|---|
@@ -234,8 +252,8 @@ e a sessão está no meio dela.
 | ~~65~~ | Alimentam a carga da suprema, que não existia | **fechada** (decisão 17) |
 | ~~43~~ | Deveriam **zerar a cadência do ataque básico** | **fechada** (decisão 18) — 44 pelo caminho do jogo |
 | ~~35~~ | Área que **acompanha o alvo**; a nossa planta no chão | **fechada** (decisão 19) — 27 pelo caminho do jogo |
-| **24** | Deslocamento em **arco**; o nosso é reta | **próxima** |
-| 14 | **Corrente de combo**: apertar Q de novo vira outra habilidade | |
+| ~~24~~ | Deslocamento em **arco** | **fora de escopo** (decisão 20) — é asset, e `docs/10` já dizia |
+| ~~14~~ | **Corrente de combo**: apertar Q de novo vira outra habilidade | **fechada** (decisão 21) — 4 pelo caminho do jogo |
 
 A contagem vem de varrer `skill_xml` + `impact_xml` pelas colunas de
 `ORFAS_QUE_SAO_LACUNA`. **Cuidado ao remedir:** `"False"` é string não-vazia e
@@ -244,8 +262,11 @@ A contagem vem de varrer `skill_xml` + `impact_xml` pelas colunas de
 reset de auto-ataque parecer 521 quando são 259.
 
 **Ao fechar cada lacuna, a primeira coisa é REMEDIR pelo caminho que o jogo
-percorre** — `rank_for_level` sobre os espaços de campeão. As três fechadas
-mudaram de número: **61 → 79**, **65 → 67**, **43 → 44**, **35 → 27**. Os números da tabela
+percorre** — `rank_for_level` sobre os espaços de campeão. As cinco fechadas
+mudaram de número: **61 → 79**, **65 → 67**, **43 → 44**, **35 → 27**,
+**14 → 4**. E duas mudaram de NATUREZA: a do arco é asset (decisão 20), e a
+do combo perdeu o ataque básico porque o segundo golpe dele é idêntico ao
+primeiro no nosso vocabulário. Os números da tabela
 vieram de varrer o XML por outro caminho e **não são reproduzíveis**: nenhuma
 tentativa de reconstruir o 43 chega nele (o caminho do jogo dá 44 em todos os
 níveis de 1 a 18, `ranques[-1]` dá 46, habilidades distintas dão 34). Os três
@@ -270,11 +291,20 @@ o contexto do projeto, e a instrução de **tentar reprovar**, pedindo veredito
 numa linha só.
 
 **Custo medido, por lacuna:** a 1 levou 8 rodadas (7 reprovando), a 2 levou 5
-(4 reprovando), a 3 levou 6 (5 reprovando), a 4 levou 8 (7 reprovando).
+(4 reprovando), a 3 levou 6 (5 reprovando), a 4 levou 8 (7 reprovando), e as
+decisões 20+21 juntas levaram 5 (4 reprovando).
 **Toda rodada achou algo material**
 — e nas rodadas 3, 4 e 5 da lacuna 3 o achado estava dentro da conferência
 acrescentada na rodada anterior. Orçar uma lacuna por "umas duas rodadas" nunca
 bateu com a medição.
+
+**O que as lacunas 5 e 6 ensinaram, e é diferente:** as quatro reprovações
+foram todas em **prosa do próprio `CLAUDE.md`** — item fechado numa tabela e
+aberto noutra, sistema riscado num documento e não noutro, o parágrafo de
+abertura dizendo que o trabalho está em curso, e um número escrito à mão que
+estava errado por 71. Nenhuma tocou a mecânica. A saída foi a mesma das
+contagens: **derivar em vez de escrever**. Hoje a abertura da seção tem os
+números lidos de `atores.json` e do corpus, e as tabelas se conferem entre si.
 
 **O que a lacuna 3 ensinou sobre o próprio loop:** as três reprovações do meio
 não foram sobre a mecânica — foram sobre **justificativa gravada que era
@@ -304,20 +334,25 @@ inexistente não aborta a função: empurra erro, devolve nulo e o laço segue.
 Medido: `EXIT=0`, 323 bytes de stderr, `[ok]` no stdout. Por isso o stderr
 delas passou a ser lido por máquina.
 
-Estado ao fim desta sessão: **459 testes, 1264 asserções**, stderr 0 bytes,
+Estado ao fim desta sessão: **473 testes, 1299 asserções**, stderr 0 bytes,
 sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
 44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
 conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
-**176 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**199 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar
 
-O usuário **não viu** nem a telegrafia corrigida nem a carga de suprema em
-jogo. A sonda sabe que cada golpe virou marca com a forma certa, no lugar
-certo, apontando para o lado certo, visível e pelo tempo certo. Não sabe se o
-jogador entende o que aquilo quer dizer, nem se cinco ataques até a suprema é
-o ritmo certo. **É ponto de parar e pedir teste** quando o usuário voltar.
+**A lista está na abertura desta seção, e é a única.** Havia duas aqui, com
+escopos diferentes — esta ainda pedia teste da telegrafia e da carga de
+suprema, que o usuário já validou em 23/08/2026 junto com o reset de
+auto-ataque. Duas listas do que pedir dão duas respostas à mesma pergunta, e
+foi assim que a documentação deste projeto errou quatro rodadas seguidas.
+
+O que as sondas sabem e não substitui olho humano: que cada golpe virou marca
+com a forma certa, no lugar certo, apontando para o lado certo, visível e pelo
+tempo certo. Não sabem se o jogador entende o que aquilo quer dizer, nem se o
+ritmo ficou bom.
 
 ---
 
@@ -472,14 +507,23 @@ Das 124 habilidades dos 31 campeões com suprema:
 | ~~61~~ | ~~Vários golpes, e a tela desenhava só o primeiro~~ — **fechada**: cada golpe é desenhado quando sai, e cone e trapézio ganharam forma de verdade. Recontado pelo caminho que o jogo usa, são **79 dos 127 espaços**; o 61 contava referências de impacto do XML, que é outra medida |
 | ~~43~~ | ~~Deveriam **zerar a cadência do ataque básico**~~ — **fechada**: conjurar solta o próximo ataque básico na hora. Recontado pelo caminho que o jogo usa, são **44 dos 127 espaços**, em 22 campeões. Ver a decisão 18 |
 | ~~35~~ | ~~Área que **acompanha o alvo**~~ — **fechada**: e a lacuna estava mal descrita. `FollowTarget` não é booleana (`None` 1552, `User` 353, `Target` 62), a maioria acompanha o CONJURADOR, e só muda algo em pulso ATRASADO: **27 dos 127 espaços**. Ver a decisão 19 |
-| 24 | Deslocamento em **arco** (`ZMoveCurvePath`); o nosso é reta |
-| 14 | **Corrente de combo**: apertar Q de novo deveria virar outra habilidade |
+| ~~24~~ | ~~Deslocamento em **arco**~~ — **fora de escopo**: `ZMoveCurvePath` não contém números, contém caminhos de asset de animação, e `docs/10` já a listava como "precisa de sistema que não é de combate". Ver a decisão 20 |
+| ~~14~~ | ~~**Corrente de combo**~~ — **fechada**: o elo seguinte sai sem esperar a recarga do primeiro. São **4 dos 127 espaços**; o ataque básico ficou de fora porque o elo 2 dele é idêntico ao elo 1 no nosso vocabulário. Ver a decisão 21 |
 
-26 dos 31 campeões têm ao menos uma afetada. Regerar esta medição é uma varredura
-de `skill_xml` + `impact_xml` pelas colunas de `ORFAS_QUE_SAO_LACUNA`.
+Na medição de 22/08/2026, quando as seis estavam abertas, 26 dos 31 campeões
+tinham ao menos uma afetada. Regerar aquela medição é uma varredura de
+`skill_xml` + `impact_xml` pelas colunas de `ORFAS_QUE_SAO_LACUNA` — mas ela
+descreve um estado que não existe mais.
 
-A primeira já foi fechada. As outras são sistema, e estão sendo atacadas em
-ordem de quantas habilidades cada uma afeta.
+**As seis estão resolvidas** — cinco fechadas e uma classificada como arte. O
+que sobrou de habilidade não é lacuna de tradução: é conteúdo que o original
+tem e nós não fomos buscar, e conteúdo não se ataca por tabela.
+
+**As duas tabelas desta seção listam as MESMAS seis lacunas**, e
+`conferir_numeros.py` exige que concordem sobre o estado de cada uma. A
+conferência existe porque elas discordaram: a de cima marcava o arco como fora
+de escopo e a de baixo continuava a listar como trabalho aberto, no mesmo
+commit em que a decisão 20 explicava que documentação discordando é o defeito.
 
 ### Três sistemas que a tradução revelou e o roadmap não previa
 
@@ -491,7 +535,11 @@ de sensação, e o que falta antes continua sendo oposição, mapa e loot.
   1000. Ela deixou de ter recarga e passou a encher agindo, o que apagou o
   número inventado de 45 s — que valia para 31 campeões e hoje vale para 1.
   Ver a decisão 17.
-- **Corrente de combo** — 125. Conjurar A dentro de uma janela troca A por B.
+- ~~**Corrente de combo**~~ — **fechada em 23/08/2026**. Conjurar A dentro da
+  janela troca A por B, e o elo seguinte sai sem esperar a recarga do primeiro.
+  125 no XML, 89 emitidas no corpus, **4 dos 127 espaços** de campeão. O ataque
+  básico ficou de fora porque o elo 2 dele é idêntico ao elo 1 no nosso
+  vocabulário. Ver a decisão 21.
 - **Janelas de cancelamento** — 72. Nós temos um booleano `cancelable`; o
   original tem quatro instantes por habilidade.
 

@@ -445,7 +445,7 @@ original tem e nós não, achado por medição em vez de por memória.
 | Lacuna | Onde aparece | O que é |
 |---|---|---|
 | ~~**Carga de suprema**~~ | `UltimateCharge` | **Fechada.** 517 habilidades declaram o ganho; o ataque básico rende 200 e a suprema custa 1000. Ver a decisão 17 |
-| **Corrente de combo** | `ComboSkillInfo`, 125 | Conjurar A dentro de uma janela troca A por B. É boa parte do que dava textura ao corpo a corpo do original |
+| ~~**Corrente de combo**~~ | `ComboSkillInfo`, 89 | **Fechada.** Conjurar A dentro de uma janela troca A por B, sem esperar a recarga de A. 89 emitidas no corpus e **4 dos 127 espaços** de campeão; 21 recusadas por apontarem para elo sem efeito e 15 podadas depois. Ver a decisão 21 |
 | **Janelas de cancelamento** | `MoveCancelableTime` e três irmãs, 72 | Nós temos um booleano `cancelable`. O original tem quatro instantes por habilidade: quando dá para andar, quando dá para conjurar outra, quando dá para atacar. É onde mora o "feel" |
 | **Corrente entre dois alvos** | `Link`, 47 | Amarra dois combatentes e rompe na distância |
 | **Troca de habilidade no espaço** | `UseSkillSlot`, 27 | Postura que reescreve o que Q e W fazem |
