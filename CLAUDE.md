@@ -215,7 +215,7 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 ## Estado atual
 
 > Última atualização: **22/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **416 testes, 1170 asserções**, todos verdes, stderr limpo.
+> branch `master`. **431 testes, 1206 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
@@ -341,7 +341,7 @@ campeão, mob, bot, lacaio, baú e árvore, com atributos base, crescimento por
 nível, kit e passiva. É a tabela que responde *quem tem quais habilidades* — a
 única que responde, e a que faltava para o corpus virar personagem jogável.
 
-O que o vocabulário ganhou para caber: atributos **18 → 44**, controles de
+O que o vocabulário ganhou para caber: atributos **18 → 45**, controles de
 grupo **4 → 10** estados (e as opções de `CrowdControlEffect` de 5 para 11),
 efeitos **6 → 14**, e `Ability` deixou de ter uma forma para
 ter uma **lista de pulsos** (decisão 10). O mapeamento coluna a coluna e as
@@ -407,8 +407,8 @@ Das 124 habilidades dos 31 campeões com suprema:
 
 | Quantas | O que falta |
 |---|---|
+| ~~65~~ | ~~Alimentam a carga da suprema, que não existe~~ — **fechada**: a suprema enche agindo e os 45 s inventados morreram |
 | ~~61~~ | ~~Vários golpes, e a tela desenhava só o primeiro~~ — **fechada**: cada golpe é desenhado quando sai, e cone e trapézio ganharam forma de verdade. Recontado pelo caminho que o jogo usa, são **79 dos 127 espaços**; o 61 contava referências de impacto do XML, que é outra medida |
-| 65 | Alimentam a carga da suprema, que não existe |
 | 43 | Deveriam **zerar a cadência do ataque básico** (`ResetAttackCoolTime`) |
 | 35 | Área que **acompanha o alvo** (`FollowTarget`); a nossa planta no chão |
 | 24 | Deslocamento em **arco** (`ZMoveCurvePath`); o nosso é reta |
@@ -425,8 +425,11 @@ ordem de quantas habilidades cada uma afeta.
 Achados por medição, não por memória. Nenhum é urgente; todos são refinamento
 de sensação, e o que falta antes continua sendo oposição, mapa e loot.
 
-- **Carga de suprema** — 534 habilidades do original. A suprema não tem
-  recarga: enche batendo e apanhando.
+- ~~**Carga de suprema**~~ — **fechada em 22/08/2026**. 517 habilidades do
+  original declaram quanto rendem, o ataque básico rende 200 e a suprema custa
+  1000. Ela deixou de ter recarga e passou a encher agindo, o que apagou o
+  número inventado de 45 s — que valia para 31 campeões e hoje vale para 1.
+  Ver a decisão 17.
 - **Corrente de combo** — 125. Conjurar A dentro de uma janela troca A por B.
 - **Janelas de cancelamento** — 72. Nós temos um booleano `cancelable`; o
   original tem quatro instantes por habilidade.
@@ -500,6 +503,19 @@ py tools/conferir_numeros.py
 
 Confere os números afirmados em `CLAUDE.md` e em `docs/` contra o código e
 contra o corpus traduzido. **Rodar antes de commitar documentação.**
+
+Ela também **exige a suíte verde**, e isso é mais recente do que parece: por
+duas revisões ela lia a contagem de testes da saída da suíte e ignorava o
+veredito — uma suíte vermelha publicava "431 testes, 1206 asserções" e a
+ferramenta dizia "todas batem". Hoje ela lê stdout, stderr e código de saída,
+e trata `SCRIPT ERROR`, `leaked at exit`, código diferente de zero, ausência de
+resumo e travamento como falha. **Encontrar a engine é a fronteira**: depois
+disso, tudo é falha da suíte, nunca "não consegui conferir".
+
+E ela **se confere primeiro**: `_autoteste()` roda a classificação contra os
+sete cenários que já a enganaram. Foi ali dentro que nasceram os três
+bloqueantes de uma revisão inteira, e enquanto a classificação vivia colada ao
+`subprocess` só dava para conferi-la fabricando executáveis falsos à mão.
 
 Existe porque três revalidações seguidas do Passo 4 reprovaram pela mesma
 espécie de erro, e nunca pelo mesmo número: "atributos 18 → 44" certo e

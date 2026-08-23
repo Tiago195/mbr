@@ -124,6 +124,7 @@ static func build(data: Dictionary) -> Ability:
 	ability.mana_cost = float(data.get("mana_cost", 0.0))
 	ability.aim = _enum(Ability.Aim, data.get("aim"), Ability.Aim.POINT) as Ability.Aim
 	ability.cast_range = float(data.get("cast_range", 0.0))
+	ability.ultimate_charge_gain = float(data.get("ultimate_charge_gain", 0.0))
 
 	var pulsos: Array[AbilityPulse] = []
 	for entry: Variant in data.get("pulses", []):

@@ -480,7 +480,8 @@ CONSULTADAS = {
         "Id", "SkillGroupID", "Rank", "LevelRequirement", "CoolTime", "CostValue",
         "UI_Type", "UI_Params", "AI_SkillRange", "MovingOnSkill",
         "SkillCancelableTime", "AtlasName", "ButtonIconPath", "CastingTime",
-        "RemoveCC", "RemoveDebuff", "UseChainBreak", "__tabela",
+        "RemoveCC", "RemoveDebuff", "UseChainBreak", "UltimateCharge",
+        "__tabela",
     } | {f"Impact{n}" for n in range(1, 13)}
       | {f"StatType{n}" for n in range(1, 5)}
       | {f"StatValue{n}" for n in range(1, 5)},
@@ -622,7 +623,7 @@ IGNORADAS = {
     "PersistRankOnCC": "marcador interno", "PersistStartTime": "marcador interno",
     "PersistEndTime": "marcador interno", "Persistence": "marcador interno",
     "SummonProperPosition": "ajuste de posição da invocação",
-    "ForceUltimateCharge": "carga de suprema (lacuna registrada)",
+    "ForceUltimateCharge": "força a suprema a encher de uma vez; o que temos é o ganho por conjuração, e forçar seria efeito de item",
     "UltimateCharge": "carga de suprema (lacuna registrada)",
     "ApplyOnKnockOut": "regra de nocaute", "ReleaseOnKnockout": "regra de nocaute",
     "ReleaseOnDie": "regra de morte", 
@@ -806,15 +807,15 @@ PAPEL = {
     "Tanker": "TANK",
 }
 
-## Recarga que a suprema RECEBE por não termos carga de suprema.
+## Recarga para a suprema que não tem NEM carga NEM recarga no original.
 ##
-## No original 31 das 32 supremas têm `CoolTime = 0` e enchem batendo
-## (`LevelUpUltimateCharge = 1000`) — o sistema está na lista de lacunas desde
-## a tradução das habilidades. Copiar o zero literalmente daria uma suprema
-## disparável a cada quadro, que é pior do que uma aproximação declarada.
+## Nasceu valendo para todas, quando a carga de suprema era lacuna. Hoje a
+## carga existe (decisão 17) e cobre os 31 campeões que declaram
+## `LevelUpUltimateCharge`; isto sobrou para o caso degenerado — suprema com
+## `CoolTime = 0` e sem carga, que sairia a cada quadro. Hoje vale para 1 ator
+## só, contra os 31 de antes.
 ##
-## O número é INVENTADO e está registrado como tal no relatório. Vem da faixa
-## usual de suprema de MOBA, não do original.
+## O número continua INVENTADO e registrado como tal no relatório.
 RECARGA_DE_SUPREMA_SEM_CARGA = 45.0
 
 ## Velocidade de um projétil cujo `MoveSpeedZ` o original não declara, ou
@@ -2023,8 +2024,6 @@ class Tradutor:
             self.r.lacuna("curva de deslocamento (MoveCurve)", onde)
         if skill.get("CancelForbidStartTime"):
             self.r.lacuna("janela de cancelamento por tempo", onde)
-        if skill.get("UltimateCharge"):
-            self.r.lacuna("UltimateCharge (carga de suprema)", onde)
 
         # Ranque 0 é a linha-modelo do grupo: existe para a interface mostrar a
         # habilidade ainda não aprendida, e por isso não referencia impacto
@@ -2057,6 +2056,10 @@ class Tradutor:
             "mana_cost": num(skill.get("CostValue")),
             "aim": mira,
             "cast_range": num(skill.get("AI_SkillRange"), 0.0),
+            # `UltimateCharge`: quanto esta habilidade enche a suprema. Era
+            # lacuna registrada — a suprema não tem recarga no original, ela
+            # enche agindo, e sem isto ela recebia um número inventado.
+            "ultimate_charge_gain": num(skill.get("UltimateCharge"), 0.0),
             "pulses": pulsos,
             "passive_effects": passivas,
         }
@@ -2161,17 +2164,22 @@ class Tradutor:
                 espacos.append(grupo)
 
         suprema = self._grupo_da_skill(registro.get("UltimateSkill"), onde)
-        por_carga = num(registro.get("LevelUpUltimateCharge"), 0.0) > 0.0
-        # O critério é a suprema SAIR SEM RECARGA, e não a coluna de carga
-        # existir. Um ator declarava carga em lugar nenhum e recarga zero, e
-        # ficava com uma suprema disparável a cada quadro — o teste pegou, a
-        # condição anterior (`por_carga`) não pegaria nunca.
+        # `LevelUpUltimateCharge` é o CUSTO da suprema, e vale 1000 nos 31
+        # campeões que a têm. Já foi lido como booleano ("usa carga?") enquanto
+        # o sistema não existia; agora é o número.
+        custo_da_suprema = num(registro.get("LevelUpUltimateCharge"), 0.0)
+        por_carga = custo_da_suprema > 0.0
+        if por_carga:
+            self.r.usou("carga de suprema")
+        # A recarga inventada morreu junto com a lacuna. O que sobrou é o
+        # caso do ator que tem suprema e NÃO declara carga: aí a recarga do
+        # original vale, e se ela também for zero a suprema sai a cada quadro.
         recarga_no_original = self._recarga_da_skill(registro.get("UltimateSkill"))
         recarga_da_suprema = 0.0
-        if suprema and recarga_no_original <= 0.0:
+        if suprema and not por_carga and recarga_no_original <= 0.0:
             recarga_da_suprema = RECARGA_DE_SUPREMA_SEM_CARGA
             self.r.lacuna(
-                "carga de suprema — recarga de %.0fs inventada no lugar"
+                "suprema sem carga E sem recarga — %.0fs inventados no lugar"
                 % RECARGA_DE_SUPREMA_SEM_CARGA,
                 onde,
             )
@@ -2198,6 +2206,14 @@ class Tradutor:
             "ability_groups": espacos,
             "ultimate_group": suprema,
             "ultimate_uses_charge": por_carga,
+            "ultimate_charge_cost": custo_da_suprema,
+            # Quanto o ataque básico rende. Sai da habilidade
+            # `DefaultSkillId_1`, e não dos atributos — o ataque básico não
+            # passa pelo motor de habilidade, então o `Unit` precisa carregar
+            # este número.
+            "ultimate_charge_on_attack": self._carga_da_skill(
+                registro.get("DefaultSkillId_1")
+            ),
             "ultimate_cooldown": recarga_da_suprema,
             "passive_effects": passivas,
             "body_radius": num(registro.get("ControllerRadius"), 0.5),
@@ -2291,6 +2307,12 @@ class Tradutor:
         # campeão de dado incompleto passando por completo.
         if perfil["base_stats"].get("attack_range", 0.0) <= 0.0:
             self.r.lacuna("campeão sem alcance de ataque básico", onde)
+
+    ## `UltimateCharge` de uma habilidade citada pelo ator, ou zero.
+    def _carga_da_skill(self, skill_id: str | None) -> float:
+        if not skill_id or skill_id == "0":
+            return 0.0
+        return num((self.t.skills.get(skill_id) or {}).get("UltimateCharge"), 0.0)
 
     ## `CoolTime` de uma habilidade citada pelo ator, ou zero.
     def _recarga_da_skill(self, skill_id: str | None) -> float:

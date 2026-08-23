@@ -153,6 +153,18 @@ static func _check(book: AbilityBook, ability: Ability, aim: AbilityCast) -> Cas
 	if not caster.mana.can_afford(ability.mana_cost):
 		return CastResult.of(CastResult.Status.NO_RESOURCE, ability)
 
+	# Carga de suprema. Recusa própria, e não `ON_COOLDOWN`, porque o jogador
+	# precisa saber que o que falta é AGIR, não esperar.
+	if ability.uses_ultimate_charge and not caster.ultimate_is_ready():
+		var sem_carga: CastResult = CastResult.of(
+			CastResult.Status.NO_CHARGE, ability
+		)
+		sem_carga.charge_missing = maxf(
+			caster.ultimate_charge.maximum() - caster.ultimate_charge.current,
+			0.0
+		)
+		return sem_carga
+
 	# Antes do alcance: sem ninguém apontado, o motivo é falta de alvo e não
 	# distância. Medir a distância até um alvo inexistente daria a mensagem
 	# errada na tela.
@@ -181,6 +193,14 @@ static func _in_range(ability: Ability, aim: AbilityCast) -> bool:
 static func _charge(ability: Ability, caster: Unit) -> void:
 	if ability.mana_cost > 0.0:
 		caster.mana.spend(ability.mana_cost)
+	# A suprema gasta a carga INTEIRA, e no mesmo instante da mana: quem for
+	# interrompido no meio da conjuração não a recupera, pela mesma razão que
+	# não recupera a recarga.
+	if ability.uses_ultimate_charge:
+		caster.spend_ultimate_charge()
+	# E toda habilidade que sai enche a suprema — inclusive a própria suprema,
+	# se o dado dissesse isso. Nos 31 campeões ela rende 0.
+	caster.gain_ultimate_charge(ability.ultimate_charge_gain)
 
 # ---------------------------------------------------------------- aplicação
 

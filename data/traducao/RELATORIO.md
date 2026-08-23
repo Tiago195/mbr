@@ -119,6 +119,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `stat:tenacity` | 36 |
 | `heal:percent_hp` | 34 |
 | `damage:siege` | 33 |
+| `carga de suprema` | 31 |
 | `leque já vem angulado nos impactos` | 30 |
 | `stat:slow_resist` | 28 |
 | `stat:dodge` | 26 |
@@ -193,7 +194,6 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 |---|---|---|
 | área que acompanha o alvo em vez de ficar no chão (`FollowTarget` em impact) | 1967 |  |
 | arbusto que se pode atacar (não há arbusto) (`BeAbleToAttackBush` em impact) | 1523 |  |
-| UltimateCharge (carga de suprema) | 534 | skill 1000000 |
 | habilidade que zera a cadência do ataque básico (`ResetAttackCoolTime` em skill) | 521 |  |
 | arbusto que esconde (`VisibilityInBush` em actor) | 384 |  |
 | hitbox do alvo — nossas formas medem ponto a ponto, então acertar um dragão é tão difícil quanto acertar um campeão (`ImpactRadius` em actor) | 380 |  |
@@ -233,7 +233,6 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | dash que persegue o alvo (`TrackDistanceForMovingSkill` em skill) | 53 |  |
 | Link (corrente que liga dois alvos e rompe na distância) | 47 | skill 1003201 |
 | BuffReleaseCondition=SkillFinish | 41 | skill 1001301 |
-| carga de suprema — recarga de 45s inventada no lugar | 31 | actor 1000000 |
 | UseSkillSlot (troca a habilidade de um espaço) | 27 | skill 1007351 |
 | quem pode interagir (`InteractionSubject` em actor) | 26 |  |
 | geometria inventada: largura da linha (o original guarda o colisor fora do XML) | 25 | skill 1001301 |
@@ -295,5 +294,6 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | TakeOnVehicle (modo de jogo específico) | 1 | skill 3401800 |
 | TriggerTiming=InteractionComplete(3000400) | 1 | actor 1002700 |
 | StatType=AbsoluteSight | 1 | actor 3401040 |
+| suprema sem carga E sem recarga — 45s inventados no lugar | 1 | actor 5000000 |
 | invocação que morre junto com o dono (`DieWithSummoner` em actor) | 1 |  |
 | imune a projétil (`Bulletproof` em actor) | 1 |  |

@@ -29,6 +29,8 @@ enum Status {
 	## Sem mana. Valor novo no FIM: `Status` não é exportado para `.tres` hoje,
 	## mas a disciplina é a mesma do resto e custa nada.
 	NO_RESOURCE,
+	## Suprema sem carga cheia. Também no fim, pela mesma disciplina.
+	NO_CHARGE,
 }
 
 var status: Status = Status.INVALID
@@ -67,6 +69,9 @@ var launched: int = 0
 
 ## Segundos que faltam, quando recusada por recarga.
 var cooldown_remaining: float = 0.0
+
+## Carga que falta, quando recusada por `NO_CHARGE`.
+var charge_missing: float = 0.0
 
 func succeeded() -> bool:
 	return status == Status.SUCCESS

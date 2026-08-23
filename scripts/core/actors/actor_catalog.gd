@@ -104,7 +104,18 @@ static func build(data: Dictionary) -> ActorProfile:
 	profile.ability_groups = grupos
 	profile.ultimate_group = StringName(data.get("ultimate_group", ""))
 	profile.ultimate_uses_charge = bool(data.get("ultimate_uses_charge", false))
+	profile.ultimate_charge_cost = float(data.get("ultimate_charge_cost", 0.0))
+	profile.ultimate_charge_on_attack = float(
+		data.get("ultimate_charge_on_attack", 0.0)
+	)
 	profile.ultimate_cooldown = float(data.get("ultimate_cooldown", 0.0))
+	# O custo da suprema vira ATRIBUTO. Assim ele viaja por `stats_at()` e por
+	# `apply_stats_to()` como qualquer outro, e nem `Combatant` nem `Unit`
+	# precisam saber que existe um caso especial.
+	if profile.ultimate_charge_cost > 0.0:
+		profile.base_stats[Stat.Id.MAX_ULTIMATE_CHARGE] = (
+			profile.ultimate_charge_cost
+		)
 
 	profile.passive_effects = EffectFactory.build_all(
 		data.get("passive_effects", [])

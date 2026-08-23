@@ -282,20 +282,45 @@ func test_o_piso_do_inspector_sobrevive_a_troca() -> void:
 
 # ---------------------------------------------------------------- suprema
 
-func test_a_suprema_ganha_recarga_no_lugar_da_carga() -> void:
-	# 31 das 32 supremas do original têm `CoolTime = 0` porque enchem batendo.
-	# Copiar o zero daria uma suprema disparável a cada quadro.
+func test_a_suprema_sai_por_carga_e_nao_por_recarga() -> void:
+	# 31 das 32 supremas do original têm `CoolTime = 0` porque **enchem
+	# agindo**. Copiar o zero daria uma suprema disparável a cada quadro; foi
+	# por isso que ela ganhou uma recarga inventada de 45s enquanto a carga não
+	# existia. Agora existe, e nenhuma suprema pode ficar sem PORTÃO NENHUM.
 	var habilidades: AbilityCatalog = _abilities()
-	var sem_recarga: Array[String] = []
+	var soltas: Array[String] = []
 	for profile: ActorProfile in _actors().champions():
 		if profile.ultimate_group.is_empty():
 			continue
 		var suprema: Ability = profile.ultimate_for(habilidades, 9)
-		if suprema != null and suprema.cooldown <= 0.0:
-			sem_recarga.append(String(profile.id))
+		if suprema == null:
+			continue
+		if suprema.uses_ultimate_charge or suprema.cooldown > 0.0:
+			continue
+		soltas.append(String(profile.id))
 	assert_eq(
-		sem_recarga.size(), 0,
-		"supremas sem recarga nenhuma: %s" % str(sem_recarga.slice(0, 5))
+		soltas.size(), 0,
+		"supremas sem carga e sem recarga: %s" % str(soltas.slice(0, 5))
+	)
+
+func test_quase_toda_suprema_e_por_carga() -> void:
+	# A recarga inventada sobrou para o caso degenerado: ator com suprema que
+	# não declara carga nenhuma. Era 31 de 31; hoje é 1.
+	var habilidades: AbilityCatalog = _abilities()
+	var por_carga: int = 0
+	var por_recarga: int = 0
+	for profile: ActorProfile in _actors().champions():
+		var suprema: Ability = profile.ultimate_for(habilidades, 9)
+		if suprema == null:
+			continue
+		if suprema.uses_ultimate_charge:
+			por_carga += 1
+		elif suprema.cooldown > 0.0:
+			por_recarga += 1
+	assert_true(por_carga >= 28, "só %d supremas por carga" % por_carga)
+	assert_true(
+		por_recarga <= 2,
+		"%d supremas ainda dependem do número inventado" % por_recarga
 	)
 
 func test_mexer_na_suprema_de_um_nao_mexe_na_do_catalogo() -> void:
@@ -317,12 +342,16 @@ func test_mexer_na_suprema_de_um_nao_mexe_na_do_catalogo() -> void:
 	assert_not_null(original, "a suprema do Leo sumiu")
 	if original == null:
 		return
-	var antes: float = original.cooldown
+	assert_false(
+		original.uses_ultimate_charge,
+		"o corpus não deve marcar habilidade como suprema: ser suprema é papel "
+		+ "no kit de um campeão, e o catálogo entrega a mesma instância a todos"
+	)
 	var minha: Ability = leo.ultimate_for(habilidades, 9)
-	assert_true(minha.cooldown > 0.0, "a cópia saiu sem recarga")
-	assert_almost_eq(
-		original.cooldown, antes,
-		"a suprema do catálogo foi alterada"
+	assert_true(minha.uses_ultimate_charge, "a cópia saiu sem o portão de carga")
+	assert_false(
+		original.uses_ultimate_charge,
+		"a suprema do catálogo foi marcada — a cópia não foi feita"
 	)
 
 # ---------------------------------------------------------------- passiva

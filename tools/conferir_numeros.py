@@ -189,12 +189,23 @@ def _medir_no_original() -> dict | None:
     }
 
 
-def _rodar_suite() -> tuple[int, int] | None:
-    """(testes, asserções) rodando a suíte de verdade. `None` se não der.
+def _rodar_suite() -> dict:
+    """Roda a suíte e devolve o que ela disse, com o veredito SEPARADO.
 
-    A contagem de testes dá para tirar estaticamente contando `func test_`; a
-    de ASSERÇÕES não — ela é dinâmica. Ficava sem conferência, e uma
-    revalidação mostrou que dava para trocar 936 por 9936 sem ninguém notar.
+    Devolve `{"rodou", "passou", "motivo", "testes", "assercoes"}`.
+
+    **Os três estados são distintos, e confundi-los já custou uma revisão.**
+    Isto devolvia `None` tanto para "não consegui rodar a Godot" quanto para
+    "rodei e a suíte falhou" — e `main()` tratava `None` como aviso benigno.
+    Resultado: a ferramenta imprimia "a SUÍTE FALHOU", imprimia "todas batem",
+    e saía com 0. Ela reprovava por número errado num comentário e aprovava
+    por suíte vermelha.
+
+    Também lê o **stderr** e o **código de saída**. `SCRIPT ERROR` no console
+    com "tudo passou" no resumo é o buraco do arnês que o `CLAUDE.md` descreve:
+    erro em tempo de execução aborta só a função onde ocorreu, e um teste que
+    estoura DEPOIS da primeira asserção conta como sucesso. Ler só o stdout
+    deixava isso passar.
     """
     import os
     import shutil
@@ -210,24 +221,158 @@ def _rodar_suite() -> tuple[int, int] | None:
                 godot = candidato
                 break
     if godot is None:
-        return None
+        return {"rodou": False, "motivo": "Godot não encontrada"}
 
+    # **Daqui para baixo, tudo é FALHA, não incapacidade.**
+    #
+    # A engine foi encontrada. Se ela sai com código diferente de zero, morre
+    # sem imprimir o resumo, ou trava, isso é a suíte quebrada — não "não
+    # consegui conferir". A versão anterior devolvia `rodou: False` nos três
+    # casos, e `main()` os tratava como aviso benigno: `EXIT=0`, "todas batem".
+    #
+    # A trava é o pior deles, e não é hipótese: o `CLAUDE.md` registra que um
+    # `SceneTree` headless sem `quit` roda para sempre, e que a suíte trava em
+    # vez de falhar. O único modo de falha que este projeto já sofreu era
+    # justamente o que a ferramenta deixava passar.
     try:
-        saida = subprocess.run(
+        processo = subprocess.run(
             [godot, "--headless", "--path", str(RAIZ),
              "--script", "res://tests/run_tests.gd"],
             capture_output=True, text=True, encoding="utf-8",
             errors="replace", timeout=300,
-        ).stdout
-    except Exception:
-        return None
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "rodou": True, "passou": False,
+            "motivo": "a suíte TRAVOU (300s sem terminar)",
+        }
+    except Exception as erro:
+        return {
+            "rodou": True, "passou": False,
+            "motivo": "a suíte não chegou a rodar: %s" % erro,
+        }
+
+    return _classificar(
+        processo.returncode, processo.stdout or "", processo.stderr or ""
+    )
+
+
+def _classificar(codigo: int, saida: str, erros: str) -> dict:
+    """O que a execução da suíte quer dizer. Função PURA, e é de propósito.
+
+    Os três bloqueantes desta revisão nasceram aqui dentro, misturados ao
+    `subprocess`: a trava que detectava e descartava, os detectores que a ordem
+    tornava inalcançáveis, e o motivo fantasma de `SCRIPT ERROR`. Enquanto a
+    classificação só existia colada à chamada da engine, conferi-la exigia
+    fabricar executáveis falsos à mão — e por isso ela nunca era conferida.
+
+    Separada, ela é exercitável em memória, e `_autoteste()` a exercita a cada
+    execução.
+    """
+    motivos: list[str] = []
+    if "FALHA" in saida:
+        motivos.append("a suíte reportou falha")
+    if codigo != 0:
+        motivos.append("a suíte saiu com código %d" % codigo)
+    # Só no STDERR. O runner imprime a string "SCRIPT ERROR" no stdout dentro
+    # das próprias mensagens de falha ("procure SCRIPT ERROR no console"), e
+    # procurar nos dois dava um motivo fantasma em toda falha de asserção.
+    for marca in ("SCRIPT ERROR", "leaked at exit"):
+        if marca in erros:
+            motivos.append("`%s` no console" % marca)
 
     # A ÚLTIMA ocorrência é o total; as anteriores são uma por suíte. Pegar a
     # primeira dava "17 testes, 120 asserções" — o `test_stats` sozinho.
-    achados = re.findall(r"(\d+) testes, (\d+) asserções", saida or "")
+    achados = re.findall(r"(\d+) testes, (\d+) asserções", saida)
     if not achados:
-        return None
-    return int(achados[-1][0]), int(achados[-1][1])
+        motivos.append("a suíte não imprimiu o resumo")
+        return {"rodou": True, "passou": False, "motivo": "; ".join(motivos)}
+
+    return {
+        "rodou": True,
+        "passou": not motivos,
+        "motivo": "; ".join(motivos),
+        "testes": int(achados[-1][0]),
+        "assercoes": int(achados[-1][1]),
+    }
+
+
+## Os cenários que já enganaram esta ferramenta, um por linha.
+##
+## `(rótulo, código, stdout, stderr, tem que passar?)`. Cada um custou uma
+## rodada de revisão adversarial, e a lista é o resumo do que ela ensinou:
+## **a ferramenta que confere os outros também precisa de quem a confira.**
+CENARIOS_DA_SUITE = [
+    ("suíte verde", 0, "  431 testes, 1206 asserções — tudo passou.", "", True),
+    ("suíte vermelha", 1, "  431 testes, 1206 asserções — 2 FALHA(S).", "", False),
+    # A suíte diz "tudo passou" e sai com 0: só o stderr denuncia. É o buraco
+    # do arnês que o `CLAUDE.md` descreve — erro em tempo de execução aborta só
+    # a função onde ocorreu, e um teste que estoura depois da primeira asserção
+    # conta como sucesso.
+    ("estouro em runtime com resumo verde", 0,
+     "  431 testes, 1206 asserções — tudo passou.",
+     "SCRIPT ERROR: Cannot call method on a null value", False),
+    ("vazamento de memória", 0,
+     "  431 testes, 1206 asserções — tudo passou.",
+     "ObjectDB instances were leaked at exit", False),
+    # A engine rodou e morreu sem imprimir nada. Já foi classificado como "não
+    # consegui rodar", que em `main()` é aviso benigno.
+    ("engine morre sem resumo", 3, "", "SCRIPT ERROR: Parse Error", False),
+    ("código diferente de zero com resumo verde", 2,
+     "  431 testes, 1206 asserções — tudo passou.", "", False),
+    # O runner imprime a string "SCRIPT ERROR" no PRÓPRIO stdout, dentro das
+    # mensagens de falha. Procurar nos dois dava motivo fantasma.
+    ("falha de asserção não inventa SCRIPT ERROR", 1,
+     "  [FALHOU] x — (procure SCRIPT ERROR no console)\n"
+     "  431 testes, 1206 asserções — 1 FALHA(S).", "", False),
+]
+
+
+def _autoteste(c: "Conferencia") -> None:
+    """Confere a classificação da suíte contra os cenários que já a enganaram.
+
+    Roda sempre, e não atrás de um sinalizador: conferência opcional é
+    conferência que ninguém roda.
+    """
+    for rotulo, codigo, saida, erros, deve_passar in CENARIOS_DA_SUITE:
+        # **`rodou` é conferido junto com `passou`, e não é detalhe.**
+        #
+        # Nos sete cenários a engine RODOU — o que muda é o veredito. Devolver
+        # `rodou: False` num deles manda o caso para o ramo benigno de
+        # `main()`, que só avisa, e foi assim que "a engine morreu sem imprimir
+        # o resumo" atravessou uma rodada inteira. Um autoteste que olhasse só
+        # `passou` aceitaria a regressão de volta: sem `passou`, `.get()`
+        # devolve `None`, que é falso, que parece "reprovou corretamente".
+        c.conferidas += 1
+        veredito = _classificar(codigo, saida, erros)
+        if not veredito.get("rodou"):
+            c.falhas.append(
+                "autoteste da ferramenta: `%s` foi classificado como ENGINE "
+                "QUE NÃO RODOU; em `main()` isso vira aviso benigno" % rotulo
+            )
+            continue
+        if bool(veredito.get("passou")) == deve_passar:
+            continue
+        c.falhas.append(
+            "autoteste da ferramenta: `%s` devia %s e %s (motivo: %s)" % (
+                rotulo,
+                "passar" if deve_passar else "reprovar",
+                "passou" if veredito.get("passou") else "reprovou",
+                veredito.get("motivo") or "nenhum",
+            )
+        )
+    # O motivo fantasma tem conferência PRÓPRIA: o cenário acima já reprova por
+    # outros motivos, então "reprovou" não prova que o fantasma sumiu.
+    c.conferidas += 1
+    fantasma = _classificar(
+        1, "  [FALHOU] x — (procure SCRIPT ERROR no console)\n"
+        "  431 testes, 1206 asserções — 1 FALHA(S).", ""
+    )
+    if "SCRIPT ERROR" in fantasma["motivo"]:
+        c.falhas.append(
+            "autoteste da ferramenta: `SCRIPT ERROR` no stdout do runner virou "
+            "motivo; a busca tem que ser só no stderr"
+        )
 
 
 ## Nível em que os espaços de campeão são contados. 9 é onde todo ranque do
@@ -280,6 +425,22 @@ def main() -> int:
         )
     ]
     com_carga = [a for a in atores if a["ultimate_uses_charge"]]
+    enchem_a_suprema = [
+        h for h in habilidades if float(h.get("ultimate_charge_gain", 0.0)) > 0.0
+    ]
+    custos = {
+        float(a["ultimate_charge_cost"]) for a in atores
+        if float(a.get("ultimate_charge_cost", 0.0)) > 0.0
+    }
+    ganho_do_basico = {
+        float(a["ultimate_charge_on_attack"]) for a in atores
+        if a["usage"] == "Player" and float(a.get("ultimate_charge_on_attack", 0.0)) > 0.0
+    }
+    # A recarga inventada que sobrou depois da carga existir.
+    ainda_inventadas = [
+        a for a in atores
+        if a["usage"] == "Player" and float(a.get("ultimate_cooldown", 0.0)) > 0.0
+    ]
 
     pulsos = [p for h in habilidades for p in h["pulses"]]
     pulsos_projetil = sum(1 for p in pulsos if p["form"] == "PROJECTILE")
@@ -402,6 +563,46 @@ def main() -> int:
              ler("docs/02-decisoes-tecnicas.md"),
              r"pulsos de projétil no corpus traduzido, em (\d+) habilidades",
              len(hab_projetil))
+
+    # ---------------------------------------------------- carga de suprema
+    ability = ler("scripts/core/abilities/ability.gd")
+    stat = ler("scripts/core/combat/stat.gd")
+    unidade = ler("scripts/core/combat/unit.gd")
+    c.afirma("ability.gd habilidades que enchem", ability,
+             r"\*\*(\d+) habilidades\*\* declaram", len(enchem_a_suprema))
+    # A FAIXA também. Ela entrou em três documentos como "133 a 433" e o
+    # medido era 33 a 600 — a afirmação nova tinha sido ancorada pela metade,
+    # que é a mesma espécie de erro que esta ferramenta existe para pegar.
+    ganhos = [float(h["ultimate_charge_gain"]) for h in enchem_a_suprema]
+    # Cada padrão carrega o CONTEXTO da frase, e não só o `**n a n**`. Um
+    # padrão posicional casaria a primeira ocorrência do arquivo, e um futuro
+    # "**1 a 5**" escrito antes sequestraria a conferência sem ruído.
+    for onde, texto, prefixo in (
+        ("ability.gd", ability, "declaram, de "),
+        ("docs/02", ler("docs/02-decisoes-tecnicas.md"), "rendem de "),
+        ("docs/10", ler("docs/10-traducao-do-original.md"), "demais de "),
+    ):
+        c.afirma("%s ganho mínimo" % onde, texto,
+                 re.escape(prefixo) + r"\*\*(\d+) a \d+\*\*", int(min(ganhos)))
+        c.afirma("%s ganho máximo" % onde, texto,
+                 re.escape(prefixo) + r"\*\*\d+ a (\d+)\*\*", int(max(ganhos)))
+    c.afirma("stat.gd campeões com carga", stat,
+             r"\*\*1000 nos (\d+) campeões", len(com_carga))
+    c.afirma("unit.gd ganho do ataque básico", unidade,
+             r"vale \*\*200 nos (\d+)\*\*", len(com_carga))
+    # O custo é o MESMO nos 31 — é régua do sistema, não característica de
+    # personagem. Se um dia deixar de ser, a afirmação de `stat.gd` mente.
+    c.conferidas += 1
+    if len(custos) != 1 or 1000.0 not in custos:
+        c.falhas.append(
+            "o custo da suprema deixou de ser 1000 para todos: %s" % sorted(custos)
+        )
+    c.conferidas += 1
+    if len(ganho_do_basico) != 1 or 200.0 not in ganho_do_basico:
+        c.falhas.append(
+            "o ganho do ataque básico deixou de ser 200 para todos: %s"
+            % sorted(ganho_do_basico)
+        )
 
     # -------------------------------------------------------- telegrafia
     caster = ler("scripts/gameplay/ability_caster.gd")
@@ -540,9 +741,11 @@ def main() -> int:
     c.afirma("docs/04 controles", roadmap,
              r"`CrowdControlEffect` 5→(\d+)", controles)
     c.afirma("docs/04 efeitos", roadmap, r"efeitos 6→(\d+)", efeitos)
+    # A carga de suprema saiu desta lista quando deixou de ser lacuna: a
+    # conferência apontava para uma linha do relatório que não existe mais, e
+    # conferência órfã é tão ruim quanto nenhuma — ela reprova por um motivo
+    # que não é o defeito.
     for rotulo, chave, padrao in (
-        ("suprema", "UltimateCharge (carga de suprema)",
-         r"\*\*Carga de suprema\*\* \((\d+) habilidades"),
         ("combo", "ComboSkillInfo (corrente de combo)",
          r"\*\*Corrente de combo\*\* \((\d+)\)"),
         ("cancelamento", "janela de cancelamento por tempo",
@@ -562,8 +765,6 @@ def main() -> int:
     # Cada par é (rótulo na tabela do doc, chave no RELATORIO.md). Quando a
     # linha soma várias lacunas, a lista tem mais de uma chave.
     LACUNAS_DO_DOC = [
-        (r"`UltimateCharge`, (\d+) habilidades",
-         ["UltimateCharge (carga de suprema)"]),
         (r"`ComboSkillInfo`, (\d+)", ["ComboSkillInfo (corrente de combo)"]),
         (r"e três irmãs, (\d+)", ["janela de cancelamento por tempo"]),
         (r"`Link`, (\d+)",
@@ -635,17 +836,31 @@ def main() -> int:
     c.afirma("CLAUDE.md testes", claude,
              r"\*\*(\d+) testes, \d+ asserções\*\*", _contar_testes())
 
+    # A ferramenta se confere antes de conferir os outros.
+    _autoteste(c)
+
     suite = _rodar_suite()
-    if suite is None:
+    if not suite["rodou"]:
+        # Aviso, e não falha: quem não tem a engine à mão ainda pode conferir
+        # tudo que sai do corpus e dos documentos.
         print(
-            "[números] AVISO: Godot não encontrada; a contagem de ASSERÇÕES "
-            "ficou sem conferir (defina GODOT_PATH para fechar)"
+            "[números] AVISO: %s; a contagem de ASSERÇÕES ficou sem conferir "
+            "(defina GODOT_PATH para fechar)" % suite["motivo"]
+        )
+    elif not suite["passou"]:
+        # **Falha, não aviso.** Afirmar contagem de teste contra uma suíte
+        # vermelha é pior que não afirmar nada: publica um número que descreve
+        # um resultado que não vale.
+        c.conferidas += 1
+        c.falhas.append(
+            "a suíte NÃO está verde (%s) — as contagens de `CLAUDE.md` não "
+            "foram conferidas contra ela" % suite["motivo"]
         )
     else:
         c.afirma("CLAUDE.md testes (suíte real)", claude,
-                 r"\*\*(\d+) testes, \d+ asserções\*\*", suite[0])
+                 r"\*\*(\d+) testes, \d+ asserções\*\*", suite["testes"])
         c.afirma("CLAUDE.md asserções", claude,
-                 r"\*\*\d+ testes, (\d+) asserções\*\*", suite[1])
+                 r"\*\*\d+ testes, (\d+) asserções\*\*", suite["assercoes"])
 
     # ------------------------- a tabela de cobertura do relatório
     #
@@ -685,6 +900,16 @@ def main() -> int:
             )
 
     # ---------------------------------------------------------- veredito
+    #
+    # **Piso sobre a COBERTURA.** `conferidas` nunca era afirmado contra nada:
+    # perder metade das conferências saía como um número menor impresso e
+    # "todas batem". Foi esse sintoma — 110 caindo para 108 — que denunciou um
+    # defeito que ninguém tinha procurado.
+    if c.conferidas < 100:
+        c.falhas.append(
+            "só %d afirmações foram conferidas; a ferramenta perdeu cobertura"
+            % c.conferidas
+        )
     print("[números] %d afirmações conferidas" % c.conferidas)
     if not c.falhas:
         print("[números] todas batem")

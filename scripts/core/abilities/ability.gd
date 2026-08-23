@@ -74,6 +74,26 @@ enum Aim {
 ## habilidade, porque é por ela que esquecer encontra o que remover.
 @export var passive_effects: Array[AbilityEffect] = []
 
+@export_group("Carga de suprema")
+## Quanta carga esta habilidade rende ao ser conjurada com sucesso.
+##
+## `UltimateCharge` do original: **517 habilidades** declaram, de **33 a 600**.
+## O ataque básico rende 200 e a suprema rende 0 — ela consome.
+##
+## **Ao conjurar, não ao acertar.** A coluna é da habilidade, não do impacto: o
+## original não tem granularidade por acerto, e "só enche se acertar" seria
+## invenção. O ataque básico é a exceção, e por um motivo de dado, não de
+## gosto: ele não passa por aqui, e `Unit.basic_attack` sabe se errou.
+@export var ultimate_charge_gain: float = 0.0
+
+## Quando verdadeiro, esta habilidade EXIGE carga cheia e a gasta inteira.
+##
+## Marcado por `ActorProfile.ultimate_for()` na cópia que ele entrega, e não no
+## dado do corpus: "ser a suprema" é papel no kit de um campeão, não
+## propriedade da habilidade. A mesma habilidade emprestada a um mob não seria
+## suprema de ninguém.
+@export var uses_ultimate_charge: bool = false
+
 @export_group("Progressão")
 ## Nível da habilidade, 1 a 5. O original guarda cada ranque como uma linha
 ## separada de `skill_xml` compartilhando o mesmo `SkillGroupID` — quer dizer,

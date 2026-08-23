@@ -49,11 +49,20 @@ var basic_attack_group: StringName = &""
 var ability_groups: Array[StringName] = []
 var ultimate_group: StringName = &""
 
-## No original a suprema não tem recarga: enche batendo e apanhando. Nós ainda
-## não temos carga de suprema, então ela recebe uma recarga — e o número é
-## inventado, declarado como tal no relatório da tradução.
+## A suprema do original não tem recarga: ela enche AGINDO. `ultimate_cooldown`
+## é o número inventado que sobrou para o caso degenerado — suprema sem carga e
+## sem recarga —, e hoje vale para um ator só.
 var ultimate_uses_charge: bool = false
 var ultimate_cooldown: float = 0.0
+
+## Quanta carga a suprema exige. 1000 nos 31 campeões que a têm.
+##
+## Entra em `base_stats` como `MAX_ULTIMATE_CHARGE`, então viaja pelo mesmo
+## caminho de todo atributo — nada precisa saber que ele é especial.
+var ultimate_charge_cost: float = 0.0
+
+## Quanta carga o ataque básico deste personagem rende: 200 nos 31.
+var ultimate_charge_on_attack: float = 0.0
 
 ## Passiva do personagem, já traduzida. Aplicada por `apply_passives()`.
 var passive_effects: Array[AbilityEffect] = []
@@ -126,6 +135,12 @@ func build_unit(level: int, team: int = 0) -> Unit:
 	stats.set_bases(stats_at(level))
 	var unit := Unit.new(stats, team)
 	unit.nature = nature
+	unit.ultimate_charge_on_attack = ultimate_charge_on_attack
+	# **A suprema nasce vazia.** `ResourcePool` enche no `_init`, como a mana
+	# faz — e para a mana isso está certo. Para a carga não: começar cheia daria
+	# a suprema de graça no primeiro segundo da partida, que é o oposto de um
+	# recurso que se ganha jogando.
+	unit.ultimate_charge.current = 0.0
 	return unit
 
 func is_champion() -> bool:
@@ -192,6 +207,15 @@ func equip_book(
 		if ability != null:
 			preenchidos += 1
 
+	# O ganho de carga do ataque básico NÃO é escrito aqui.
+	#
+	# Ele já vem de `ultimate_charge_on_attack`, do perfil, e quem o aplica é
+	# `build_unit` e `Combatant.adopt_profile`. Havia uma segunda escrita neste
+	# ponto, resolvendo a habilidade pelo catálogo — duas fontes de verdade
+	# para o mesmo número, e a segunda gravava ZERO por cima quando
+	# `rank_for_level` recusava. Medido: as duas divergem em 24 atores, todos
+	# estruturas; nos 31 campeões com carga, em nenhum nível de 1 a 18. Era
+	# inofensivo hoje e latente amanhã.
 	var suprema: Ability = ultimate_for(catalog, level)
 	book.learn(AbilityBook.Slot.R, suprema, owner)
 	if suprema != null:
@@ -216,10 +240,22 @@ func ultimate_for(catalog: AbilityCatalog, level: int) -> Ability:
 	var base: Ability = ability_for(catalog, ultimate_group, level)
 	if base == null:
 		return null
-	if ultimate_cooldown <= 0.0 or is_equal_approx(base.cooldown, ultimate_cooldown):
+	var por_carga: bool = ultimate_uses_charge and ultimate_charge_cost > 0.0
+	var por_recarga: bool = (
+		not por_carga
+		and ultimate_cooldown > 0.0
+		and not is_equal_approx(base.cooldown, ultimate_cooldown)
+	)
+	if not por_carga and not por_recarga:
 		return base
+
 	var copia: Ability = base.duplicate() as Ability
-	copia.cooldown = ultimate_cooldown
+	# **"Ser a suprema" é papel no kit, não propriedade da habilidade.** A marca
+	# vai na CÓPIA, e não no corpus: a mesma habilidade emprestada a um mob não
+	# seria suprema de ninguém, e o catálogo entrega a mesma instância a todos.
+	copia.uses_ultimate_charge = por_carga
+	if por_recarga:
+		copia.cooldown = ultimate_cooldown
 	return copia
 
 ## Todo grupo de habilidade que este perfil cita, em qualquer papel. Serve ao

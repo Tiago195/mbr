@@ -115,6 +115,17 @@ enum Id {
 	## decrescentes — 0.2 tira sempre um quinto. Por isso os valores dele são
 	## pequenos, e os nossos devem ser também.
 	DAMAGE_TAKEN_REDUCTION,
+
+	## Quanta carga a suprema exige para sair.
+	##
+	## `LevelUpUltimateCharge` do original, e vale **1000 nos 31 campeões que
+	## têm suprema** — não é por personagem, é a régua do sistema. A suprema não
+	## tem recarga: ela enche agindo. Ver a decisão 17.
+	##
+	## Zero desliga o sistema: quem não tem carga máxima conjura a suprema como
+	## qualquer outra habilidade. É a mesma convenção de `MAX_MANA`, e é o que
+	## deixa mob e habilidade feita à mão fora disso sem um caso especial.
+	MAX_ULTIMATE_CHARGE,
 }
 
 const NAMES: Dictionary = {
@@ -162,6 +173,7 @@ const NAMES: Dictionary = {
 	Id.OUT_OF_COMBAT_MANA_REGEN: &"out_of_combat_mana_regen",
 	Id.WEIGHT: &"weight",
 	Id.DAMAGE_TAKEN_REDUCTION: &"damage_taken_reduction",
+	Id.MAX_ULTIMATE_CHARGE: &"max_ultimate_charge",
 }
 
 ## Valores neutros. Um personagem sem nenhum atributo definido não deve morrer

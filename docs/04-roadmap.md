@@ -331,7 +331,7 @@ integração · 🟡 aguardando validação humana · ⏭️ adiada
 | 5.3 | 🟨 Lógica pronta | 22/08/2026 | `Zone` em `core/match/`, 18 testes. Falta o círculo desenhado e trocar `damage_per_second` por buff |
 | 5.4 | 🟨 Lógica pronta | 22/08/2026 | `MatchState` em `core/match/`, 15 testes. Governa a zona e decide o vencedor. Falta spawn, respawn de lobby e ligação com a cena |
 | **Passo 5** | ✅ Concluída | 22/08/2026 | **Os campeões do original em jogo.** `actor_xml` traduzida: 384 atores, 33 campeões com kit, 28 com as quatro habilidades conjuráveis. `ChampionSelector` amarra atributos e kit ao jogador; Q/W/E/R e troca por Page Down. Sonda em `tools/sondar_campeoes.gd` |
-| **Passo 4** | ✅ Concluída | 22/08/2026 | **Tradução do original.** 948 habilidades + 421 itens no nosso vocabulário. Atributos 18→44, estados de controle 4→10 (e opções de `CrowdControlEffect` 5→11), efeitos 6→14, `Ability` virou lista de pulsos. Corpus carregável e conjurável em `data/traducao/`. Ver `docs/10-traducao-do-original.md` |
+| **Passo 4** | ✅ Concluída | 22/08/2026 | **Tradução do original.** 948 habilidades + 421 itens no nosso vocabulário. Atributos 18→45, estados de controle 4→10 (e opções de `CrowdControlEffect` 5→11), efeitos 6→14, `Ability` virou lista de pulsos. Corpus carregável e conjurável em `data/traducao/`. Ver `docs/10-traducao-do-original.md` |
 
 ### O que a tradução do original mudou no roadmap
 
@@ -347,9 +347,11 @@ regra "habilidade nova não escreve classe nova" passou a ter evidência.
 **Apareceram três sistemas que o roadmap não previa**, e todos são de fase
 posterior:
 
-- **Carga de suprema** (534 habilidades do original). A suprema não tem
-  recarga: enche batendo e apanhando. Muda o ritmo da partida, e é a lacuna
-  mais cara da lista.
+- ~~**Carga de suprema**~~ — **fechada em 22/08/2026** (decisão 17). 517
+  habilidades declaram quanto rendem; o ataque básico rende 200 e a suprema
+  custa 1000. Ela era a lacuna mais cara da lista, e era a que sustentava um
+  número inventado — os 45 s de recarga que a suprema recebia por não haver
+  carga.
 - **Corrente de combo** (125). Conjurar A dentro de uma janela troca A por B.
   É boa parte do que dava textura ao corpo a corpo do original.
 - **Janelas de cancelamento** (72). Nós temos um booleano; o original tem

@@ -45,6 +45,9 @@ var _caster: AbilityCaster
 var _wheel: Array[ActorProfile] = []
 var _index: int = -1
 var _label: Label
+## Quantos espaços o campeão em uso preencheu. Guardado porque o painel é
+## redesenhado a cada mudança de carga, e recontar exigiria o catálogo.
+var _espacos_preenchidos: int = 0
 
 func _ready() -> void:
 	_combatant = Combatant.of(get_parent())
@@ -54,6 +57,15 @@ func _ready() -> void:
 		return
 	_combatant.ensure_ready()
 	_caster.ensure_ready()
+
+	# O painel precisa acompanhar a carga enchendo — mostrá-la só no instante da
+	# troca de campeão esconderia justamente o que o sistema faz. Ligar no sinal
+	# em vez de redesenhar todo quadro: a carga muda poucas vezes por segundo.
+	#
+	# Sem ciclo de referência: o pote é `RefCounted` e passa a apontar para este
+	# nó, mas o nó não é `RefCounted` — quem o libera é a árvore.
+	if _combatant.unit != null:
+		_combatant.unit.ultimate_charge.changed.connect(_on_carga_mudou)
 
 	if show_hud:
 		_build_hud()
@@ -76,6 +88,14 @@ func _ready() -> void:
 ## Os dois irmãos que este nó escreve. Públicos porque a sonda de
 ## `tools/sondar_campeoes.gd` precisa deles, e ler `_caster` de fora seria
 ## depender de um nome que o sublinhado promete não ser estável.
+## O que o painel está mostrando agora.
+##
+## Público porque o painel é o ÚNICO lugar onde o jogador percebe a carga da
+## suprema, e o critério de aceitação desta feature é visual. Sem isto, apagar
+## a linha da carga — ou o sinal que a atualiza — passa verde em tudo.
+func panel_text() -> String:
+	return _label.text if _label != null else ""
+
 func caster() -> AbilityCaster:
 	return _caster
 
@@ -102,6 +122,10 @@ func select(id: StringName) -> bool:
 	_index = _wheel.find(profile)
 	return true
 
+func _on_carga_mudou(_atual: float, _maximo: float) -> void:
+	if current != null:
+		_show(_describe(current, _espacos_preenchidos))
+
 func _step(direction: int) -> void:
 	if _wheel.is_empty():
 		return
@@ -118,10 +142,10 @@ func _adopt(profile: ActorProfile) -> void:
 
 	current = profile
 	_combatant.adopt_profile(profile, level)
-	var espacos: int = _caster.adopt_kit(profile, abilities, level)
+	_espacos_preenchidos = _caster.adopt_kit(profile, abilities, level)
 	profile.apply_passives(_combatant.unit)
 
-	var texto: String = _describe(profile, espacos)
+	var texto: String = _describe(profile, _espacos_preenchidos)
 	print("[campeão] %s" % texto.replace("\n", " | "))
 	_show(texto)
 
@@ -175,6 +199,12 @@ func _describe(profile: ActorProfile, espacos: int) -> String:
 	])
 	if espacos < 4:
 		linhas.append("(%d de 4 espaços — ver data/traducao/RELATORIO.md)" % espacos)
+	var carga: ResourcePool = _combatant.unit.ultimate_charge
+	if carga.maximum() > 0.0:
+		linhas.append("suprema %.0f/%.0f   +%.0f por ataque" % [
+			carga.current, carga.maximum(),
+			_combatant.unit.ultimate_charge_on_attack,
+		])
 	for slot: AbilityBook.Slot in [
 		AbilityBook.Slot.Q, AbilityBook.Slot.W,
 		AbilityBook.Slot.E, AbilityBook.Slot.R,

@@ -19,12 +19,27 @@ var current: float = 0.0
 
 var _stats: Stats
 
-func _init(stats: Stats) -> void:
+## De qual atributo sai o máximo, e de qual sai a regeneração.
+##
+## Nasceram como `MAX_MANA` e `MANA_REGEN` fixos. Viraram parâmetro quando a
+## carga de suprema precisou do mesmo pote com outro teto — e sem regeneração
+## nenhuma, porque carga não passa: enche agindo.
+var _max_stat: Stat.Id = Stat.Id.MAX_MANA
+## `-1` quer dizer "não regenera com o tempo".
+var _regen_stat: int = Stat.Id.MANA_REGEN
+
+func _init(
+		stats: Stats,
+		max_stat: Stat.Id = Stat.Id.MAX_MANA,
+		regen_stat: int = Stat.Id.MANA_REGEN
+) -> void:
 	_stats = stats
+	_max_stat = max_stat
+	_regen_stat = regen_stat
 	current = maximum()
 
 func maximum() -> float:
-	return _stats.get_value(Stat.Id.MAX_MANA)
+	return _stats.get_value(_max_stat)
 
 ## 0.0 a 1.0. Personagem sem mana nenhuma devolve 1.0, não 0.0 — a barra dele
 ## não deve aparecer vazia, deve não aparecer, e quem desenha decide isso pelo
@@ -78,8 +93,13 @@ func drain(amount: float) -> float:
 	return taken
 
 ## Regeneração por segundo, vinda do atributo.
+##
+## Pote sem atributo de regeneração não sobe sozinho, e isso sai de graça:
+## `Stats.get_value` de um identificador que não é atributo devolve zero. Havia
+## aqui uma guarda explícita para o `-1`, e ela era ramo morto — os dois
+## caminhos davam o mesmo resultado, e mutá-la passava verde.
 func advance_time(delta: float) -> void:
-	var regen: float = _stats.get_value(Stat.Id.MANA_REGEN)
+	var regen: float = _stats.get_value(_regen_stat)
 	if regen != 0.0:
 		restore(regen * delta)
 

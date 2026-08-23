@@ -144,6 +144,13 @@ func adopt_profile(profile: ActorProfile, level: int) -> void:
 	unit.mana.current = unit.mana.maximum()
 	unit.mana.changed.emit(unit.mana.current, unit.mana.maximum())
 
+	# A carga da suprema é o contrário: nasce VAZIA e se ganha jogando.
+	unit.ultimate_charge_on_attack = profile.ultimate_charge_on_attack
+	unit.ultimate_charge.current = 0.0
+	unit.ultimate_charge.changed.emit(
+		0.0, unit.ultimate_charge.maximum()
+	)
+
 func _physics_process(delta: float) -> void:
 	if unit == null:
 		return

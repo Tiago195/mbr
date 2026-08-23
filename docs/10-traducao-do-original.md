@@ -78,7 +78,7 @@ Um `Impact` é exatamente o que passamos a chamar de **pulso**: forma, tempo,
 
 ## O que cresceu, e por qual coluna
 
-### Atributos: 18 → 44
+### Atributos: 18 → 45
 
 Cada um entrou porque uma tabela do original **concede o valor**, e sem ele o
 dado não é traduzível.
@@ -325,11 +325,16 @@ segundo — e a atiradora do original viraria corpo a corpo. Mesma espécie de
 armadilha do cone que lia coluna inexistente: o dado existe, só não está onde
 se olhou primeiro.
 
-**A suprema não tem recarga.** 31 supremas enchem batendo
-(`LevelUpUltimateCharge = 1000`, `CoolTime = 0`) — o sistema de carga de
-suprema é lacuna registrada desde a tradução das habilidades. Copiar o zero
-daria uma suprema disparável a cada quadro; entra uma recarga de **45 s**,
-inventada e declarada como lacuna no relatório.
+**A suprema não tem recarga: ela enche AGINDO.** 31 supremas enchem batendo —
+elas têm
+`CoolTime = 0` e `LevelUpUltimateCharge = 1000` — o custo. O ganho vem de
+`UltimateCharge`, declarado em 517 habilidades: o ataque básico rende 200 e as
+demais de **33 a 600**. A suprema rende 0, porque consome.
+
+Isso foi lacuna registrada por duas sessões, e enquanto foi, a suprema recebia
+uma recarga **inventada de 45 s**. O sistema existe desde 22/08/2026 (decisão
+17) e o número inventado sobrou para um ator só — o que tem suprema e não
+declara carga nenhuma.
 
 **A contagem que importa não é a primeira.** `UsageType = Player` dá 40 linhas;
 33 têm os três espaços de habilidade; 28 têm as quatro habilidades
@@ -439,7 +444,7 @@ original tem e nós não, achado por medição em vez de por memória.
 
 | Lacuna | Onde aparece | O que é |
 |---|---|---|
-| **Carga de suprema** | `UltimateCharge`, 534 habilidades | A suprema não tem recarga: enche batendo e apanhando. Muda o ritmo da partida inteira, e é a lacuna mais cara da lista |
+| ~~**Carga de suprema**~~ | `UltimateCharge` | **Fechada.** 517 habilidades declaram o ganho; o ataque básico rende 200 e a suprema custa 1000. Ver a decisão 17 |
 | **Corrente de combo** | `ComboSkillInfo`, 125 | Conjurar A dentro de uma janela troca A por B. É boa parte do que dava textura ao corpo a corpo do original |
 | **Janelas de cancelamento** | `MoveCancelableTime` e três irmãs, 72 | Nós temos um booleano `cancelable`. O original tem quatro instantes por habilidade: quando dá para andar, quando dá para conjurar outra, quando dá para atacar. É onde mora o "feel" |
 | **Corrente entre dois alvos** | `Link`, 47 | Amarra dois combatentes e rompe na distância |

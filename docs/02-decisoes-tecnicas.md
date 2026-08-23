@@ -564,3 +564,54 @@ achado:** quatro projéteis de velocidade zero na suprema do Kaiba (que ficavam
 no ar para sempre, com a esfera parada na tela), e todo projétil que acertava
 dentro do próprio tique em que nascia — os rápidos e de curto alcance — nunca
 sendo desenhado.
+
+## 17. A suprema não tem recarga: ela enche agindo
+
+**Decidido em 22/08/2026**, fechando a lacuna mais cara da tradução.
+
+No original a suprema tem `CoolTime = 0` em 31 das 32, e `LevelUpUltimateCharge
+= 1000` diz quanto ela custa.
+
+**Os "31 das 32" são linhas DEDUPLICADAS.** `actor_xml` e `actor_2_xml` repetem
+Ids, e somar as duas cruas dá 50 supremas e 48 com recarga zero. Contando como
+o jogo conta — um ator por Id —, são 40 jogadores, 32 com suprema, 31 com
+recarga zero e 31 com carga. É a mesma ambiguidade que já produziu "58
+campeões" onde havia 40; toda contagem de ator neste projeto é deduplicada. O ganho vem de `UltimateCharge`, declarado em
+**517 habilidades**: o ataque básico rende **200 nos 31 campeões**, as demais
+rendem de **33 a 600**, e a suprema rende 0 — ela consome.
+
+Enquanto o sistema não existia, a suprema recebia uma recarga **inventada de
+45 segundos**. Isso não era só impreciso: invertia o que ela é. Uma suprema com
+recarga é uma questão de esperar; uma suprema com carga é uma questão de jogar.
+
+**A carga é um `ResourcePool`**, o mesmo pote da mana com outro teto
+(`Stat.Id.MAX_ULTIMATE_CHARGE`) e sem atributo de regeneração. Máximo zero
+desliga o sistema — mob, boneco de treino e habilidade feita à mão ficam de
+fora sem um caso especial em lugar nenhum, exatamente como `MAX_MANA` já fazia.
+
+**Cinco consequências que não são óbvias:**
+
+- **A carga nasce VAZIA.** `ResourcePool` enche no `_init`, o que está certo
+  para mana e é o oposto do certo aqui: a suprema pronta no primeiro segundo da
+  partida é o contrário de um recurso que se ganha.
+- **Enche ao CONJURAR, não ao acertar.** A coluna é da habilidade, não do
+  impacto — o original não tem granularidade por acerto, e "só enche se
+  acertar" seria invenção nossa. O ataque básico é a exceção, e por dado, não
+  por gosto: ele não passa pelo motor de habilidade, e `Unit.basic_attack` sabe
+  se errou. Ataque cego ou esquivado não rende.
+- **"Ser a suprema" é papel no kit, não propriedade da habilidade.**
+  `uses_ultimate_charge` é marcado na CÓPIA que `ActorProfile.ultimate_for`
+  entrega, nunca no corpus: o catálogo dá a mesma instância a todos, e a mesma
+  habilidade emprestada a um mob não seria suprema de ninguém.
+- **A recusa tem status próprio** (`NO_CHARGE`), e não `ON_COOLDOWN`. O que
+  falta é AGIR, não esperar — dizer "em recarga" mandaria o jogador parar
+  justamente quando ele deveria bater.
+- **O número inventado sobreviveu, para um ator.** Suprema que não declara
+  carga E tem `CoolTime = 0` sairia a cada quadro; ela continua com os 45 s
+  declarados como lacuna. Eram 31; é 1.
+
+**Uma armadilha paga aqui:** o pote da carga não era tickado por
+`Unit.advance_time`, e por isso a guarda que impedia a regeneração era código
+morto — mutá-la passava verde. O pote passou a ser tickado, a guarda virou
+desnecessária (`Stats.get_value` de um id que não é atributo já devolve zero) e
+saiu. Guarda que nunca roda é indistinguível de guarda que não funciona.

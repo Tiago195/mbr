@@ -131,6 +131,10 @@ func _sondar() -> Array[String]:
 		corpo.global_position = POSICAO_DA_SONDA
 	unit.position = POSICAO_DA_SONDA
 
+	# O primeiro campeão da roda também precisa ter o que zerar: sem isto ele é
+	# o único que a conferência de troca nunca alcança.
+	unit.ultimate_charge.current = maxf(unit.ultimate_charge.maximum(), 1.0)
+
 	var campeoes: Array[ActorProfile] = selector.actors.champions()
 	print("")
 	print("  sondando %d campeões" % campeoes.size())
@@ -157,6 +161,33 @@ func _sondar() -> Array[String]:
 		if not selector.select(profile.id):
 			falhas.append("%s: não selecionou" % profile.id)
 			continue
+
+		# **Trocar de campeão tem que zerar a carga da suprema.** Sem isto,
+		# quem trocar com a carga cheia entrega a suprema instantânea ao
+		# próximo — o oposto do que o sistema faz. A conferência vem ANTES de
+		# a sonda encher a carga para testar os espaços de suprema; feita
+		# depois, ela se enganaria com o próprio fixture.
+		if unit.ultimate_charge.current > 0.0:
+			falhas.append(
+				("%s: nasceu com %.0f de carga de suprema; trocar de campeão "
+				+ "tem que zerar") % [profile.id, unit.ultimate_charge.current]
+			)
+
+		# O painel é o único lugar onde o jogador vê a carga, e o critério desta
+		# feature é visual. A conferência é fraca de propósito — ela olha se o
+		# número aparece, não se está bonito —, mas apagar a linha ou o sinal
+		# que a atualiza passava verde em tudo.
+		if unit.ultimate_charge.maximum() > 0.0:
+			var painel: String = selector.panel_text()
+			if not painel.contains("suprema"):
+				falhas.append(
+					"%s: o painel não mostra a carga da suprema" % profile.id
+				)
+			elif not painel.contains("%.0f" % unit.ultimate_charge.maximum()):
+				falhas.append(
+					"%s: o painel não mostra o custo da suprema (%.0f)"
+						% [profile.id, unit.ultimate_charge.maximum()]
+				)
 
 		var vida: float = unit.stats.get_value(Stat.Id.MAX_HEALTH)
 		if vida <= 100.0:
@@ -188,6 +219,30 @@ func _sondar() -> Array[String]:
 				continue
 			caster.book.clear_cooldowns()
 			unit.mana.current = unit.mana.maximum()
+			# A carga da suprema também: sem isto os 31 espaços de suprema saem
+			# com `NO_CHARGE` e a conferência de marcas perde um quarto do que
+			# deveria olhar. Foi o piso de espaços alcançados que acusou.
+			#
+			# `restore()` e não `current = ...`: atribuir direto NÃO emite
+			# `changed`, e é o sinal que mantém o painel acompanhando a carga
+			# encher. É a API certa — mas **não é ela que pega o sinal
+			# apagado**, e a versão anterior deste comentário dizia que era.
+			# Medido: com a atribuição de volta E o sinal apagado, a sonda
+			# reprova igual. Quem pega é a conferência do painel logo abaixo,
+			# porque sem o sinal ele fica mostrando `0/1000`.
+			unit.ultimate_charge.restore(unit.ultimate_charge.maximum())
+			if unit.ultimate_charge.maximum() > 0.0:
+				var cheio: String = "%.0f/%.0f" % [
+					unit.ultimate_charge.maximum(),
+					unit.ultimate_charge.maximum(),
+				]
+				if not selector.panel_text().contains(cheio):
+					falhas.append(
+						("%s %s: o painel não acompanhou a carga encher "
+						+ "(esperava `%s`)") % [
+							profile.id, AbilityBook.Slot.keys()[slot], cheio
+						]
+					)
 			# NÃO há `book.interrupt()` aqui, e a ausência é medida: quem
 			# desatolava o livro era o tratamento de CASTING abaixo, não a
 			# interrupção. Uma versão anterior tinha as duas coisas e um
@@ -328,6 +383,20 @@ func _sondar() -> Array[String]:
 					ability.display_name, saiu, _encurtar(chave), devia
 				])
 
+		# A carga fica NÃO-ZERO ao sair deste campeão, para o próximo ter o que
+		# zerar. Sem isto a conferência de "trocar de campeão zera a carga" não
+		# distingue nada: a suprema é o último espaço testado, e conjurá-la já
+		# deixa a carga em zero — o fixture entregava a resposta certa pelo
+		# motivo errado.
+		#
+		# E é `maxf(maximo, 1)`, não `maximo`: dois atores da roda têm carga
+		# máxima ZERO, e encher "até o máximo" gravava zero neles. Quem vinha
+		# depois desses dois não era conferido — três dos 33 escapavam, e eram
+		# justamente os vizinhos dos casos de borda do sistema.
+		unit.ultimate_charge.current = maxf(
+			unit.ultimate_charge.maximum(), 1.0
+		)
+
 	var tentativas: int = 0
 	for chave: String in censo:
 		tentativas += int(censo[chave])
@@ -356,7 +425,9 @@ func _sondar() -> Array[String]:
 			+ "de apontar unidade e TARGET_UNIT saiu de exercício"
 		)
 	# Pisos das duas dimensões mais novas da assinatura. Medido na árvore
-	# limpa: 9 lugares e 3 lados.
+	# limpa: **67 lugares e 4 lados** — o comentário dizia 9 e 3, números de
+	# uma versão da chave anterior à esfera do projétil e à altura entrarem
+	# nela. Comentário com número envelhece igual a documento.
 	if lugares.size() < 5:
 		falhas.append(
 			("as marcas saíram em só %d lugares distintos; a conferência de "

@@ -384,6 +384,13 @@ func _report(ability: Ability, result: CastResult) -> void:
 			print("[hab] %s sem mana (custa %.0f)" % [
 				ability.display_name, ability.mana_cost
 			])
+		CastResult.Status.NO_CHARGE:
+			# Recusa própria, e não "em recarga": o que falta é AGIR, não
+			# esperar. Dizer "em recarga" mandaria o jogador parar justamente
+			# quando ele deveria bater.
+			print("[hab] %s sem carga (faltam %.0f — bata ou conjure)" % [
+				ability.display_name, result.charge_missing
+			])
 		_:
 			print("[hab] %s -> %s" % [
 				ability.display_name, CastResult.Status.keys()[result.status]

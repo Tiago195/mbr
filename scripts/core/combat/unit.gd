@@ -70,6 +70,20 @@ var health: Health
 var status: StatusSet
 ## Mana. Vale 0 de máximo para quem não usa recurso, e aí tudo é de graça.
 var mana: ResourcePool
+
+## Carga de suprema. Enche agindo, não com o tempo — ver a decisão 17.
+##
+## Máximo 0 desliga o sistema: mob e boneco de treino não têm suprema, e não
+## precisam de caso especial em lugar nenhum.
+var ultimate_charge: ResourcePool
+
+## Quanta carga um ataque básico ACERTADO rende.
+##
+## Fica no `Unit` e não na habilidade porque o ataque básico não passa pelo
+## motor de habilidade: ele é `Unit.basic_attack()`. O valor vem da habilidade
+## `DefaultSkillId_1` do campeão, e vale **200 nos 31** — o mesmo para todos,
+## que é o que torna "bater enche" uma régua e não uma característica.
+var ultimate_charge_on_attack: float = 0.0
 ## Venenos, regenerações e auras ativas.
 var periodic: PeriodicSet
 ## Marcas: estado com nome, prazo e pilhas, sem efeito próprio.
@@ -103,6 +117,10 @@ func _init(unit_stats: Stats = null, unit_team: int = 0) -> void:
 	health = Health.new(stats)
 	status = StatusSet.new()
 	mana = ResourcePool.new(stats)
+	# Sem atributo de regeneração: carga não passa com o tempo.
+	ultimate_charge = ResourcePool.new(
+		stats, Stat.Id.MAX_ULTIMATE_CHARGE, -1
+	)
 	periodic = PeriodicSet.new()
 	triggers = TriggerSet.new()
 	marks = MarkSet.new()
@@ -190,12 +208,35 @@ func basic_attack(target: Unit) -> DamageResult:
 		missed.health_after = target.health.current
 		missed.shield_after = target.health.shield
 		return missed
-	return target.receive_damage(
+	var result: DamageResult = target.receive_damage(
 		self,
 		stats.get_value(Stat.Id.ATTACK_DAMAGE),
 		Damage.Type.PHYSICAL,
 		Damage.Source.BASIC_ATTACK
 	)
+	# O ataque que ACERTA enche a suprema. Um cego não enche — e é isso que
+	# separa cegar de desarmar também aqui.
+	if not result.missed:
+		gain_ultimate_charge(ultimate_charge_on_attack)
+	return result
+
+## Enche a suprema. Sem efeito para quem não tem carga máxima.
+func gain_ultimate_charge(amount: float) -> float:
+	if amount <= 0.0:
+		return 0.0
+	return ultimate_charge.restore(amount)
+
+## Verdadeiro quando a suprema pode sair. Sem carga máxima, sempre.
+func ultimate_is_ready() -> bool:
+	if ultimate_charge.maximum() <= 0.0:
+		return true
+	return ultimate_charge.current >= ultimate_charge.maximum()
+
+## Gasta a carga inteira. Devolve quanto foi gasto.
+func spend_ultimate_charge() -> float:
+	var gasto: float = ultimate_charge.current
+	ultimate_charge.drain(gasto)
+	return gasto
 
 ## Recebe dano já com a situação montada. `attacker` pode ser nulo — dano de
 ## zona não tem dono.
@@ -280,6 +321,15 @@ func advance_time(delta: float) -> void:
 	status.advance_time(delta)
 	health.advance_time(delta)
 	mana.advance_time(delta)
+	# A carga também é tickada. Todo pote que este `Unit` possui é tickado — é
+	# consistência, e é o que faz "a carga não regenera" ser propriedade do
+	# POTE, e não acidente de ninguém chamá-lo.
+	#
+	# **Sem teste próprio, e vale saber:** o efeito desta linha é inobservável
+	# hoje, porque o pote da carga não tem atributo de regeneração. O que ela
+	# protege é alguém ligar a carga em `MANA_REGEN` por engano — isso é pego,
+	# mas só enquanto esta linha existir.
+	ultimate_charge.advance_time(delta)
 	# Periódicos e gatilhos por último: os dois podem causar dano ou cura, e
 	# devem ver o estado do tique já atualizado.
 	marks.advance_time(delta)
