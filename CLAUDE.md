@@ -284,6 +284,43 @@ o ritmo certo. **É ponto de parar e pedir teste** quando o usuário voltar.
 
 ---
 
+### O que a revisão adversarial ensinou, e vale para tudo daqui em diante
+
+Duas temporadas: oito rodadas na tradução do original (sete reprovando), e mais
+treze fechando as lacunas de habilidade (onze reprovando). **Toda rodada achou
+algo material.**
+
+1. **Cobertura silenciosa é indistinguível de cobertura errada.** Todo achado
+   veio de medir, nunca de reler. Daí o censo de colunas do tradutor, o
+   contador de valores desconhecidos da `EffectFactory`, e a guarda que recusa
+   emitir efeito que o motor descartaria.
+2. **Número em documento é asserção.** `tools/conferir_numeros.py` existe por
+   isso — **rodar antes de commitar documentação**.
+3. **Padrão que cobre dado ausente é a armadilha mais cara.** Um cone lendo
+   coluna inexistente alcançava 1 metro; um arremesso copiando `Duration = 0`
+   não fazia nada. Nenhum dos dois dava erro. O que pega é conferir se o
+   RESULTADO faz sentido, não se a coluna foi lida.
+4. **Teste de mutação, sempre.** Quebrar de propósito e exigir vermelho é a
+   única prova de que uma conferência confere.
+5. **Verde por não ter mudado nada é indistinguível de verde por estar certo.**
+   Patch que não aplicou, script cujo `write_text` foi cortado, comando atrás
+   de um `&&` que não rodou, fixture que entrega a resposta certa pelo motivo
+   errado. Depois de aplicar patch, **conferir por `grep` que o texto novo está
+   no arquivo** — não confiar no "ok" do script.
+6. **A conferência recém-adicionada é a que ninguém confere.** Toda vez que uma
+   dimensão nova entrou numa comparação, ela nasceu cega, e foi sempre a rodada
+   seguinte que descobriu. Conferência nova nasce com a mutação que a derrube.
+7. **Quem junta o dado não decide.** Função que devolve VEREDITO pode devolver
+   o veredito errado sem ruído; função que devolve a MEDIÇÃO, não. Quem decide
+   é o laço que chama, e o piso de trabalho é sobre o mesmo dado que ele lê.
+8. **Fixture degenerado é cobertura falsa.** Se todos os casos têm o mesmo
+   valor, a mutação que troca esse valor é um no-op literal. Já aconteceu com
+   posição (tudo na origem), direção (tudo no mesmo eixo) e carga (tudo zero).
+9. **Parar de enumerar propriedades.** Uma comparação que lista o que olhar
+   rende um achado por rodada, sempre uma propriedade fora da lista. O que
+   fecha a classe é um termo que englobe todas — `global_transform * AABB` no
+   lugar de raio, largura, altura e posição, uma a uma.
+
 ### Os dados do original estão extraídos E traduzidos
 
 **113 tabelas XML em `C:\Godot\rc-referencia\xml\`** — fora deste repositório,
