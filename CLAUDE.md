@@ -180,6 +180,7 @@ Ordem de desenho entre materiais com `no_depth_test` é decidida por
 | `docs/08-arte-e-assets.md` | Meshy, Mixamo, MCP — só relevante na Fase 6 |
 | `docs/09-glossario.md` | Termos de game dev traduzidos |
 | `docs/10-traducao-do-original.md` | **O original traduzido para o nosso vocabulário** — o mapeamento, o que cresceu e as lacunas |
+| `docs/11-direcao-de-arte.md` | **Proporção, ritmo e vocabulário de animação**, medidos em 25 campeões e 1350 clipes do original |
 
 ## Confiabilidade desta documentação
 
@@ -264,6 +265,34 @@ vê. Daí saíram três coisas, todas camada visual pura:
   conjurar**. Estocada, giro, salto, erguer, e um preparo que dura a conjuração
   inteira, escolhidos pela forma do primeiro pulso com efeito
 - `scripts/gameplay/gesto_de_caminhada.gd` — passada em vez de deslizamento
+
+**E existe uma direção de arte agora, medida e executável.** O usuário pediu
+para entender *"o padrão de animação"* do original e transformar isso num
+arquivo que dirija a arte daqui para frente. Saiu `docs/11-direcao-de-arte.md`,
+com `tools/arte/censo_do_original.py` medindo os bundles da instalação da Steam
+— **números e estrutura entram, asset não**, a mesma linha das 113 tabelas XML.
+
+O que ele mede: proporção em **25 campeões**, vocabulário em **93
+controladores**, ritmo em **1350 clipes**. E o que saiu disso muda o boneco:
+pescoço a 0,763 da altura (humano 0,823), quadril a 0,486, ombros a 0,175
+(humano 0,229), envergadura 0,901 (humano 1,00). **Cabeça grande, ombros
+estreitos, braços curtos** — e as pernas quase certas.
+
+Três achados que valem além da arte:
+
+- **Só 3 clipes de partida em 235 têm evento de animação**, e são `collect`,
+  `cut` e `mine`. Nenhum de combate. No original o tempo do dano **não sai da
+  animação** — o que é exatamente a regra 3 daqui, confirmada por medição.
+- **`throw_f`/`throw_b` duram o ciclo de `run` em 29 dos 32 campeões.** São as
+  versões conjuradas em movimento, cortadas no tamanho da passada.
+- **6 dos 32 campeões não têm clipe exclusivo nenhum** — Bastine e Fisher, Eden
+  e Kane, Thief e Violet, Harang e Stepan dividem o kit inteiro de animação.
+  Habilidade com a mesma FORMA divide o gesto, que é o que
+  `GestoDeConjuracao` já faz.
+
+`tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção,
+e `tools/conferir_numeros.py` reprova quando documento e código discordam.
+**21 mutações, 21 pegas** — 14 no boneco e 7 na concordância.
 
 **E o anel de alcance nasceu MENTINDO.** Ele mostrava `cast_range`, que vem de
 `AI_SkillRange` do original — a distância em que a IA *decide usar* a
@@ -393,7 +422,7 @@ Estado ao fim desta sessão: **478 testes, 1304 asserções**, stderr 0 bytes,
 sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
 44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
 conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
-**201 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**228 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar

@@ -6,8 +6,8 @@ Rodar:
         --background --python tools/arte/gerar_personagem.py
 
 Saída: `arte/personagem.glb`, que a Godot importa já com `Skeleton3D` e
-`AnimationPlayer` montados, e `arte/personagem.blend`, que é o arquivo para
-ABRIR e olhar.
+`AnimationPlayer` montados, e `arte/fonte/personagem.blend`, que é o arquivo
+para ABRIR e olhar — fora do alcance do importador da engine, de propósito.
 
 ## Por que existe
 
@@ -67,21 +67,49 @@ import bpy
 from mathutils import Euler, Vector
 
 # --------------------------------------------------------------------------
-# Medidas do corpo, em metros. Proporção de boneco, não de humano: cabeça
-# grande e membros curtos leem melhor numa silhueta sem textura.
+# Medidas do corpo. **Nada aqui é gosto: é `docs/11-direcao-de-arte.md`.**
+#
+# `PROPORCAO` é a mediana medida em 25 campeões do original por
+# `tools/arte/censo_do_original.py`, como fração da altura total. Mudar um
+# número aqui muda o boneco E reprova `conferir_personagem.py` se sair da
+# faixa medida — que é o que impede a direção de arte de virar enfeite.
+#
+# A altura de 1,75 m é a mediana do elenco (1,764) arredondada, e ela é a mesma
+# para todo personagem de propósito: num battle royale isométrico o tamanho na
+# tela é informação de alcance.
 # --------------------------------------------------------------------------
 ALTURA = 1.75
-Y_QUADRIL = 0.92
-Y_PEITO = 1.26
-Y_PESCOCO = 1.44
-Y_TOPO = 1.75
-X_OMBRO = 0.21
-X_QUADRIL = 0.11
-Y_COTOVELO = 1.06
-Y_MAO = 0.70
-Y_JOELHO = 0.48
-Y_TORNOZELO = 0.08
-COMPRIMENTO_DO_PE = 0.20
+
+PROPORCAO = {
+	"tornozelo": 0.096,
+	"joelho": 0.287,
+	"quadril": 0.486,
+	"peito": 0.657,
+	"pescoco": 0.763,
+	"ombro": 0.727,        # altura da junta do ombro (pose T do original)
+	"vao_dos_ombros": 0.175,
+	"vao_dos_quadris": 0.129,
+	"envergadura": 0.901,  # ponta a ponta dos braços abertos
+}
+
+Y_TORNOZELO = PROPORCAO["tornozelo"] * ALTURA
+Y_JOELHO = PROPORCAO["joelho"] * ALTURA
+Y_QUADRIL = PROPORCAO["quadril"] * ALTURA
+Y_PEITO = PROPORCAO["peito"] * ALTURA
+Y_PESCOCO = PROPORCAO["pescoco"] * ALTURA
+Y_TOPO = ALTURA
+Y_OMBRO = PROPORCAO["ombro"] * ALTURA
+X_OMBRO = PROPORCAO["vao_dos_ombros"] * ALTURA * 0.5
+X_QUADRIL = PROPORCAO["vao_dos_quadris"] * ALTURA * 0.5
+
+# O braço sai da envergadura: ponta a ponta menos o vão dos ombros, dividido
+# por dois. Medir assim em vez de escolher um número é o que faz o braço ficar
+# curto na mesma medida em que o do original é.
+COMPRIMENTO_DO_BRACO = (PROPORCAO["envergadura"] - PROPORCAO["vao_dos_ombros"]) * ALTURA * 0.5
+Y_COTOVELO = Y_OMBRO - COMPRIMENTO_DO_BRACO * 0.47
+Y_MAO = Y_OMBRO - COMPRIMENTO_DO_BRACO
+
+COMPRIMENTO_DO_PE = 0.24
 COMPRIMENTO_DA_COXA = Y_QUADRIL - Y_JOELHO
 COMPRIMENTO_DA_CANELA = Y_JOELHO - Y_TORNOZELO
 
@@ -91,9 +119,9 @@ OSSOS = [
 	("quadril",     (0.0, 0.0, Y_QUADRIL), (0.0, 0.0, Y_PEITO), None),
 	("peito",       (0.0, 0.0, Y_PEITO), (0.0, 0.0, Y_PESCOCO), "quadril"),
 	("cabeca",      (0.0, 0.0, Y_PESCOCO), (0.0, 0.0, Y_TOPO), "peito"),
-	("braco_D",     (X_OMBRO, 0.0, Y_PESCOCO - 0.06), (X_OMBRO, 0.0, Y_COTOVELO), "peito"),
+	("braco_D",     (X_OMBRO, 0.0, Y_OMBRO), (X_OMBRO, 0.0, Y_COTOVELO), "peito"),
 	("antebraco_D", (X_OMBRO, 0.0, Y_COTOVELO), (X_OMBRO, 0.0, Y_MAO), "braco_D"),
-	("braco_E",     (-X_OMBRO, 0.0, Y_PESCOCO - 0.06), (-X_OMBRO, 0.0, Y_COTOVELO), "peito"),
+	("braco_E",     (-X_OMBRO, 0.0, Y_OMBRO), (-X_OMBRO, 0.0, Y_COTOVELO), "peito"),
 	("antebraco_E", (-X_OMBRO, 0.0, Y_COTOVELO), (-X_OMBRO, 0.0, Y_MAO), "braco_E"),
 	("coxa_D",      (X_QUADRIL, 0.0, Y_QUADRIL), (X_QUADRIL, 0.0, Y_JOELHO), "quadril"),
 	("canela_D",    (X_QUADRIL, 0.0, Y_JOELHO), (X_QUADRIL, 0.0, Y_TORNOZELO), "coxa_D"),
@@ -109,17 +137,21 @@ OSSOS = [
 ## dele; só a espessura é declarada aqui. Vale para osso VERTICAL — o pé, que
 ## aponta para a frente, é desenhado como adorno.
 CAIXAS = {
-	"quadril": (0.30, 0.20),
-	"peito": (0.38, 0.23),
-	"cabeca": (0.30, 0.28),
-	"braco_D": (0.11, 0.11),
-	"antebraco_D": (0.10, 0.10),
-	"braco_E": (0.11, 0.11),
-	"antebraco_E": (0.10, 0.10),
-	"coxa_D": (0.15, 0.15),
-	"canela_D": (0.12, 0.12),
-	"coxa_E": (0.15, 0.15),
-	"canela_E": (0.12, 0.12),
+	"quadril": (0.26, 0.19),
+	# O peito não passa do vão dos ombros: ombro largo é o que mais separa
+	# "atleta" de "boneco", e o original está em 0,175 da altura contra 0,229
+	# de um humano.
+	"peito": (X_OMBRO * 2.0, 0.21),
+	# Cabeça quase tão larga quanto alta. É ela que carrega a leitura de longe.
+	"cabeca": (0.36, 0.34),
+	"braco_D": (0.12, 0.12),
+	"antebraco_D": (0.11, 0.11),
+	"braco_E": (0.12, 0.12),
+	"antebraco_E": (0.11, 0.11),
+	"coxa_D": (0.155, 0.155),
+	"canela_D": (0.135, 0.135),
+	"coxa_E": (0.155, 0.155),
+	"canela_E": (0.135, 0.135),
 }
 
 ## Onde a cabeça está e onde é a cara dela, DERIVADO das medidas acima.
@@ -137,15 +169,15 @@ ADORNOS = [
 	# O sapato vai do calcanhar à ponta e tem a altura do tornozelo, então a
 	# sola encosta em z=0 por construção.
 	("pe_D", (X_QUADRIL, (0.06 - COMPRIMENTO_DO_PE) * 0.5, Y_TORNOZELO * 0.5),
-	 (0.13, COMPRIMENTO_DO_PE + 0.06, Y_TORNOZELO), "sapato"),
+	 (0.145, COMPRIMENTO_DO_PE + 0.06, Y_TORNOZELO), "sapato"),
 	("pe_E", (-X_QUADRIL, (0.06 - COMPRIMENTO_DO_PE) * 0.5, Y_TORNOZELO * 0.5),
-	 (0.13, COMPRIMENTO_DO_PE + 0.06, Y_TORNOZELO), "sapato"),
+	 (0.145, COMPRIMENTO_DO_PE + 0.06, Y_TORNOZELO), "sapato"),
 	# Viseira e nariz. São a diferença entre "de frente" e "de costas" num
 	# corpo simétrico, e o usuário já reportou o personagem andando de costas.
-	("cabeca", (0.0, FRENTE_DA_CABECA - 0.005, Z_DA_CABECA + 0.025),
-	 (0.21, 0.02, 0.07), "rosto"),
-	("cabeca", (0.0, FRENTE_DA_CABECA - 0.015, Z_DA_CABECA - 0.035),
-	 (0.06, 0.05, 0.05), "pele"),
+	("cabeca", (0.0, FRENTE_DA_CABECA - 0.005, Z_DA_CABECA + 0.045),
+	 (0.25, 0.02, 0.08), "rosto"),
+	("cabeca", (0.0, FRENTE_DA_CABECA - 0.02, Z_DA_CABECA - 0.03),
+	 (0.07, 0.06, 0.06), "pele"),
 ]
 
 ## Uma cor por região, e elas não são enfeite: a mão colorida é o que o olho
@@ -292,6 +324,18 @@ def pose(**ossos) -> dict:
 	return ossos
 
 
+def fim_de(dados: dict) -> int:
+	"""O ultimo quadro da animacao — que e o da ultima chave, e so.
+
+	Ja houve um campo `"quadros"` ao lado das chaves dizendo a mesma coisa. Dois
+	lugares para o mesmo fato e um lugar para eles discordarem: encurtar o campo
+	sem encurtar as chaves nao encurtava nada, e a conferencia de duracao
+	aprovava porque a animacao continuava do tamanho de antes. Foi um teste de
+	mutacao que achou — a mutacao era literalmente um no-op.
+	"""
+	return dados["chaves"][-1][0]
+
+
 def pe(coxa: float, canela: float, extra: float = 0.0) -> tuple:
 	"""O ângulo que deixa o pé plano no chão, dada a perna.
 
@@ -369,7 +413,6 @@ ANIMACOES = {
 	# Parado: respiração. Amplitude pequena de propósito — é o único caso em
 	# que sutil é o certo, porque ele roda o tempo todo.
 	"parado": {
-		"quadros": 60,
 		"ciclo": True,
 		# Sem `voo`: respirar nao tira ninguem do chao. A primeira versao
 		# levantava o quadril 2 cm aqui e soltava os dois pes — a respiracao
@@ -387,7 +430,6 @@ ANIMACOES = {
 	# passagem espelhada. Braço em contrafase com a perna do mesmo lado, que é
 	# como se anda de verdade.
 	"andando": {
-		"quadros": 40,
 		"ciclo": True,
 		"chaves": [
 			# **A perna de tras e a mais ESTICADA, e nao e capricho.** O quadril
@@ -430,7 +472,6 @@ ANIMACOES = {
 	# Correndo: a mesma passada, mais aberta, mais rápida e mais inclinada, com
 	# os dois pés fora do chão na passagem.
 	"correndo": {
-		"quadros": 24,
 		"ciclo": True,
 		# Na passagem os DOIS pes saem do chao — e isso que separa correr de
 		# andar, e e a unica altura que o chao nao pode ditar.
@@ -472,32 +513,31 @@ ANIMACOES = {
 	# `GestoDeConjuracao.Gesto` já escolhe pela forma do pulso. Todos têm
 	# ANTECIPAÇÃO no começo — sem ela o golpe parece teleporte.
 	"estocada": {
-		"quadros": 18,
 		"ciclo": False,
 		"chaves": [
 			(0, pose()),
 			# Recua: ombro direito para trás, peso atrás, braço armado.
-			(4, pose(
+			(7, pose(
 				quadril=(0, 0, 14), peito=(-8, 0, 0),
 				braco_D=(38, 0, 0), antebraco_D=(-62, 0, 0),
 				braco_E=(-10, 6, 0),
 				coxa_D=(12, 0, 0), canela_D=(10, 0, 0), pe_D=pe(12, 10),
 				coxa_E=(6, 0, 0), canela_E=(8, 0, 0), pe_E=pe(6, 8))),
 			# Golpe: ombro direito à frente, braço estendido, perna à frente.
-			(9, pose(
+			(15, pose(
 				quadril=(0, 0, -16), peito=(12, 0, 0), cabeca=(-6, 0, 0),
 				braco_D=(-96, 0, 0), antebraco_D=(-6, 0, 0),
 				braco_E=(30, 10, 0), antebraco_E=(-40, 0, 0),
 				coxa_D=(-30, 0, 0), canela_D=(16, 0, 0), pe_D=pe(-30, 16),
 				coxa_E=(20, 0, 0), canela_E=(14, 0, 0), pe_E=pe(20, 14, -12))),
 			# Segura um instante — é o que dá peso ao golpe.
-			(13, pose(
+			(22, pose(
 				quadril=(0, 0, -13), peito=(10, 0, 0),
 				braco_D=(-88, 0, 0), antebraco_D=(-10, 0, 0),
 				braco_E=(26, 10, 0), antebraco_E=(-38, 0, 0),
 				coxa_D=(-26, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-26, 14),
 				coxa_E=(18, 0, 0), canela_E=(12, 0, 0), pe_E=pe(18, 12, -10))),
-			(18, pose()),
+			(30, pose()),
 		],
 	},
 	# Giro: uma volta inteira em pé, com os braços abertos.
@@ -507,84 +547,80 @@ ANIMACOES = {
 	# `make_compatible` só escolhe certo enquanto o passo for menor que meia
 	# volta. Com chaves de 120 em 120 não há empate.
 	"giro": {
-		"quadros": 24,
 		"ciclo": False,
 		"chaves": [
 			(0, pose()),
-			(4, pose(quadril=(0, 0, 40), braco_D=(0, -30, 0), braco_E=(0, 30, 0),
+			(5, pose(quadril=(0, 0, 40), braco_D=(0, -30, 0), braco_E=(0, 30, 0),
 			         peito=(4, 0, 0),
 			         coxa_D=(-12, 0, 0), canela_D=(24, 0, 0), pe_D=pe(-12, 24),
 			         coxa_E=(-12, 0, 0), canela_E=(24, 0, 0), pe_E=pe(-12, 24))),
-			(10, pose(quadril=(0, 0, -80), braco_D=(0, -85, 0), braco_E=(0, 85, 0),
+			(13, pose(quadril=(0, 0, -80), braco_D=(0, -85, 0), braco_E=(0, 85, 0),
 			          peito=(-6, 0, 0))),
-			(15, pose(quadril=(0, 0, -200), braco_D=(0, -85, 0), braco_E=(0, 85, 0),
+			(20, pose(quadril=(0, 0, -200), braco_D=(0, -85, 0), braco_E=(0, 85, 0),
 			          peito=(-6, 0, 0))),
-			(20, pose(quadril=(0, 0, -320), braco_D=(0, -70, 0), braco_E=(0, 70, 0))),
-			(24, pose(quadril=(0, 0, -360), braco_D=(0, -20, 0), braco_E=(0, 20, 0))),
+			(27, pose(quadril=(0, 0, -320), braco_D=(0, -70, 0), braco_E=(0, 70, 0))),
+			(32, pose(quadril=(0, 0, -360), braco_D=(0, -20, 0), braco_E=(0, 20, 0))),
 		],
 	},
 	"salto": {
-		"quadros": 26,
 		"ciclo": False,
-		"voo": {0: 0.0, 5: 0.0, 13: 0.55, 19: 0.0, 26: 0.0},
+		"voo": {0: 0.0, 7: 0.0, 18: 0.55, 26: 0.0, 36: 0.0},
 		"chaves": [
 			(0, pose()),
 			# Agacha para impulsionar.
-			(5, pose(
+			(7, pose(
 				coxa_D=(-30, 0, 0), canela_D=(62, 0, 0), pe_D=pe(-30, 62),
 				coxa_E=(-30, 0, 0), canela_E=(62, 0, 0), pe_E=pe(-30, 62),
 				peito=(22, 0, 0), cabeca=(-10, 0, 0),
 				braco_D=(30, -6, 0), braco_E=(30, 6, 0))),
 			# No ar: pernas encolhidas, braços para cima e à frente.
-			(13, pose(
+			(18, pose(
 				coxa_D=(-58, 0, 0), canela_D=(88, 0, 0), pe_D=pe(-58, 88, 25),
 				coxa_E=(-58, 0, 0), canela_E=(88, 0, 0), pe_E=pe(-58, 88, 25),
 				peito=(-4, 0, 0), cabeca=(-8, 0, 0),
 				braco_D=(-125, 0, 0), antebraco_D=(-20, 0, 0),
 				braco_E=(-125, 0, 0), antebraco_E=(-20, 0, 0))),
 			# Aterrissa absorvendo — sem isto o pouso lê como queda de pedra.
-			(19, pose(
+			(26, pose(
 				coxa_D=(-26, 0, 0), canela_D=(52, 0, 0), pe_D=pe(-26, 52),
 				coxa_E=(-26, 0, 0), canela_E=(52, 0, 0), pe_E=pe(-26, 52),
 				peito=(18, 0, 0),
 				braco_D=(-30, -10, 0), braco_E=(-30, 10, 0))),
-			(26, pose()),
+			(36, pose()),
 		],
 	},
 	"erguer": {
-		"quadros": 24,
 		"ciclo": False,
 		"chaves": [
 			(0, pose()),
-			(5, pose(braco_D=(32, -6, 0), braco_E=(32, 6, 0), peito=(11, 0, 0),
+			(7, pose(braco_D=(32, -6, 0), braco_E=(32, 6, 0), peito=(11, 0, 0),
 			         coxa_D=(-12, 0, 0), canela_D=(24, 0, 0), pe_D=pe(-12, 24),
 			         coxa_E=(-12, 0, 0), canela_E=(24, 0, 0), pe_E=pe(-12, 24))),
 			# Passo intermediário só para o braço não subir 195 graus de uma vez.
-			(9, pose(braco_D=(-70, -10, 0), braco_E=(-70, 10, 0), peito=(0, 0, 0))),
-			(14, pose(
+			(12, pose(braco_D=(-70, -10, 0), braco_E=(-70, 10, 0), peito=(0, 0, 0))),
+			(19, pose(
 				braco_D=(-166, -14, 0), antebraco_D=(-12, 0, 0),
 				braco_E=(-166, 14, 0), antebraco_E=(-12, 0, 0),
 				peito=(-13, 0, 0), cabeca=(-16, 0, 0))),
-			(19, pose(
+			(25, pose(
 				braco_D=(-160, -14, 0), braco_E=(-160, 14, 0),
 				peito=(-11, 0, 0), cabeca=(-14, 0, 0))),
-			(24, pose()),
+			(32, pose()),
 		],
 	},
 	# Preparo: o corpo se junta e FICA junto — é o aviso de que algo vem vindo,
 	# e a Godot estica a duração dele pelo tempo de conjuração.
 	"preparo": {
-		"quadros": 30,
 		"ciclo": False,
 		"chaves": [
 			(0, pose()),
-			(10, pose(
+			(13, pose(
 				coxa_D=(-28, 0, 0), canela_D=(52, 0, 0), pe_D=pe(-28, 52),
 				coxa_E=(-28, 0, 0), canela_E=(52, 0, 0), pe_E=pe(-28, 52),
 				peito=(21, 0, 0), cabeca=(-9, 0, 0),
 				braco_D=(42, -16, 0), antebraco_D=(-86, 0, 0),
 				braco_E=(42, 16, 0), antebraco_E=(-86, 0, 0))),
-			(30, pose(
+			(40, pose(
 				coxa_D=(-30, 0, 0), canela_D=(55, 0, 0), pe_D=pe(-30, 55),
 				coxa_E=(-30, 0, 0), canela_E=(55, 0, 0), pe_E=pe(-30, 55),
 				peito=(23, 0, 0), cabeca=(-10, 0, 0),
@@ -664,7 +700,7 @@ def criar_animacao(armature: bpy.types.Object, malha: bpy.types.Object,
 	# salto. Fica no osso raiz, que é quem carrega o corpo todo.
 	# O quadril e assentado DEPOIS, quadro a quadro, por `assentar` — ele
 	# precisa das rotacoes ja gravadas para medir onde o corpo encosta.
-	assentar(armature, malha, dados, dados["chaves"][0][0], dados["quadros"])
+	assentar(armature, malha, dados, dados["chaves"][0][0], fim_de(dados))
 
 	for curva in curvas_de(acao):
 		for ponto in curva.keyframe_points:
@@ -704,8 +740,13 @@ def salvar_blend(caminho: str) -> None:
 	único jeito de conferir o boneco seria pela impressão do console — que diz
 	"13 ossos, 8 animações" e não diz se ele está de pé.
 
-	Abrir e rodar uma animação: abrir `arte/personagem.blend` e apertar espaço;
-	para trocar de animação, um editor em Dope Sheet → Action Editor.
+	Abrir e rodar uma animação: abrir `arte/fonte/personagem.blend` e apertar
+	espaço; para trocar de animação, um editor em Dope Sheet → Action Editor.
+
+	**Ele mora em `arte/fonte/`, que tem um `.gdignore`.** A Godot 4 importa
+	`.blend` chamando o Blender, e sem ele configurado o projeto abre com erro
+	de importação numa máquina que só quer rodar o jogo. O `.glb` é o que a
+	engine consome; o `.blend` é para humano.
 	"""
 	os.makedirs(os.path.dirname(caminho), exist_ok=True)
 	bpy.ops.wm.save_as_mainfile(filepath=caminho)
@@ -730,12 +771,12 @@ def main() -> int:
 			if len(slots) > 0:
 				armature.animation_data.action_slot = slots[0]
 		bpy.context.scene.frame_start = 0
-		bpy.context.scene.frame_end = ANIMACOES[inicial]["quadros"]
+		bpy.context.scene.frame_end = fim_de(ANIMACOES[inicial])
 
 	raiz = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 	destino = os.path.join(raiz, "arte", "personagem.glb")
 	exportar(destino)
-	blend = os.path.join(raiz, "arte", "personagem.blend")
+	blend = os.path.join(raiz, "arte", "fonte", "personagem.blend")
 	salvar_blend(blend)
 
 	print("[arte] %d ossos, %d animações -> %s (%.0f KB)" % (

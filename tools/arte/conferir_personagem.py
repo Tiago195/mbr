@@ -51,16 +51,59 @@ NOMES_EXIGIDOS = [
 ## saiu de sincronia com as outras. Com a faixa larga de antes (1,60 a 1,90),
 ## encolher a cabeca inteira passava.
 ALTURA_ESPERADA = (1.70, 1.82)
+
+## ------------------------------------------------------------------ arte
+##
+## Daqui para baixo a conferencia deixa de perguntar "quebrou?" e passa a
+## perguntar "**esta na direcao de arte?**". As faixas sao as medidas em 25
+## campeoes do original, em `docs/11-direcao-de-arte.md`, com folga.
+##
+## Sem isto o documento seria decoracao: ninguem o executa, e na terceira
+## sessao o boneco anda para um lado e o texto para o outro. Ja aconteceu com
+## prosa neste projeto quatro vezes seguidas.
+
+## `osso: (fracao da altura, folga)`. A folga e a metade da faixa medida entre
+## os 25 campeoes, arredondada para cima — nao um numero escolhido.
+PROPORCAO_ESPERADA = {
+	"pe_D": (0.096, 0.035),      # tornozelo: medido 0,058 a 0,123
+	"canela_D": (0.287, 0.045),  # joelho:    medido 0,253 a 0,328
+	"coxa_D": (0.486, 0.050),    # quadril:   medido 0,417 a 0,512
+	"peito": (0.657, 0.045),     # peito:     medido 0,602 a 0,687
+	"cabeca": (0.763, 0.040),    # pescoco:   medido 0,720 a 0,795
+	"braco_D": (0.727, 0.045),   # ombro:     medido 0,672 a 0,753
+}
+## `(fracao, folga)` para as larguras.
+VAO_DOS_OMBROS = (0.175, 0.045)   # medido 0,162 a 0,241
+VAO_DOS_QUADRIS = (0.129, 0.035)
+ENVERGADURA = (0.901, 0.060)      # medido 0,855 a 0,966
+
+## A faixa de duracao de cada animacao, em segundos, tirada do vocabulario do
+## original. As tres de locomocao usam a faixa do clipe equivalente; os cinco
+## gestos usam os quartis dos clipes de habilidade (p25 0,83 -- p75 1,40).
+DURACAO_ESPERADA = {
+	"parado": (1.20, 5.40),      # `idle`  medido 1,27 a 5,33
+	"andando": (1.05, 1.65),     # `walk`  medido 1,07 a 1,60
+	"correndo": (0.65, 1.15),    # `run`   medido 0,67 a 1,13
+	"estocada": (0.83, 1.40),
+	"giro": (0.83, 1.40),
+	"salto": (0.83, 1.40),
+	"erguer": (0.83, 1.40),
+	"preparo": (0.83, 1.40),
+}
+## O original roda a 30 quadros por segundo em 1344 dos 1350 clipes.
+CADENCIA = 30.0
 COLECAO_AUXILIAR = "glTF_not_exported"
 
 
 def importar(glb: str) -> tuple:
 	bpy.ops.wm.read_factory_settings(use_empty=True)
+	# **A cadencia ANTES da importacao.** O glTF guarda tempo em SEGUNDOS, e e o
+	# importador que converte para quadro usando a cadencia da cena. Acertando
+	# depois, a conversao ja aconteceu a 24: uma animacao de 2,00 s era medida
+	# como 1,60 s, e o erro e de escala — nao aparece como quebra, aparece como
+	# "tudo esta 20% rapido demais", que e facil de acreditar.
+	bpy.context.scene.render.fps = int(CADENCIA)
 	bpy.ops.import_scene.gltf(filepath=glb)
-	# O glTF guarda tempo em SEGUNDOS. Sem acertar a cadencia, a cena importada
-	# fica em 24 quadros por segundo e uma animacao de 60 quadros e medida com
-	# 49 — o arquivo esta certo, e a medida e que fica torta.
-	bpy.context.scene.render.fps = 30
 	for objeto in list(bpy.data.objects):
 		if any(c.name == COLECAO_AUXILIAR for c in objeto.users_collection):
 			bpy.data.objects.remove(objeto, do_unlink=True)
@@ -131,7 +174,101 @@ def medir(armature, malha, acao) -> dict:
 		"topo": topo,
 		"movimento": amplitude,
 		"quadros": fim - inicio + 1,
+		"duracao": (fim - inicio) / CADENCIA,
 	}
+
+
+def _fundo_do_grupo(malha, grupo: str):
+	"""O ponto mais baixo dos vertices presos a um osso, em repouso."""
+	if grupo not in malha.vertex_groups:
+		return None
+	indice = malha.vertex_groups[grupo].index
+	mundo = malha.matrix_world
+	alturas = [
+		(mundo @ v.co).z for v in malha.data.vertices
+		if any(g.group == indice and g.weight > 0.5 for g in v.groups)
+	]
+	return min(alturas) if alturas else None
+
+
+def conferir_proporcao(armature, malha) -> list:
+	"""O corpo em repouso, contra `docs/11-direcao-de-arte.md`.
+
+	Mede no ESQUELETO, que tem uma origem so. Caixa envolvente de malha nao
+	serve para isto: no original cada malha tem espaco proprio e a razao
+	cabeca/corpo sai 100% sem erro nenhum aparecer.
+	"""
+	reprovas = []
+	if armature.animation_data is not None:
+		armature.animation_data.action = None
+	for osso in armature.pose.bones:
+		osso.rotation_euler = (0.0, 0.0, 0.0)
+		osso.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+		osso.location = (0.0, 0.0, 0.0)
+	bpy.context.view_layer.update()
+
+	locais = pontos(malha)
+	topo = max(p.z for p in locais)
+	base = min(p.z for p in locais)
+	altura = topo - base
+	if altura <= 0:
+		return ["o corpo nao tem altura"]
+
+	print("[confere] -- proporcao, contra a direcao de arte (altura %.3f) --" % altura)
+	ossos = armature.data.bones
+	for nome, (esperado, folga) in sorted(PROPORCAO_ESPERADA.items()):
+		if nome not in ossos:
+			reprovas.append("falta o osso '%s'" % nome)
+			continue
+		fracao = (ossos[nome].head_local.z - base) / altura
+		ok = abs(fracao - esperado) <= folga
+		print("[confere]   %-10s %.3f  (direcao %.3f +-%.3f)  %s" % (
+			nome, fracao, esperado, folga, "ok" if ok else "FORA"))
+		if not ok:
+			reprovas.append(
+				"'%s' esta em %.3f da altura, fora de %.3f +-%.3f"
+				% (nome, fracao, esperado, folga)
+			)
+
+	def vao(a, b, rotulo, alvo):
+		if a not in ossos or b not in ossos:
+			reprovas.append("falta osso para medir %s" % rotulo)
+			return None
+		v = abs(ossos[a].head_local.x - ossos[b].head_local.x) / altura
+		ok = abs(v - alvo[0]) <= alvo[1]
+		print("[confere]   %-10s %.3f  (direcao %.3f +-%.3f)  %s" % (
+			rotulo, v, alvo[0], alvo[1], "ok" if ok else "FORA"))
+		if not ok:
+			reprovas.append("%s em %.3f da altura, fora de %.3f +-%.3f"
+			                % (rotulo, v, alvo[0], alvo[1]))
+		return v
+
+	ombros = vao("braco_D", "braco_E", "ombros", VAO_DOS_OMBROS)
+	vao("coxa_D", "coxa_E", "quadris", VAO_DOS_QUADRIS)
+
+	# Envergadura: os bracos ficam CAIDOS no repouso, entao ela nao da para ser
+	# lida direto. Somar dois bracos e o vao entre eles da o mesmo numero, e e
+	# esse numero que o original mede com os bracos abertos em T.
+	if ombros is not None and "braco_D" in ossos and "antebraco_D" in ossos:
+		# **A ponta do braco vem da MALHA, nao do osso.** O glTF nao guarda o
+		# comprimento de um osso — so a posicao da junta — e o importador do
+		# Blender INVENTA a cauda. Lendo `tail_local` a envergadura saia 0,857
+		# onde a construcao da 0,901, e a diferenca era pura invencao do
+		# importador. O ponto mais baixo dos vertices presos ao antebraco e o
+		# fim do braco de verdade.
+		ponta = _fundo_do_grupo(malha, "antebraco_D")
+		if ponta is None:
+			reprovas.append("nao achei os vertices do antebraco para medir o braco")
+			return reprovas
+		braco = (ossos["braco_D"].head_local.z - ponta) / altura
+		env = ombros + 2.0 * braco
+		ok = abs(env - ENVERGADURA[0]) <= ENVERGADURA[1]
+		print("[confere]   %-10s %.3f  (direcao %.3f +-%.3f)  %s" % (
+			"envergad.", env, ENVERGADURA[0], ENVERGADURA[1], "ok" if ok else "FORA"))
+		if not ok:
+			reprovas.append("envergadura em %.3f da altura, fora de %.3f +-%.3f"
+			                % (env, ENVERGADURA[0], ENVERGADURA[1]))
+	return reprovas
 
 
 def main() -> int:
@@ -160,13 +297,21 @@ def main() -> int:
 		return 1
 
 	print("[confere] %d ossos, %d animacoes" % (len(armature.pose.bones), len(acoes)))
+	reprovas.extend(conferir_proporcao(armature, malha))
 	for nome in NOMES_EXIGIDOS:
 		m = medir(armature, malha, acoes[nome])
 		print(
-			"[confere] %-9s %2d quadros  chao %+.3f..%+.3f  topo %.2f  movimento %.2f"
-			% (nome, m["quadros"], m["chao_minimo"], m["chao_maximo"],
+			"[confere] %-9s %5.2f s  chao %+.3f..%+.3f  topo %.2f  movimento %.2f"
+			% (nome, m["duracao"], m["chao_minimo"], m["chao_maximo"],
 			   m["topo"], m["movimento"])
 		)
+
+		faixa = DURACAO_ESPERADA.get(nome)
+		if faixa and not faixa[0] <= m["duracao"] <= faixa[1]:
+			reprovas.append(
+				"'%s' dura %.2f s, fora da faixa %.2f--%.2f da direcao de arte"
+				% (nome, m["duracao"], faixa[0], faixa[1])
+			)
 
 		if m["movimento"] < MOVIMENTO_MINIMO:
 			reprovas.append(
