@@ -27,6 +27,9 @@ import sys
 
 import bpy
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import regra_da_folga  # noqa: E402  (depende do sys.path acima)
+
 ## Quanto o ponto mais baixo do corpo pode ficar longe de z=0 numa animacao de
 ## chao, em metros. Um centimetro e meio e menos que a espessura do sapato.
 TOLERANCIA_DO_CHAO = 0.015
@@ -96,45 +99,18 @@ FAIXA_DAS_LARGURAS = {
 	# Ponta a ponta da malha, mao inclusa.
 	"envergadura": (0.895, 0.808, 0.966),
 }
-## O passo do arredondamento da folga, em fracao da altura.
-PASSO_DA_FOLGA = 0.005
-
-
+## A regra da folga vive em `regra_da_folga.py`, que e Python puro e sem
+## Blender — e por isso `conferir_numeros.py` tambem consegue confer-la. Ela
+## morava aqui dentro, e enquanto morou a formula so era protegida por quem
+## tivesse o Blender instalado.
 def _autoteste_da_folga() -> None:
-	"""A regra da folga, conferida contra dois casos que a distinguem.
-
-	**A conferencia que se confere primeiro.** `folga_de` e o unico lugar de
-	onde saem as dez tolerancias, e uma edicao na formula abria todas de uma
-	vez sem que nada notasse — o passo esta publicado em `docs/11` e e
-	conferido, mas a multiplicacao nao estava.
-
-	Os dois casos discriminam: o primeiro cai no meio de um passo e tem que
-	arredondar para cima, o segundo cai em cima do passo e tem que ficar onde
-	esta. Uma formula errada erra pelo menos um dos dois.
-	"""
-	casos = (((0.0, 0.417, 0.512), 0.050), ((0.0, 0.100, 0.120), 0.010))
-	for faixa, esperada in casos:
-		obtida = folga_de(faixa)
-		if abs(obtida - esperada) > 1e-9:
-			# Imprime no MESMO canal e com o MESMO prefixo das outras reprovas.
-			# Levantar `SystemExit` com a mensagem manda o texto para o stderr,
-			# e quem le a saida procurando "REPROVA" no stdout nao acha —
-			# a defesa existia e era invisivel para o arnes.
-			print(
-				"[confere] REPROVA: a regra da folga esta quebrada — faixa "
-				"%.3f a %.3f deveria dar %.3f e deu %.3f"
-				% (faixa[1], faixa[2], esperada, obtida)
-			)
-			raise SystemExit(1)
+	for motivo in regra_da_folga.conferir_a_regra():
+		print("[confere] REPROVA: %s" % motivo)
+		raise SystemExit(1)
 
 
-def folga_de(faixa: tuple) -> float:
-	"""Meia faixa medida, arredondada para cima no passo declarado."""
-	meia = (faixa[2] - faixa[1]) * 0.5
-	passos = int(meia / PASSO_DA_FOLGA)
-	if meia - passos * PASSO_DA_FOLGA > 1e-9:
-		passos += 1
-	return passos * PASSO_DA_FOLGA
+PASSO_DA_FOLGA = regra_da_folga.PASSO_DA_FOLGA
+folga_de = regra_da_folga.folga_de
 
 
 PROPORCAO_ESPERADA = {
@@ -358,7 +334,14 @@ def conferir_proporcao(armature, malha) -> list:
 def main() -> int:
 	_autoteste_da_folga()
 	raiz = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+	# O caminho pode vir da linha de comando, depois de `--`. E o que permite
+	# conferir um arquivo AINDA NAO PUBLICADO: o gerador exporta para um nome
+	# temporario, chama isto, e so entao poe o arquivo no lugar.
 	glb = os.path.join(raiz, "arte", "personagem.glb")
+	if "--" in sys.argv:
+		resto = sys.argv[sys.argv.index("--") + 1:]
+		if resto:
+			glb = resto[0]
 	if not os.path.exists(glb):
 		print("[confere] falta %s" % glb)
 		return 1

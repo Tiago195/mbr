@@ -771,7 +771,12 @@ def salvar_blend(caminho: str) -> None:
 	engine consome; o `.blend` é para humano.
 	"""
 	os.makedirs(os.path.dirname(caminho), exist_ok=True)
-	bpy.ops.wm.save_as_mainfile(filepath=caminho)
+	# **Sem compressão, de propósito.** O `.blend` é rastreado pelo repositório,
+	# e artefato rastreado que ninguém consegue conferir é a mesma classe do
+	# `.glb` que uma vez foi commitado sem vir do código. Comprimido, nem os
+	# nomes das animações dão para ler sem o Blender; cru, `conferir_numeros.py`
+	# confirma que ele tem os oito nomes e os quinze ossos.
+	bpy.ops.wm.save_as_mainfile(filepath=caminho, compress=False)
 
 
 def main() -> int:
@@ -797,19 +802,35 @@ def main() -> int:
 
 	raiz = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 	destino = os.path.join(raiz, "arte", "personagem.glb")
-	exportar(destino)
+	# **Exporta para um nome temporário e só publica se passar.** Antes o
+	# arquivo era gravado no lugar definitivo e a conferência vinha depois:
+	# toda execução reprovada deixava um boneco ruim no disco, e foi assim que
+	# um deles chegou a ser commitado. Reprovar não pode publicar nada.
+	# **O nome tem que terminar em `.glb`.** O exportador do Blender acrescenta
+	# a extensao quando ela falta, e `personagem.glb.novo` virava
+	# `personagem.glb.novo.glb` — o arquivo conferido nao era o gravado, e o
+	# `os.remove` do caminho errado estourava.
+	provisorio = os.path.join(os.path.dirname(destino), "personagem.novo.glb")
+	exportar(provisorio)
 	blend = os.path.join(raiz, "arte", "fonte", "personagem.blend")
 	salvar_blend(blend)
 
+	codigo = conferir(raiz, provisorio)
+	if codigo != 0:
+		os.remove(provisorio)
+		print("[arte] o boneco NAO foi publicado — %s continua como estava"
+		      % destino)
+		return codigo
+	os.replace(provisorio, destino)
 	print("[arte] %d ossos, %d animações -> %s (%.0f KB)" % (
 		len(OSSOS), len(ANIMACOES), destino,
 		os.path.getsize(destino) / 1024 if os.path.exists(destino) else 0,
 	))
 	print("[arte] para abrir e olhar: %s" % blend)
-	return conferir(raiz)
+	return 0
 
 
-def conferir(raiz: str) -> int:
+def conferir(raiz: str, glb: str) -> int:
 	"""Roda `conferir_personagem.py` no que acabou de ser exportado.
 
 	**Porque a direcao de arte diz que ele roda toda vez que o boneco e
@@ -827,7 +848,7 @@ def conferir(raiz: str) -> int:
 		print("[arte] FALTA %s — o boneco saiu sem ser conferido" % conferidor)
 		return 1
 	resultado = subprocess.run(
-		[bpy.app.binary_path, "--background", "--python", conferidor],
+		[bpy.app.binary_path, "--background", "--python", conferidor, "--", glb],
 		capture_output=True, text=True, encoding="utf-8", errors="replace",
 	)
 	for linha in (resultado.stdout or "").splitlines():

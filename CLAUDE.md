@@ -290,13 +290,13 @@ Três achados que valem além da arte:
 - **6 dos 32 campeões não têm clipe exclusivo nenhum** — Bastine, Eden, Fisher,
   Harang, Thief e Violet. Cada um divide as habilidades com um parceiro, mas
   **dividir não é ser igual**: só Thief e Violet têm conjuntos idênticos; o
-  Harang divide 11 dos 15 dele com o Stepan, que tem 17. Habilidade com a mesma
+  Harang divide 9 dos 12 dele com o Stepan, que tem 15. Habilidade com a mesma
   FORMA divide o gesto, que é o que `GestoDeConjuracao` já faz.
 
 `tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
 — e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
 reprova quando documento e código discordam, mediana E faixa.
-**37 mutações, 37 pegas** — 16 no boneco e 21 na concordância.
+**42 mutações, 42 pegas** — 16 no boneco e 26 na concordância.
 
 **E isto foi REPROVADO DUAS VEZES por um validador adversarial**, com 17 e 12
 achados. A segunda rodada achou o pior de todos, e era de processo: **o `.glb`
@@ -440,9 +440,21 @@ não da Godot:
 py tools/arte/censo_do_original.py
 ```
 
-A primeira gera o boneco **e roda a conferência dele**; a segunda mede o
-original e só funciona onde a instalação da Steam existir (sem ela sai com 2,
-que é diferente de reprovar).
+A primeira gera o boneco **e roda a conferência dele** — e só publica o `.glb`
+se ele passar; a segunda mede o original e regrava
+`data/direcao-de-arte.json`, e só funciona onde a instalação da Steam existir
+(sem ela sai com 2, que é diferente de reprovar).
+
+As defesas têm suítes de mutação próprias, e elas estão no repositório:
+
+```
+py tools/arte/mutar_boneco.py
+py tools/mutar_direcao.py
+```
+
+**42 mutações, 42 pegas.** Elas mexem nos arquivos e restauram no fim, incluindo
+o `.glb` — a versão anterior restaurava só o código-fonte, e o artefato da
+última mutação chegou a ser commitado.
 
 São **quatro**, e `py tools/conferir_numeros.py` sozinho já roda os três
 primeiros: ele executa a suíte E as duas sondas, e trata `SCRIPT ERROR` no
@@ -458,7 +470,7 @@ Estado ao fim desta sessão: **478 testes, 1304 asserções**, stderr 0 bytes,
 sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
 44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
 conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
-**276 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**300 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar

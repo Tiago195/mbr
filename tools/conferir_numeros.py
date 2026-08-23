@@ -969,6 +969,81 @@ def _duracoes_do_gerador(fonte: str) -> dict:
     return saida
 
 
+def _cabecalho_do_glb(caminho: str) -> dict:
+    """O bloco JSON de um `.glb`. É JSON puro — não precisa de Blender."""
+    dados = (RAIZ / caminho).read_bytes()
+    if dados[:4] != b"glTF":
+        raise ValueError("%s não é um .glb" % caminho)
+    tamanho = struct.unpack("<I", dados[12:16])[0]
+    return json.loads(dados[20:20 + tamanho].decode("utf-8"))
+
+
+def _mundo_dos_nos(cabecalho: dict) -> dict:
+    """`nome do nó → posição no mundo`, compondo a hierarquia inteira.
+
+    Translação, rotação e escala, e não só translação: os ossos do braço e do
+    pé saem girados, e somar apenas as translações daria um esqueleto achatado
+    que ainda assim pareceria plausível.
+    """
+    nos = cabecalho.get("nodes", [])
+    saida = {}
+
+    def multiplicar(a, b):
+        return [sum(a[i + 4 * k] * b[k + 4 * j] for k in range(4))
+                for j in range(4) for i in range(4)]
+
+    def matriz(no):
+        t = no.get("translation", [0.0, 0.0, 0.0])
+        q = no.get("rotation", [0.0, 0.0, 0.0, 1.0])
+        e = no.get("scale", [1.0, 1.0, 1.0])
+        x, y, z, w = q
+        r = [
+            1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w), 0.0,
+            2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w), 0.0,
+            2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y), 0.0,
+            t[0], t[1], t[2], 1.0,
+        ]
+        for coluna in range(3):
+            for linha in range(3):
+                r[coluna * 4 + linha] *= e[coluna]
+        return r
+
+    identidade = [1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0]
+
+    def descer(indice, acumulada):
+        atual = multiplicar(acumulada, matriz(nos[indice]))
+        nome = nos[indice].get("name")
+        if nome:
+            saida[nome] = (atual[12], atual[13], atual[14])
+        for filho in nos[indice].get("children", []):
+            descer(filho, atual)
+
+    raizes = cabecalho.get("scenes", [{}])[0].get("nodes", [])
+    for raiz in raizes:
+        descer(raiz, identidade)
+    return saida
+
+
+def _caixa_da_malha(cabecalho: dict):
+    """A caixa envolvente do corpo, dos `min`/`max` dos acessores de posição.
+
+    O glTF publica esses extremos no cabeçalho, então a altura sai sem decodificar
+    um único vértice.
+    """
+    baixo, alto = None, None
+    for malha in cabecalho.get("meshes", []):
+        for primitiva in malha.get("primitives", []):
+            indice = primitiva.get("attributes", {}).get("POSITION")
+            if indice is None:
+                continue
+            acessor = cabecalho["accessors"][indice]
+            if not acessor.get("min") or not acessor.get("max"):
+                continue
+            baixo = acessor["min"][1] if baixo is None else min(baixo, acessor["min"][1])
+            alto = acessor["max"][1] if alto is None else max(alto, acessor["max"][1])
+    return baixo, alto
+
+
 def _duracoes_do_glb(caminho: str) -> dict:
     """`animação → duração`, lida do `.glb` EXPORTADO, sem Blender.
 
@@ -977,11 +1052,7 @@ def _duracoes_do_glb(caminho: str) -> dict:
     ARTEFATO conferível pela mesma ferramenta que roda em todo commit — e sem
     isso ele não era conferido por nada.
     """
-    dados = (RAIZ / caminho).read_bytes()
-    if dados[:4] != b"glTF":
-        raise ValueError("%s não é um .glb" % caminho)
-    tamanho = struct.unpack("<I", dados[12:16])[0]
-    cabecalho = json.loads(dados[20:20 + tamanho].decode("utf-8"))
+    cabecalho = _cabecalho_do_glb(caminho)
     saida = {}
     for animacao in cabecalho.get("animations", []):
         fim = 0.0
@@ -1014,6 +1085,15 @@ def _conferir_o_artefato(c: "Conferencia") -> None:
         c.falhas.append("o boneco exportado não pôde ser lido: %s" % erro)
         return
 
+    # **A geometria também, e não só as durações.** Conferindo apenas o tempo,
+    # um artefato gerado com outra ALTURA — ou outro pescoço, ou sem mão —
+    # continuava batendo, porque nenhuma dessas coisas muda a duração de um
+    # clipe. Era a mesma classe do defeito que motivou esta função, noutra
+    # dimensão.
+    _conferir_a_geometria_do_glb(c, gerador)
+
+    _conferir_o_blend(c, gerador)
+
     do_codigo = _duracoes_do_gerador(gerador)
     c.contar()
     if set(do_glb) != set(do_codigo):
@@ -1033,11 +1113,116 @@ def _conferir_o_artefato(c: "Conferencia") -> None:
             )
 
 
-## Bytes que não podem existir em arquivo de texto rastreado. O `\b` de
-## `\blender.exe`, escrito por um script que interpretou a sequência, virou
-## byte 0x08 dentro de um comando publicado no `CLAUDE.md` — quem copiasse o
-## comando não conseguia rodá-lo.
-EXTENSOES_DE_TEXTO = (".md", ".py", ".gd", ".json", ".cfg", ".tscn", ".tres")
+def _conferir_o_blend(c: "Conferencia", gerador: str) -> None:
+    """O `.blend` rastreado tem os nomes que o gerador declara.
+
+    É um arquivo binário no repositório e, comprimido, nem os nomes das
+    animações dão para ler sem o Blender — artefato rastreado que ninguém
+    confere é a mesma classe do `.glb` que uma vez foi commitado sem vir do
+    código. Por isso ele é salvo cru, e por isso esta conferência existe.
+
+    Ela é fraca de propósito: confirma que os nomes estão lá, não que as poses
+    estão certas. O que julga pose é o `.glb`, que é o que o jogo consome.
+    """
+    try:
+        bruto = (RAIZ / "arte/fonte/personagem.blend").read_bytes()
+    except OSError as erro:
+        c.contar()
+        c.falhas.append("o `.blend` rastreado não pôde ser lido: %s" % erro)
+        return
+    ossos = re.findall(r'^	\("(\w+)",\s', gerador, re.M)
+    esperados = sorted(set(ossos) | set(_duracoes_do_gerador(gerador)))
+    c.contar()
+    if len(esperados) < 20:
+        c.falhas.append(
+            "só achei %d nomes no gerador para procurar no `.blend` — o padrão "
+            "ficou órfão" % len(esperados)
+        )
+        return
+    faltam = [n for n in esperados if n.encode("utf-8") not in bruto]
+    c.contar()
+    if faltam:
+        c.falhas.append(
+            "o `.blend` rastreado não tem %s — ou ele está comprimido, ou não "
+            "veio deste gerador" % ", ".join(faltam)
+        )
+
+
+## `medida em PROPORCAO → como lê-la do .glb`. As posições vêm em Y para cima,
+## que é a convenção do glTF; o Blender é Z para cima, e a exportação converte.
+GEOMETRIA_DO_GLB = {
+    "tornozelo": lambda p, h: p["pe_D"][1] / h,
+    "joelho": lambda p, h: p["canela_D"][1] / h,
+    "quadril": lambda p, h: p["coxa_D"][1] / h,
+    "peito": lambda p, h: p["peito"][1] / h,
+    "pescoco": lambda p, h: p["cabeca"][1] / h,
+    "ombro": lambda p, h: p["braco_D"][1] / h,
+    "vao_dos_ombros": lambda p, h: abs(p["braco_D"][0] - p["braco_E"][0]) / h,
+    "vao_dos_quadris": lambda p, h: abs(p["coxa_D"][0] - p["coxa_E"][0]) / h,
+    "vao_das_maos": lambda p, h: (abs(p["braco_D"][0] - p["braco_E"][0])
+                                  + 2.0 * (p["braco_D"][1] - p["mao_D"][1])) / h,
+}
+
+
+def _conferir_a_geometria_do_glb(c: "Conferencia", gerador: str) -> None:
+    """As proporções do boneco EXPORTADO contra `PROPORCAO` do gerador."""
+    try:
+        cabecalho = _cabecalho_do_glb("arte/personagem.glb")
+    except (OSError, ValueError) as erro:
+        c.contar()
+        c.falhas.append("não consegui ler a geometria do boneco: %s" % erro)
+        return
+    posicoes = _mundo_dos_nos(cabecalho)
+    baixo, alto = _caixa_da_malha(cabecalho)
+    c.contar()
+    if baixo is None:
+        c.falhas.append("o `.glb` não publica os extremos da malha")
+        return
+    altura = alto - baixo
+    proporcao = _proporcao_do_gerador(gerador)
+    c.contar()
+    if abs(altura - 1.75) > 0.02:
+        c.falhas.append(
+            "o boneco exportado tem %.3f m e a direção manda 1,75" % altura
+        )
+    for chave, ler_do_glb in sorted(GEOMETRIA_DO_GLB.items()):
+        c.contar()
+        try:
+            medido = ler_do_glb(posicoes, altura)
+        except KeyError as falta:
+            c.falhas.append(
+                "o `.glb` não tem o osso %s — o boneco exportado não é o que o "
+                "gerador descreve" % falta
+            )
+            continue
+        if chave not in proporcao:
+            c.falhas.append("`PROPORCAO` não tem `%s`" % chave)
+        elif abs(medido - proporcao[chave]) > 2e-3:
+            c.falhas.append(
+                "no `.glb` commitado `%s` é %.3f da altura e o gerador diz "
+                "%.3f — o artefato não veio deste código"
+                % (chave, medido, proporcao[chave])
+            )
+
+
+## O `\b` de `\blender.exe`, escrito por um script que interpretou a sequência,
+## virou byte 0x08 dentro de um comando publicado no `CLAUDE.md` — quem copiasse
+## o comando não conseguia rodá-lo.
+##
+## **Lista NEGRA, e não branca.** A primeira versão listava as extensões de
+## texto que conhecia e deixava de fora `project.godot`, `.gitignore`, `*.uid`,
+## `*.import` e o `icon.svg` — todos rastreados e todos texto. Uma lista do que
+## conferir esquece; uma lista do que pular, não.
+EXTENSOES_BINARIAS = (
+    ".glb", ".blend", ".blend1", ".png", ".jpg", ".jpeg", ".webp", ".ogg",
+    ".wav", ".mp3", ".ttf", ".otf", ".pck", ".zip", ".exe", ".dll", ".so",
+    ".ico", ".bin", ".fbx", ".obj",
+)
+## Os únicos bytes abaixo de 32 que um arquivo de texto pode ter: tabulação,
+## nova linha e retorno de carro. Os outros 29 reprovam — a versão anterior
+## liberava 0x0B e 0x0C, que são exatamente o `\v` e o `\f` que um caminho do
+## Windows produz por acidente (`...\videos\...`, `...\fonts\...`).
+BYTES_PERMITIDOS = (9, 10, 13)
 
 
 def _conferir_bytes_de_controle(c: "Conferencia") -> None:
@@ -1049,17 +1234,25 @@ def _conferir_bytes_de_controle(c: "Conferencia") -> None:
         c.falhas.append("não consegui listar os arquivos rastreados")
         return
     sujos = []
+    olhados = 0
     for caminho in saida.stdout.splitlines():
-        if not caminho.endswith(EXTENSOES_DE_TEXTO):
+        if caminho.lower().endswith(EXTENSOES_BINARIAS):
             continue
         try:
             bruto = (RAIZ / caminho).read_bytes()
         except OSError:
             continue
+        olhados += 1
         for indice, byte in enumerate(bruto):
-            if byte < 9 or (13 < byte < 32):
+            if byte < 32 and byte not in BYTES_PERMITIDOS:
                 sujos.append("%s byte 0x%02x em %d" % (caminho, byte, indice))
                 break
+    c.contar()
+    if olhados < 50:
+        c.falhas.append(
+            "a varredura de bytes de controle olhou só %d arquivos — a lista "
+            "de binários está engolindo texto" % olhados
+        )
     if sujos:
         c.falhas.append("byte de controle em arquivo de texto: %s" % "; ".join(sujos))
 
@@ -1097,9 +1290,12 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
     # instantâneo é escrito por `censo_do_original.py` a partir dos bundles, e
     # é ele que ancora os outros dois.
     try:
-        medidas = json.loads(ler("data/direcao-de-arte.json"))["proporcao"]
+        instantaneo = json.loads(ler("data/direcao-de-arte.json"))
+        medidas = instantaneo["proporcao"]
+        ritmo = instantaneo["ritmo"]
     except (OSError, KeyError, ValueError) as erro:
         medidas = {}
+        ritmo = {}
         c.contar()
         c.falhas.append(
             "o instantâneo das medidas do original não pôde ser lido (%s) — "
@@ -1188,36 +1384,62 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
     # "pulso 0,872" por "0,999" passava por tudo. São aritmética pura, e
     # aritmética pura é exatamente o que uma máquina confere melhor que um
     # leitor.
-    for rotulo, (chave, _medida) in sorted(DIRECAO_LINHAS.items()):
-        linha = _tabela_do_documento(doc, rotulo)
-        if linha is None or "altura" in rotulo:
-            continue
-        c.contar()
-        emmetros = re.search(
-            r"\| %s \| \*{0,2}-?[0-9],[0-9]+\*{0,2} \| -?[0-9],[0-9]+ – -?[0-9],[0-9]+ "
-            r"\| (-?[0-9],[0-9]+) \|" % re.escape(rotulo), doc
+    # **Varredura, não lista.** Conferir só as linhas que alguém lembrou de
+    # listar deixa as outras sem dono — e deixou: `base do crânio` e `lombar`
+    # aceitavam 9,999 sem uma falha. Varrendo a tabela, uma linha nova já nasce
+    # conferida.
+    # **Só a tabela das ALTURAS.** As duas tabelas do §1 têm o mesmo formato de
+    # três primeiras colunas, e a quarta é "em 1,75 m" numa e "humano real" na
+    # outra. Varrer o documento inteiro comparava a largura dos ombros com a
+    # referência humana e reprovava — a varredura tem que saber onde termina.
+    trecho = doc[doc.index("Alturas como fração"):doc.index("E as larguras:")]
+    linhas_do_um = re.findall(
+        r"^\| ([^|]+?) \| \*{0,2}(-?[0-9],[0-9]+)\*{0,2} \| "
+        r"(-?[0-9],[0-9]+) – (-?[0-9],[0-9]+) \| (-?[0-9],[0-9]+) \|",
+        trecho, re.M,
+    )
+    c.contar()
+    if len(linhas_do_um) < 9:
+        c.falhas.append(
+            "docs/11 §1: achei só %d linhas com coluna em metros — a tabela "
+            "mudou de forma e a conferência ficou órfã" % len(linhas_do_um)
         )
-        if emmetros is None:
+    for rotulo, mediana, _menor, _maior, emmetros in linhas_do_um:
+        c.contar()
+        esperado = round(_decimal(mediana) * 1.75, 3)
+        if abs(_decimal(emmetros) - esperado) > 5e-4:
             c.falhas.append(
-                "docs/11: a coluna em metros da linha `%s` sumiu" % rotulo
-            )
-        elif abs(_decimal(emmetros.group(1)) - round(linha[0] * 1.75, 3)) > 5e-4:
-            c.falhas.append(
-                "docs/11: `%s` é %.3f da altura, o que dá %.3f m em 1,75 — e a "
-                "tabela diz %s" % (rotulo, linha[0], linha[0] * 1.75,
-                                   emmetros.group(1))
+                "docs/11 §1: `%s` é %s da altura, o que dá %.3f m em 1,75 — e a "
+                "tabela diz %s" % (rotulo.strip(), mediana, esperado, emmetros)
             )
 
     # A tabela do §9, que traduz cada fração para o número que o gerador usa.
-    for rotulo, formula, conta in (
-        ("tornozelo", "tornozelo", lambda v: v["tornozelo"] * 1.75),
-        ("joelho", "joelho", lambda v: v["joelho"] * 1.75),
-        ("quadril", "quadril", lambda v: v["quadril"] * 1.75),
-        ("peito", "peito", lambda v: v["peito"] * 1.75),
-        ("pescoço", "pescoco", lambda v: v["pescoco"] * 1.75),
-        ("pulso", None, lambda v: (v["ombro"] * 1.75
-                                   - (v["vao_das_maos"] - v["vao_dos_ombros"]) * 1.75 / 2)),
-        ("ponta da mão", None, lambda v: (
+    # Toda linha da forma "X 0,ABC | 0,DEF × altura [÷ 2]" é conferida pela
+    # aritmética, sem lista: era por lista, e três linhas ficaram de fora.
+    linhas_do_nove = re.findall(
+        r"^\| ([^|]+?) ±?([0-9],[0-9]+) \| ([0-9],[0-9]+) × altura( ÷ 2)? \|",
+        doc, re.M,
+    )
+    c.contar()
+    if len(linhas_do_nove) < 8:
+        c.falhas.append(
+            "docs/11 §9: achei só %d linhas derivadas de uma fração — a tabela "
+            "mudou de forma" % len(linhas_do_nove)
+        )
+    for rotulo, valor, fracao, metade in linhas_do_nove:
+        c.contar()
+        esperado = round(_decimal(fracao) * 1.75 / (2.0 if metade else 1.0), 3)
+        if abs(_decimal(valor) - esperado) > 5e-4:
+            c.falhas.append(
+                "docs/11 §9: `%s` diz %s e %s × 1,75%s dá %.3f"
+                % (rotulo.strip(), valor, fracao, " ÷ 2" if metade else "",
+                   esperado)
+            )
+    # As duas linhas cuja conta não é uma multiplicação.
+    for rotulo, conta in (
+        ("pulso", lambda v: (v["ombro"] * 1.75
+                             - (v["vao_das_maos"] - v["vao_dos_ombros"]) * 1.75 / 2)),
+        ("ponta da mão", lambda v: (
             v["ombro"] * 1.75
             - (v["vao_das_maos"] - v["vao_dos_ombros"]) * 1.75 / 2
             - (v["envergadura"] - v["vao_das_maos"]) * 1.75 / 2)),
@@ -1252,15 +1474,35 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
     # número de dez lugares e o pôs em um só, e um lugar sem conferência é um
     # lugar.
     c.contar()
+    regra = ler("tools/arte/regra_da_folga.py")
     no_doc = re.search(r"passos de \*\*0,(\d+)\*\*", doc)
-    no_codigo = re.search(r"PASSO_DA_FOLGA = ([0-9.]+)", conferidor)
+    no_codigo = re.search(r"^PASSO_DA_FOLGA = ([0-9.]+)", regra, re.M)
     if no_doc is None or no_codigo is None:
-        c.falhas.append("o passo da folga sumiu de `docs/11` ou do conferidor")
+        c.falhas.append("o passo da folga sumiu de `docs/11` ou da regra")
     elif abs(_decimal("0," + no_doc.group(1)) - float(no_codigo.group(1))) > 1e-9:
         c.falhas.append(
-            "docs/11 diz passo de 0,%s e o conferidor usa %s"
+            "docs/11 diz passo de 0,%s e a regra usa %s"
             % (no_doc.group(1), no_codigo.group(1))
         )
+
+    # **A FÓRMULA, e não só o passo.** Ela mora num módulo de Python puro
+    # justamente para poder ser executada aqui: enquanto vivia dentro do
+    # conferidor do Blender, trocar `* 0.5` por `* 50.0` abria as dez
+    # tolerâncias de uma vez e esta ferramenta continuava verde.
+    c.contar()
+    sys.path.insert(0, str(RAIZ / "tools" / "arte"))
+    try:
+        import importlib
+
+        import regra_da_folga
+        importlib.reload(regra_da_folga)
+        for motivo in regra_da_folga.conferir_a_regra():
+            c.falhas.append("a regra da folga não passa no próprio autoteste: %s"
+                            % motivo)
+    except Exception as erro:  # noqa: BLE001 — importar é o que pode falhar
+        c.falhas.append("não consegui carregar a regra da folga: %s" % erro)
+    finally:
+        sys.path.pop(0)
 
     # Quanto o corpo tem que sair do chão em cada animação de voo. Era a única
     # conferência que exigia que o salto saltasse, e não era publicada.
@@ -1321,9 +1563,26 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
     # equivalente do original, sem folga inventada.
     for nossa, deles in sorted(DIRECAO_LOCOMOCAO.items()):
         c.contar()
+        # O instantâneo guarda a faixa de cada clipe universal, e ela é a
+        # terceira fonte também aqui: sem isto, alargar a faixa no documento E
+        # no conferidor ao mesmo tempo continuava passando.
+        do_censo = (ritmo.get("universais") or {}).get(deles)
+        if do_censo is None and ritmo:
+            c.falhas.append(
+                "o instantâneo não tem a faixa de `%s` — a duração perdeu a "
+                "âncora no original" % deles
+            )
         no_doc = re.search(
             r"\| `%s` \| ([0-9],[0-9]+) / [0-9],[0-9]+ / ([0-9],[0-9]+) s \|" % deles, doc
         )
+        if do_censo is not None and no_doc is not None:
+            if (abs(_decimal(no_doc.group(1)) - do_censo[0]) > 5e-3
+                    or abs(_decimal(no_doc.group(2)) - do_censo[2]) > 5e-3):
+                c.falhas.append(
+                    "docs/11 publica `%s` de %s a %s e o instantâneo mede %.2f "
+                    "a %.2f" % (deles, no_doc.group(1), no_doc.group(2),
+                                do_censo[0], do_censo[2])
+                )
         no_codigo = re.search(
             r'"%s": \(([0-9.]+), ([0-9.]+)\)' % nossa, conferidor
         )
@@ -1346,6 +1605,15 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
         c.falhas.append("docs/11: os quartis dos clipes de habilidade sumiram")
     else:
         p25, p75 = _decimal(quartis.group(1)), _decimal(quartis.group(2))
+        c.contar()
+        if ritmo:
+            if (abs(p25 - ritmo.get("habilidade_p25", -1)) > 5e-3
+                    or abs(p75 - ritmo.get("habilidade_p75", -1)) > 5e-3):
+                c.falhas.append(
+                    "docs/11 publica quartis %.2f--%.2f e o instantâneo mede "
+                    "%.2f--%.2f" % (p25, p75, ritmo.get("habilidade_p25", -1),
+                                    ritmo.get("habilidade_p75", -1))
+                )
         for gesto in ("estocada", "giro", "salto", "erguer", "preparo"):
             c.contar()
             achado = re.search(

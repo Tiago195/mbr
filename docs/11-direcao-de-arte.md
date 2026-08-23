@@ -44,7 +44,11 @@ Medido em **27 campeões**. Ficam de fora:
 - **Bella**, cuja malha desce 22 cm abaixo do chão — é vestido, e a altura não
   é comparável;
 - **Fisher, Harang, Kane e Thief**, que não têm malha nem avatar nos bundles
-  locais. Eram Addressables, e o servidor que os servia morreu.
+  locais — conferido varrendo os 1666 nomes de malha e os 201 de avatar, sob
+  qualquer nome. *Por que* eles faltam **não está medido**: a instalação não tem
+  os artefatos típicos de Addressables (`aa/`, `catalog_*.json`), e o
+  `patch_data.json` que existe não cita campeão nenhum. A hipótese de que eram
+  servidos pela rede é razoável e não é medição.
 
 Alturas como fração da altura total:
 
@@ -188,20 +192,22 @@ só.
 
 São **Bastine, Eden, Fisher, Harang, Thief e Violet**. Cada um divide as
 animações de habilidade com um parceiro — mas **dividir não é ser igual**, e a
-medida exata importa:
+medida exata importa. Contando "habilidade" pela linha de corte declarada no §4
+— clipe de no máximo dois campeões —, que é a mesma que o censo imprime:
 
 | Divide | com | e o parceiro tem |
 |---|---|---|
-| Bastine: 6 de 6 | Fisher | 10 |
-| Eden: 5 de 5 | Kane | 8 |
-| Fisher: 6 de 10 | Bastine | 6 |
-| Harang: 11 de 15 | Stepan | 17 |
+| Bastine: 5 de 5 | Fisher | 6 |
+| Eden: 5 de 5 | Kane | 7 |
+| Fisher: 5 de 6 | Bastine | 5 |
+| Harang: 9 de 12 | Stepan | 15 |
 | Thief: 9 de 9 | Violet | 9 |
 | Violet: 9 de 9 | Thief | 9 |
 
-Só **Thief e Violet** têm conjuntos idênticos. Nos outros pares um dos dois é
-subconjunto do outro — Kane e Stepan **têm** clipes exclusivos, e por isso não
-estão entre os seis.
+Só **Thief e Violet** têm conjuntos idênticos. Bastine e Eden são subconjuntos
+próprios dos parceiros. **Harang e Stepan não são nem uma coisa nem outra:**
+cada um tem clipes que o outro não tem — 12 contra 15, com 9 em comum. E Kane e
+Stepan **têm** clipes exclusivos, e por isso não estão entre os seis.
 
 > **A regra que sai disto:** duas habilidades com a mesma FORMA podem dividir o
 > gesto. É exatamente o que `GestoDeConjuracao` já faz ao escolher pela forma do
@@ -316,7 +322,8 @@ Cada campeão tem uma textura de corpo de **2048×2048**, mais uma variante `_lo
 e, quando tem arma, uma textura de arma.
 
 **A amostra é pequena e é o que existe:** só **6 dos 32** campeões têm textura
-de corpo nos bundles locais. Os outros eram Addressables.
+de corpo nos bundles locais. Por que os outros faltam é a mesma pergunta em
+aberto do §1 — o fato é a ausência, não a explicação dela.
 
 | | Saturação mediana | Brilho mediano | Pixels quase-cinza |
 |---|---|---|---|
@@ -370,6 +377,23 @@ chama sozinho ao terminar** — antes disso a frase "é executado toda vez" era
 falsa, e ele só rodava quando alguém lembrava a linha de comando do Blender.
 Defesa que depende de alguém lembrar não é defesa.
 
+E o gerador **exporta para um nome temporário e só publica se passar**: antes
+ele gravava o arquivo definitivo e conferia depois, então toda execução
+reprovada deixava um boneco ruim no disco — e foi assim que um deles chegou a
+ser commitado.
+
+O artefato também é conferido **sem o Blender**. `tools/conferir_numeros.py` lê
+o `.glb` em Python puro — o cabeçalho de um glTF é JSON — e compara as oito
+durações e nove proporções com o que o gerador descreve. É o que impede o
+arquivo exportado de envelhecer em silêncio enquanto o código anda. Pelo mesmo
+motivo o `.blend` é salvo **sem compressão**: rastreado e comprimido, ele seria
+um binário que ninguém consegue conferir.
+
+E as defesas têm suas próprias suítes de mutação, no repositório:
+`tools/arte/mutar_boneco.py` quebra o gerador e a regra da folga, e
+`tools/mutar_direcao.py` quebra a concordância entre documento, código,
+instantâneo e artefato. **42 mutações, 42 pegas.**
+
 Cinco números não saem de faixa nenhuma e por isso são declarados aqui, para
 poderem ser conferidos: a altura vale com folga de **4 cm**, o pé encosta no
 chão com folga de **1,5 cm**, uma animação precisa de amplitude de pelo menos
@@ -414,5 +438,6 @@ trocá-lo por 0,5 abria todas as tolerâncias de uma vez.
 | cadência, ciclo, eventos | medidos em 1350 clipes, reprodutível |
 | paleta | medida em 6 texturas — **amostra pequena**, é o que existe nos bundles locais |
 | "o tempo do dano vem da tabela" | **inferência a partir de ausência** de evento, não observação |
+| "os que faltam eram Addressables" | **hipótese não medida** — o medido é só a ausência |
 | "as três coisas que fazem o olhar" | **interpretação minha** sobre número medido |
 | as regras nossas | **decisão de engenharia**, derivada mas não medida |
