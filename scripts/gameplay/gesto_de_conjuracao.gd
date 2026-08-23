@@ -79,6 +79,14 @@ func _ready() -> void:
 	if _caster != null:
 		_caster.cast_attempted.connect(_ao_conjurar)
 
+## Verdadeiro enquanto um gesto de conjuração está em curso.
+##
+## `GestoDeCaminhada` consulta isto para dar passagem: sobrepor as duas
+## animações faz o braço tremer no meio do golpe, e o golpe é a informação que
+## o jogador está tentando ler.
+func esta_gesticulando() -> bool:
+	return _restante > 0.0
+
 func _process(delta: float) -> void:
 	if _malha == null or _restante <= 0.0:
 		return

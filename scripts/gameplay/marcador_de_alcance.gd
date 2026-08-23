@@ -82,12 +82,18 @@ func _ao_conjurar(
 	# A habilidade que SAIU, quando a corrente de combo trocou: é o alcance
 	# dela que valeu.
 	var saiu: Ability = result.ability if result != null and result.ability != null else pedida
-	if saiu.cast_range <= 0.0:
+	# **O alcance EFETIVO, não o de mira.** `cast_range` vem de `AI_SkillRange`,
+	# que diz a que distância a IA usa a habilidade — não até onde ela pega. Em
+	# 43 dos 119 espaços os dois divergem, e o anel com o número errado foi o
+	# que fez o R do Leo parecer impossível de acertar: ele anuncia 4 m e pega
+	# até 3.
+	var alcance: float = saiu.effective_range()
+	if alcance <= 0.0:
 		# Zero quer dizer "sem limite" — desenhar um anel gigante mentiria.
 		_anel_habilidade.visible = false
 		_restante = 0.0
 		return
-	_desenhar(_anel_habilidade, saiu.cast_range)
+	_desenhar(_anel_habilidade, alcance)
 	_anel_habilidade.visible = true
 	_restante = vida_do_anel
 

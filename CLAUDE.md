@@ -215,7 +215,7 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 ## Estado atual
 
 > Última atualização: **23/08/2026**. Repositório em `github.com:Tiago195/mbr`,
-> branch `master`. **473 testes, 1299 asserções**, todos verdes, stderr limpo.
+> branch `master`. **478 testes, 1304 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
@@ -263,6 +263,19 @@ vê. Daí saíram três coisas, todas camada visual pura:
 - `scripts/gameplay/gesto_de_conjuracao.gd` — **o corpo faz alguma coisa ao
   conjurar**. Estocada, giro, salto, erguer, e um preparo que dura a conjuração
   inteira, escolhidos pela forma do primeiro pulso com efeito
+- `scripts/gameplay/gesto_de_caminhada.gd` — passada em vez de deslizamento
+
+**E o anel de alcance nasceu MENTINDO.** Ele mostrava `cast_range`, que vem de
+`AI_SkillRange` do original — a distância em que a IA *decide usar* a
+habilidade, não até onde ela pega. Em **43 dos 119 espaços** com alcance
+declarado os dois divergem, às vezes por 7 metros. Foi o que fez o usuário
+reportar o R do Leo como *"impossível de acertar"*: o anel dizia 4 m, o projétil
+nasce 2 m atrás e voa 5, então pega até 3.
+
+`Ability.effective_range()` calcula da geometria dos pulsos, e é ele que o anel
+desenha. **Não é bug de tradução** — medido, o sinal do deslocamento está certo
+(269 dos 293 são positivos) e trocar a regra consertaria o Leo quebrando o
+Bastine, cujo alcance real bate com o declarado.
 
 **E a correção que gerou o último item vale guardar.** A primeira resposta dele
 foi um registro de texto, com o argumento de que *"isso é informação, não
@@ -376,11 +389,11 @@ inexistente não aborta a função: empurra erro, devolve nulo e o laço segue.
 Medido: `EXIT=0`, 323 bytes de stderr, `[ok]` no stdout. Por isso o stderr
 delas passou a ser lido por máquina.
 
-Estado ao fim desta sessão: **473 testes, 1299 asserções**, stderr 0 bytes,
+Estado ao fim desta sessão: **478 testes, 1304 asserções**, stderr 0 bytes,
 sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
 44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
 conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
-**199 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**201 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar

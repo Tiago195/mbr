@@ -148,6 +148,37 @@ func has_combo() -> bool:
 ## Nível de personagem exigido para subir a este ranque.
 @export var level_requirement: int = 0
 
+## Até onde esta habilidade REALMENTE pega, em metros.
+##
+## **Não é `cast_range`.** Aquele vem de `AI_SkillRange` do original, que é a
+## distância em que a IA decide usar a habilidade — e usá-lo como alcance
+## engana: medido, em **43 dos 119 espaços** de campeão com alcance declarado o
+## efeito não chega ao número, às vezes por 7 metros. O R do Leo anuncia 4 m e
+## pega até 3, e foi assim que ele virou "impossível de acertar" em jogo.
+##
+## Aqui o alcance sai da geometria dos pulsos: de onde a forma se planta mais
+## até onde ela vai. Uma área que nasce no ponto mirado já conta o alcance de
+## mira; uma que nasce no conjurador, não.
+func effective_range() -> float:
+	var maior: float = 0.0
+	for pulse: AbilityPulse in pulses:
+		if pulse == null or pulse.effects.is_empty():
+			continue
+		var base: float = (
+			0.0 if pulse.origin == AbilityPulse.Origin.CASTER else cast_range
+		)
+		var alcance: float = base + pulse.forward_offset
+		match pulse.form:
+			AbilityPulse.Form.PROJECTILE, AbilityPulse.Form.LINE, 			AbilityPulse.Form.CONE, AbilityPulse.Form.TRAPEZOID:
+				alcance += pulse.length
+			AbilityPulse.Form.SINGLE:
+				# Alvo escolhido a dedo: o alcance é o da mira, e ponto.
+				alcance = cast_range
+			_:
+				alcance += pulse.radius
+		maior = maxf(maior, alcance)
+	return maior if maior > 0.0 else cast_range
+
 ## Recarga já com a redução do conjurador aplicada.
 func cooldown_for(caster: Unit) -> float:
 	if caster == null:

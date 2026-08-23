@@ -1169,6 +1169,50 @@ def main() -> int:
     doc02_ritmo = ler("docs/02-decisoes-tecnicas.md")
     ability_gd = ler("scripts/core/abilities/ability.gd")
 
+    # -------------------------------- o anel de alcance dizia a verdade?
+    #
+    # `cast_range` vem de `AI_SkillRange`, que é a distância em que a IA usa a
+    # habilidade — e não até onde ela pega. Pintar um anel com ele enganou o
+    # usuário: o R do Leo anuncia 4 m, pega até 3, e virou "impossível de
+    # acertar". Este número é a extensão do engano.
+    def alcance_efetivo(a: dict) -> float:
+        maior = 0.0
+        for p in a["pulses"]:
+            if not p["effects"]:
+                continue
+            base = 0.0 if p["origin"] == "CASTER" else a["cast_range"]
+            off = float(p.get("forward_offset", 0.0))
+            if p["form"] in ("PROJECTILE", "LINE", "CONE", "TRAPEZOID"):
+                alcance = base + off + float(p.get("length", 0.0))
+            elif p["form"] == "SINGLE":
+                alcance = a["cast_range"]
+            else:
+                alcance = base + off + float(p.get("radius", 0.0))
+            maior = max(maior, alcance)
+        return maior if maior > 0.0 else a["cast_range"]
+
+    com_alcance = 0
+    anel_mentia = 0
+    for a in atores:
+        if a["usage"] != "Player" or not a["ability_groups"]:
+            continue
+        grupos = list(a["ability_groups"])
+        if a["ultimate_group"]:
+            grupos.append(a["ultimate_group"])
+        for grupo in grupos:
+            escolhida = rank_for_level(grupo, NIVEL_DE_REFERENCIA)
+            if escolhida is None or escolhida["cast_range"] <= 0.0:
+                continue
+            com_alcance += 1
+            if alcance_efetivo(escolhida) < escolhida["cast_range"] - 0.05:
+                anel_mentia += 1
+    c.afirma("ability.gd espaços em que o anel mentia", ability_gd,
+             r"em \*\*(\d+) dos \d+ espaços\*\* de campeão com alcance",
+             anel_mentia)
+    c.afirma("ability.gd espaços com alcance declarado", ability_gd,
+             r"em \*\*\d+ dos (\d+) espaços\*\* de campeão com alcance",
+             com_alcance)
+
     # ------------------------------------------- corrente de combo
     c.afirma("ability.gd espaços com corrente", ability_gd,
              r"vale para \*\*(\d+) dos \d+ espaços de campeão\*\*",

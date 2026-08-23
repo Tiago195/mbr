@@ -45,8 +45,10 @@ extends Node3D
 	"res://import_local/Violet_Body.obj",
 	"res://import_local/Violet_Head.obj",
 ])
-## Correção de eixo: as malhas do original são Z-up, a Godot é Y-up.
-@export var giro_externo_graus: Vector3 = Vector3(-90.0, 0.0, 0.0)
+## Correção de eixo: as malhas do original são Z-up e olham para +Z; a Godot é
+## Y-up e olha para -Z. Sem o giro em Y o personagem anda de costas — foi o que
+## aconteceu na primeira versão.
+@export var giro_externo_graus: Vector3 = Vector3(-90.0, 180.0, 0.0)
 ## Quanto multiplicar a malha externa para ela ficar na altura declarada.
 @export var escala_externa: float = 1.25
 

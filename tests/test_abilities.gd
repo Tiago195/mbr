@@ -669,3 +669,63 @@ func test_quarta_habilidade_nasce_so_de_configuracao() -> void:
 	# o vocabulário não expressava antes de `recipient` existir.
 	assert_almost_eq(caster.health.shield, 120.0, "80 + 100*0.4, no conjurador")
 	assert_almost_eq(alvo.health.shield, 0.0, "o inimigo não ganhou escudo")
+
+# ------------------------------------------------- alcance efetivo
+
+func test_alcance_efetivo_de_projetil_conta_o_deslocamento() -> void:
+	# O R do Leo: nasce 2 m ATRÁS e voa 5 — pega até 3, e não até os 4 que o
+	# `cast_range` anuncia. Foi essa diferença que o fez parecer "impossível
+	# de acertar" em jogo.
+	var ability := Ability.new()
+	ability.cast_range = 4.0
+	var pulse: AbilityPulse = ability.single_pulse()
+	pulse.form = AbilityPulse.Form.PROJECTILE
+	pulse.origin = AbilityPulse.Origin.CASTER
+	pulse.forward_offset = -2.0
+	pulse.length = 5.0
+	pulse.effects = [DamageEffect.new()]
+	assert_almost_eq(ability.effective_range(), 3.0)
+
+func test_area_no_ponto_mirado_soma_o_alcance_de_mira() -> void:
+	# Uma explosão que nasce onde se clicou pega até `alcance + raio`, e não
+	# até o raio: medir do conjurador daria 1,8 m numa habilidade de 8 m.
+	var ability := Ability.new()
+	ability.cast_range = 8.0
+	var pulse: AbilityPulse = ability.single_pulse()
+	pulse.form = AbilityPulse.Form.CIRCLE
+	pulse.origin = AbilityPulse.Origin.AIM_POINT
+	pulse.radius = 1.8
+	pulse.effects = [DamageEffect.new()]
+	assert_almost_eq(ability.effective_range(), 9.8)
+
+func test_alcance_efetivo_ignora_pulso_sem_efeito() -> void:
+	# Pulso sem efeito não pega ninguém; contá-lo inflaria o anel.
+	var ability := Ability.new()
+	ability.cast_range = 3.0
+	var util := AbilityPulse.new()
+	util.form = AbilityPulse.Form.CIRCLE
+	util.origin = AbilityPulse.Origin.CASTER
+	util.radius = 2.0
+	util.effects = [DamageEffect.new()]
+	var vazio := AbilityPulse.new()
+	vazio.form = AbilityPulse.Form.CIRCLE
+	vazio.origin = AbilityPulse.Origin.CASTER
+	vazio.radius = 40.0
+	ability.pulses = [util, vazio]
+	assert_almost_eq(ability.effective_range(), 2.0)
+
+func test_sem_pulso_util_o_alcance_efetivo_cai_no_de_mira() -> void:
+	var ability := Ability.new()
+	ability.cast_range = 5.0
+	ability.pulses = []
+	assert_almost_eq(ability.effective_range(), 5.0)
+
+func test_alvo_a_dedo_usa_o_alcance_de_mira() -> void:
+	# `SINGLE` não tem área: quem foi escolhido a dedo está dentro do alcance
+	# por definição.
+	var ability := Ability.new()
+	ability.cast_range = 6.0
+	var pulse: AbilityPulse = ability.single_pulse()
+	pulse.form = AbilityPulse.Form.SINGLE
+	pulse.effects = [DamageEffect.new()]
+	assert_almost_eq(ability.effective_range(), 6.0)
