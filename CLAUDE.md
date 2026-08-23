@@ -441,7 +441,10 @@ py tools/arte/censo_do_original.py
 ```
 
 A primeira gera o boneco **e roda a conferência dele** — e só publica o `.glb`
-se ele passar; a segunda mede o original e regrava
+e o `.blend` se ele passar. O `.blend` **não é rastreado**: exportá-lo duas
+vezes do mesmo código dá dois arquivos diferentes, então ele não se confere por
+reprodução e rastreá-lo sujava a árvore a cada geração. Ele nasce local em dez
+segundos; o `.glb`, que é o que o jogo consome, é determinístico e conferido; a segunda mede o original e regrava
 `data/direcao-de-arte.json`, e só funciona onde a instalação da Steam existir
 (sem ela sai com 2, que é diferente de reprovar).
 

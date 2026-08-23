@@ -385,9 +385,12 @@ ser commitado.
 O artefato também é conferido **sem o Blender**. `tools/conferir_numeros.py` lê
 o `.glb` em Python puro — o cabeçalho de um glTF é JSON — e compara as oito
 durações e nove proporções com o que o gerador descreve. É o que impede o
-arquivo exportado de envelhecer em silêncio enquanto o código anda. Pelo mesmo
-motivo o `.blend` é salvo **sem compressão**: rastreado e comprimido, ele seria
-um binário que ninguém consegue conferir.
+arquivo exportado de envelhecer em silêncio enquanto o código anda. O `.blend`
+**não é rastreado**, e a razão é medida: exportá-lo duas vezes do mesmo código dá
+dois arquivos diferentes, então ele não pode ser conferido por reprodução e
+rastreá-lo faria toda geração sujar a árvore. Ele nasce local em dez segundos, é
+salvo sem compressão para poder ser lido, e quando existe a conferência confirma
+que tem os 15 ossos, as 8 animações e as seis alturas de osso do gerador.
 
 E as defesas têm suas próprias suítes de mutação, no repositório:
 `tools/arte/mutar_boneco.py` quebra o gerador e a regra da folga, e

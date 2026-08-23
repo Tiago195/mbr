@@ -26,3 +26,11 @@ arte/previa/
 
 # Backup automático do Blender.
 *.blend1
+
+# O `.blend` do personagem NÃO é rastreado, e a razão é medida: exportá-lo duas
+# vezes do mesmo código dá dois arquivos diferentes (o Blender grava estado que
+# não vem da cena). Artefato que não se reproduz não pode ser conferido por
+# reprodução, e rastreá-lo faz toda geração sujar a árvore. Ele nasce local, em
+# dez segundos, com `tools/arte/gerar_personagem.py` — e o `.glb`, que é o que
+# o jogo consome, ESSE é determinístico, rastreado e conferido.
+arte/fonte/*.blend

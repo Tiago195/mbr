@@ -1153,11 +1153,19 @@ def _conferir_o_blend(c: "Conferencia", gerador: str) -> None:
     Ela é fraca de propósito: confirma que os nomes estão lá, não que as poses
     estão certas. O que julga pose é o `.glb`, que é o que o jogo consome.
     """
+    # **O `.blend` não é rastreado, e por decisão medida:** exportá-lo duas
+    # vezes do mesmo código dá dois arquivos diferentes. Ele nasce local, então
+    # numa árvore recém-clonada ele não existe — e isso é degradação declarada,
+    # não falha. O `.glb`, que é determinístico, continua obrigatório.
+    caminho = RAIZ / "arte/fonte/personagem.blend"
+    if not caminho.exists():
+        c.avisar("o `.blend` local não existe; rode `gerar_personagem.py`", 4)
+        return
     try:
-        bruto = (RAIZ / "arte/fonte/personagem.blend").read_bytes()
+        bruto = caminho.read_bytes()
     except OSError as erro:
         c.contar()
-        c.falhas.append("o `.blend` rastreado não pôde ser lido: %s" % erro)
+        c.falhas.append("o `.blend` local não pôde ser lido: %s" % erro)
         return
     ossos = re.findall(r'^	\("(\w+)",\s', gerador, re.M)
     esperados = sorted(set(ossos) | set(_duracoes_do_gerador(gerador)))
