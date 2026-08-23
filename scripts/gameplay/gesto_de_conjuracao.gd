@@ -52,6 +52,10 @@ enum Gesto {
 ## Quanto o salto sobe, em metros.
 @export var altura_do_salto: float = 0.7
 
+## O corpo articulado, quando existe. Com ele, o gesto move BRAÇO e PERNA;
+## sem ele, move a malha inteira — que foi o que travou o teste do usuário,
+## porque mover o corpo todo lê como empurrão e não como golpe.
+var _boneco: Boneco
 var _malha: Node3D
 var _caster: AbilityCaster
 var _base_posicao: Vector3
@@ -61,9 +65,12 @@ var _restante: float = 0.0
 var _total: float = 0.0
 
 func _ready() -> void:
+	_boneco = _achar_boneco()
 	_malha = _achar_malha()
+	if _boneco != null:
+		_malha = _boneco
 	if _malha == null:
-		push_warning("GestoDeConjuracao sem MeshInstance3D em '%s'." % get_parent().name)
+		push_warning("GestoDeConjuracao sem corpo em '%s'." % get_parent().name)
 		return
 	_base_posicao = _malha.position
 	_base_escala = _malha.scale
@@ -145,6 +152,11 @@ func _peso(t: float) -> float:
 
 func _aplicar(t: float) -> void:
 	var peso: float = _peso(t)
+	# Com membros, o gesto move BRAÇO e PERNA. Sem eles — malha externa
+	# inteiriça, sem esqueleto —, move o corpo todo, que é o que dá para fazer.
+	if _boneco != null and _boneco.tem_membros():
+		_aplicar_nos_membros(peso)
+		return
 	var frente: Vector3 = -global_frente()
 	match _gesto:
 		Gesto.ESTOCADA:
@@ -175,8 +187,54 @@ func _aplicar(t: float) -> void:
 			)
 			_malha.position = _base_posicao - Vector3.UP * junta * 0.5
 
+## O gesto nos MEMBROS. É o que separa "o personagem golpeou" de "o personagem
+## foi empurrado" — e era essa diferença que faltava.
+func _aplicar_nos_membros(peso: float) -> void:
+	_boneco.repousar()
+	match _gesto:
+		Gesto.ESTOCADA:
+			# O braço da frente sobe e desce como quem golpeia; o de trás
+			# contrabalança, que é o que dá peso ao movimento.
+			_boneco.braco_direito.rotation_degrees.x = -150.0 * peso
+			_boneco.braco_esquerdo.rotation_degrees.x = 40.0 * peso
+			_boneco.tronco.rotation_degrees.x = -18.0 * peso
+			_boneco.quadril.position.z = -0.35 * peso
+		Gesto.GIRO:
+			# Os dois braços abertos e o corpo rodando: o gesto de quem varre
+			# o que está em volta.
+			_boneco.quadril.rotation_degrees.y = 360.0 * voltas * maxf(peso, 0.0)
+			_boneco.braco_direito.rotation_degrees.z = -80.0 * maxf(peso, 0.0)
+			_boneco.braco_esquerdo.rotation_degrees.z = 80.0 * maxf(peso, 0.0)
+		Gesto.SALTO:
+			_boneco.quadril.position.y = (
+				_boneco.altura * 0.42 - _boneco.altura * 0.5
+				+ altura_do_salto * maxf(peso, 0.0)
+			)
+			# Joelhos recolhidos no ar; esticados na antecipação.
+			_boneco.perna_direita.rotation_degrees.x = 55.0 * maxf(peso, 0.0)
+			_boneco.perna_esquerda.rotation_degrees.x = 55.0 * maxf(peso, 0.0)
+			_boneco.braco_direito.rotation_degrees.x = -60.0 * maxf(peso, 0.0)
+			_boneco.braco_esquerdo.rotation_degrees.x = -60.0 * maxf(peso, 0.0)
+		Gesto.ERGUER:
+			# Braços ao alto: o gesto de quem chama algo de cima.
+			_boneco.braco_direito.rotation_degrees.x = -170.0 * maxf(peso, 0.0)
+			_boneco.braco_esquerdo.rotation_degrees.x = -170.0 * maxf(peso, 0.0)
+			_boneco.quadril.position.y += 0.22 * peso
+			_boneco.tronco.rotation_degrees.x = 12.0 * peso
+		_:
+			# PREPARO: agacha e recolhe os braços enquanto o canto corre.
+			var junta: float = 0.45 * (1.0 - _restante / maxf(_total, 0.001))
+			_boneco.quadril.position.y -= 0.18 * junta
+			_boneco.perna_direita.rotation_degrees.x = 25.0 * junta
+			_boneco.perna_esquerda.rotation_degrees.x = 25.0 * junta
+			_boneco.braco_direito.rotation_degrees.x = -35.0 * junta
+			_boneco.braco_esquerdo.rotation_degrees.x = -35.0 * junta
+
 func _repousar() -> void:
 	_restante = 0.0
+	if _boneco != null and _boneco.tem_membros():
+		_boneco.repousar()
+		return
 	_malha.position = _base_posicao
 	_malha.scale = _base_escala
 	_malha.rotation.y = 0.0
@@ -191,6 +249,15 @@ func global_frente() -> Vector3:
 	if frente.length_squared() <= 0.000001:
 		return Vector3.FORWARD
 	return frente.normalized()
+
+func _achar_boneco() -> Boneco:
+	var host: Node = get_parent()
+	if host == null:
+		return null
+	for child: Node in host.get_children():
+		if child is Boneco:
+			return child as Boneco
+	return null
 
 func _achar_malha() -> Node3D:
 	var host: Node = get_parent()

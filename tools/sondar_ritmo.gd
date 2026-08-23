@@ -249,19 +249,31 @@ func _conferir_gesto(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
 	var falhas: Array[String] = []
 	var caster: AbilityCaster = null
 	var gesto: Node = null
-	var malha: Node3D = null
+	var boneco: Boneco = null
 	for filho: Node in jogador.get_children():
 		if filho is AbilityCaster:
 			caster = filho as AbilityCaster
+		elif filho is Boneco:
+			boneco = filho as Boneco
 		elif filho.get_script() != null 				and filho.get_script().resource_path.ends_with("gesto_de_conjuracao.gd"):
 			gesto = filho
-		elif filho is MeshInstance3D and filho.name != "FrontMarker":
-			malha = filho as Node3D
-	if caster == null or gesto == null or malha == null:
-		return ["a cena não tem AbilityCaster, GestoDeConjuracao ou malha"] as Array[String]
+	if caster == null or gesto == null or boneco == null:
+		return ["a cena não tem AbilityCaster, GestoDeConjuracao ou Boneco"] as Array[String]
 
-	var repouso: Vector3 = malha.position
-	var escala: Vector3 = malha.scale
+	# **O desvio é medido nos MEMBROS quando eles existem**, e não no corpo
+	# inteiro: é justamente essa a diferença que o usuário pediu — braço
+	# golpeando em vez de cápsula deslizando, e medir o corpo daria zero num
+	# gesto perfeito de braço.
+	#
+	# Mas o corpo pode ser uma malha externa inteiriça (o andaime de
+	# `import_local/`, que não tem esqueleto), e aí o gesto move o corpo todo.
+	# A sonda tem que passar nos DOIS casos: no repositório limpo há o boneco
+	# de caixas, e na máquina de quem importou há a malha.
+	var com_membros: bool = boneco.tem_membros()
+	var repouso: Dictionary = {}
+	for membro: Node3D in boneco.membros():
+		repouso[membro] = membro.rotation
+	var repouso_do_corpo := Transform3D(boneco.transform)
 	# Recarga limpa e mana cheia: o que se confere é o gesto, não o custo.
 	caster.book.clear_cooldowns()
 	meu.unit.mana.current = meu.unit.mana.maximum()
@@ -292,23 +304,48 @@ func _conferir_gesto(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
 	# logo no primeiro quadro dá desvio nulo com o gesto funcionando. Foi
 	# exatamente o que esta conferência acusou na primeira execução.
 	var maior: float = 0.0
+	var mexidos: Dictionary = {}
 	for _passo: int in 90:
 		await physics_frame
 		await process_frame
-		maior = maxf(maior, malha.position.distance_to(repouso))
-		maior = maxf(maior, malha.scale.distance_to(escala))
-		maior = maxf(maior, absf(malha.rotation.y))
+		if com_membros:
+			for membro: Node3D in boneco.membros():
+				var desvio: float = membro.rotation.distance_to(repouso[membro])
+				if desvio > 0.01:
+					mexidos[membro.name] = true
+				maior = maxf(maior, desvio)
+		else:
+			maior = maxf(maior, boneco.position.distance_to(repouso_do_corpo.origin))
+			maior = maxf(maior, boneco.scale.distance_to(repouso_do_corpo.basis.get_scale()))
+			maior = maxf(maior, absf(boneco.rotation.y))
 	if maior <= 0.01:
 		falhas.append(
 			"conjurar não mexeu o corpo em quadro nenhum: o gesto não disparou"
 		)
-	print("  gesto de conjuração: desvio máximo %.3f" % maior)
-	if malha.position.distance_to(repouso) > 0.001 			or malha.scale.distance_to(escala) > 0.001 			or absf(malha.rotation.y) > 0.001:
+	# **Pelo menos dois membros**, e é o que separa gesto de espasmo: um braço
+	# sozinho subindo lê como falha de animação. Todos os cinco gestos movem
+	# tronco ou perna junto com o braço. Só se aplica ao corpo articulado — a
+	# malha externa não tem membro nenhum, e cobrá-la seria cobrar o que ela
+	# não tem como fazer.
+	if com_membros and mexidos.size() < 2:
 		falhas.append(
-			("o corpo não voltou ao repouso depois do gesto: posição %s, "
-			+ "escala %s, giro %.3f") % [
-				str(malha.position), str(malha.scale), malha.rotation.y
-			]
+			("o gesto mexeu só %d membro(s) (%s); um membro sozinho não lê "
+			+ "como golpe") % [mexidos.size(), ", ".join(mexidos.keys())]
+		)
+	print("  gesto de conjuração: corpo %s, %d membros mexidos, desvio máximo %.2f"
+		% ["articulado" if com_membros else "inteiriço (malha externa)",
+		   mexidos.size(), maior])
+	if com_membros:
+		for membro: Node3D in boneco.membros():
+			if membro.rotation.distance_to(repouso[membro]) > 0.001:
+				falhas.append(
+					"o membro `%s` não voltou ao repouso depois do gesto (%s)"
+						% [membro.name, str(membro.rotation)]
+				)
+	elif boneco.position.distance_to(repouso_do_corpo.origin) > 0.001 			or absf(boneco.rotation.y) > 0.001:
+		falhas.append(
+			"o corpo não voltou ao repouso depois do gesto (%s)"
+				% str(boneco.position)
 		)
 	return falhas
 

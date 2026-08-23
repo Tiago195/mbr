@@ -1,0 +1,12 @@
+# TUDO nesta pasta é ANDAIME DE TESTE e nunca entra no repositório.
+#
+# São assets extraídos da instalação local do Royal Crown, para o usuário
+# conseguir testar o motor vendo um personagem em vez de uma cápsula. Eles são
+# propriedade da LINE/Meerkat, não são nossos, e NÃO VÃO PARA O BUILD — é a
+# regra de `docs/01-visao-e-escopo.md`, e ela continua valendo.
+#
+# O caminho definitivo é Meshy + Mixamo, na Fase 6. Quando ele chegar, esta
+# pasta some inteira e nada mais precisa ser feito.
+*
+!.gitignore
+!LEIA-ME.md
