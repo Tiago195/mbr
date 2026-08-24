@@ -1765,6 +1765,67 @@ DE_ONDE_SAI_O_COMPRIMENTO = {
 }
 
 
+def _conferir_os_numeros_livres(c: "Conferencia") -> None:
+    """Toda constante livre da pipeline nova está declarada em `docs/11`?
+
+    **Este era o último buraco que o revisor adversarial deixou aberto**, e ele
+    o descreveu assim: a pipeline antiga tem `TOLERANCIAS_SOLTAS` amarrando os
+    seis números livres dela ao §9, e a nova tinha ~35 sem declaração nenhuma.
+    O custo foi medido: ele alargou seis tolerâncias de uma vez — proporção,
+    vão, envergadura, esbeltez, escala e autointerseção — e `conferir_boneco`,
+    `conferir_numeros` e a rotina inteira ficaram VERDES.
+
+    Confere nos DOIS sentidos, e é isso que fecha a classe em vez do caso:
+    constante sem linha na tabela reprova, linha sem constante reprova, e valor
+    diferente reprova. Uma constante nova nasce vermelha até ser explicada.
+    """
+    doc = ler("docs/11-direcao-de-arte.md")
+    declaradas = {}
+    for arquivo, nome, valor in re.findall(
+            r"^\| `([\w.]+)` \| `([A-Z_]+)` \| ([-\d.]+) \|", doc, re.M):
+        declaradas[(arquivo, nome)] = valor
+
+    c.contar()
+    if not declaradas:
+        c.falhas.append(
+            "não achei a tabela dos números livres em `docs/11` — a "
+            "conferência deles ficou órfã")
+        return
+
+    reais = {}
+    for arquivo in ("gerar_boneco.py", "conferir_boneco.py"):
+        caminho = os.path.join(RAIZ, "tools", "arte", arquivo)
+        c.contar()
+        if not os.path.exists(caminho):
+            c.falhas.append("não achei `%s`" % arquivo)
+            return
+        with open(caminho, encoding="utf-8") as f:
+            fonte = f.read()
+        for nome, valor in re.findall(
+                r"^([A-Z_]+) = (-?[0-9]+\.?[0-9]*)$", fonte, re.M):
+            reais[(arquivo, nome)] = valor
+
+    for chave in sorted(reais):
+        c.contar()
+        if chave not in declaradas:
+            c.falhas.append(
+                "`%s` em `%s` vale %s e não está declarada na tabela dos "
+                "números livres do §9 de `docs/11` — número que decide se um "
+                "clipe publica e que ninguém declara é número que ninguém "
+                "confere" % (chave[1], chave[0], reais[chave]))
+        elif float(declaradas[chave]) != float(reais[chave]):
+            c.falhas.append(
+                "`%s` em `%s` vale %s e `docs/11` declara %s"
+                % (chave[1], chave[0], reais[chave], declaradas[chave]))
+
+    for chave in sorted(declaradas):
+        c.contar()
+        if chave not in reais:
+            c.falhas.append(
+                "`docs/11` declara `%s` em `%s` e essa constante não existe "
+                "mais — a linha ficou órfã" % (chave[1], chave[0]))
+
+
 def _conferir_os_quadros_do_boneco(c: "Conferencia") -> None:
     """O `CLAUDE.md` publica quantos quadros o gerador abre; eles têm que bater.
 
@@ -3897,6 +3958,7 @@ def main() -> int:
     _conferir_o_artefato_do_boneco(c)
     _conferir_os_nomes_do_boneco(c)
     _conferir_os_quadros_do_boneco(c)
+    _conferir_os_numeros_livres(c)
     _conferir_o_artefato(c)
     _conferir_que_a_arvore_nao_esta_mutada(c)
     _conferir_bytes_de_controle(c)

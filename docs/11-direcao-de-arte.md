@@ -451,6 +451,63 @@ trocá-lo por 0,5 abria todas as tolerâncias de uma vez.
 
 ---
 
+### Os números livres da pipeline do boneco novo
+
+Os que **não saem de faixa medida nenhuma** — escolhidos por engenharia,
+não derivados do original. Declarados aqui porque número que decide se um
+clipe publica e que ninguém declara é número que ninguém confere: um revisor
+adversarial alargou seis tolerâncias de uma vez e a rotina inteira ficou
+verde.
+
+`tools/conferir_numeros.py` confere esta tabela nos **dois sentidos** —
+constante sem linha reprova, linha sem constante reprova, e valor diferente
+reprova. Uma constante nova nasce vermelha até ser explicada aqui.
+
+| Arquivo | Constante | Valor | O que ela decide |
+|---|---|---|---|
+| `gerar_boneco.py` | `ALTURA` | 1.75 | a altura alvo do boneco, em metros |
+| `gerar_boneco.py` | `FRACAO_ATE_O_COTOVELO` | 0.47 | onde o cotovelo cai ao longo do braço; **não sai do original**, que mede ombro, cotovelo e mão na mesma altura na pose T |
+| `gerar_boneco.py` | `ABERTURA_DO_BRACO` | 28.0 | graus de pose A; 20 era o mínimo que separa braço e coxa, e 28 leva a autointerseção de 78 pares a 10 |
+| `gerar_boneco.py` | `FRACAO_DO_PEITO` | 0.72 | onde o peito cai entre quadril e pescoço |
+| `gerar_boneco.py` | `ESTREITAMENTO_DO_PULSO` | 0.45 | o pulso é mais fino que o antebraço |
+| `gerar_boneco.py` | `ENGROSSAMENTO_DA_MAO` | 1.35 | e a mão é mais grossa que o pulso — o §1 mede mão grande |
+| `gerar_boneco.py` | `SUBDIVISOES` | 2 | passes de subdivisão sobre o casco do Skin Modifier |
+| `gerar_boneco.py` | `LADO_DO_VOXEL` | 0.022 | só vale se `VOXELIZAR` voltar a ser verdadeiro |
+| `gerar_boneco.py` | `SOBRA_DA_REDUCAO` | 0.35 | idem |
+| `gerar_boneco.py` | `TENTATIVAS` | 240 | voltas do laço de convergência antes de desistir |
+| `gerar_boneco.py` | `FOLGA_DA_ALTURA` | 0.002 | quando a convergência considera a altura fechada |
+| `gerar_boneco.py` | `AMORTECIMENTO` | 0.5 | quanto da correção o laço aplica por volta; 1,0 oscila |
+| `gerar_boneco.py` | `AMORTECIMENTO_DA_ESPESSURA` | 0.5 | o mesmo, para o raio das peças |
+| `gerar_boneco.py` | `FOLGA_DA_CABECA` | 0.006 | quando a largura da cabeça está fechada |
+| `gerar_boneco.py` | `FOLGA_DO_BRACO` | 0.004 | quando o alcance do braço está fechado |
+| `gerar_boneco.py` | `RAIO_DO_TUBO_DO_BRACO` | 0.145 | o cerco que separa vértice de braço de vértice de coxa; o pé fica a 1,2 m e passava no filtro anterior |
+| `gerar_boneco.py` | `AMOSTRA_MINIMA` | 12 | vértices mínimos para uma medida não ser decidida pelo acaso |
+| `gerar_boneco.py` | `PASSOS_PARA_DENTRO` | 12 | passes do encolhimento que separa roupa de pele |
+| `gerar_boneco.py` | `PASSADAS_DE_ALISAMENTO` | 2 | passes de suavização da fronteira de pintura |
+| `gerar_boneco.py` | `FUNDO_DO_ROSTO` | 0.55 | onde o rosto começa, em fração da cabeça |
+| `gerar_boneco.py` | `ALTURA_DO_ROSTO` | 0.25 | e quanto dela ele ocupa |
+| `gerar_boneco.py` | `CADENCIA` | 30 | quadros por segundo; **medido**, 1344 dos 1350 clipes do original |
+| `gerar_boneco.py` | `AMPLITUDE_MINIMA` | 0.05 | metros que uma região precisa andar para o clipe contar como animação |
+| `gerar_boneco.py` | `ARTICULACAO_MINIMA` | 5.0 | graus que um osso de `movem` precisa girar; ângulo e não metro, porque metro não distingue articular de ser carregado |
+| `gerar_boneco.py` | `FOLGA_DO_CHAO` | 0.015 | quando um pé conta como tocando o chão |
+| `gerar_boneco.py` | `AMOSTRAS_DA_SOLA` | 12 | vértices da sola usados para detectar um perdido |
+| `gerar_boneco.py` | `ESPALHAMENTO_DA_SOLA` | 0.05 | quanto eles podem se espalhar antes de um deles ser considerado perdido |
+| `gerar_boneco.py` | `DESLIZE_PARA_A_FRENTE` | 0.01 | metros que o pé apoiado pode arrastar no sentido da marcha |
+| `gerar_boneco.py` | `PASSADA_MINIMA` | 0.15 | metros que o pé apoiado tem de recuar |
+| `gerar_boneco.py` | `DESEQUILIBRIO` | 0.12 | fração de diferença tolerada entre os dois pés |
+| `gerar_boneco.py` | `APOIO_SIMPLES_MINIMO` | 0.20 | fração do ciclo em que cada pé é apoio único |
+| `gerar_boneco.py` | `QUIQUE_MAXIMO` | 0.05578 | fração da altura que o quadril sobe e desce ao andar; é o **valor medido**, e o alvo humano é 2,3 a 2,9% |
+| `gerar_boneco.py` | `TETO_DA_TRAVESSIA_ANIMADA` | 13 | pares de face que podem se atravessar num quadro animado |
+| `conferir_boneco.py` | `ALTURA` | 1.75 | a altura que o artefato tem de ter |
+| `conferir_boneco.py` | `FOLGA_DA_ALTURA` | 0.01 | e com que folga; **é 0,04 no outro conferidor**, e a diferença é deliberada |
+| `conferir_boneco.py` | `ESCALA_TOLERADA` | 0.001 | quanto a escala acumulada da árvore de nós pode fugir de 1 |
+| `conferir_boneco.py` | `FOLGA_DA_COR` | 0.02 | quanto uma cor do `.glb` pode diferir da declarada |
+| `conferir_boneco.py` | `AMOSTRA_MINIMA` | 12 | vértices mínimos para uma esbeltez não ser decidida pelo acaso |
+| `conferir_boneco.py` | `FOLGA_DA_DURACAO` | 0.05 | segundos que um clipe pode diferir da mediana medida |
+| `conferir_boneco.py` | `FOLGA_DO_CICLO` | 0.002 | quanto duas poses podem diferir e ainda contar como a mesma |
+| `conferir_boneco.py` | `TETO_DE_AUTOINTERSECAO` | 10 | pares de face que podem se atravessar em repouso |
+| `conferir_boneco.py` | `CELULA` | 0.06 | lado da célula da grade espacial da busca de interseção |
+
 ## 10. A lista de checagem, ao criar animação nova
 
 1. **É verbo universal ou é gesto de campeão?** Universal entra no vocabulário
