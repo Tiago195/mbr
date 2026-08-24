@@ -39,9 +39,17 @@ import sys
 import bpy
 
 AMOSTRAS = 6
-## Distancia entre as copias da folha de contato, em metros. Um pouco mais que
-## a largura do boneco: encostadas, as silhuetas se confundem.
-PASSO = 1.1
+## Espaco livre entre uma copia e a seguinte, em metros.
+##
+## **O passo NAO e uma constante — ele sai da largura da animacao.** Era 1,1 m
+## fixo, escolhido para um boneco de pe, e a primeira animacao que deita o
+## corpo (`caido`, 1,75 m de comprimento no chao) saiu com as seis copias
+## empilhadas umas por cima das outras. A folha continuava sendo gerada, o
+## script continuava dizendo "6 imagens", e nao dava para julgar nada — que e o
+## pior tipo de ferramenta: a que responde sem informar.
+FOLGA_ENTRE_COPIAS = 0.35
+## Piso do passo, para a folha nao ficar apertada num gesto estreito.
+PASSO_MINIMO = 1.1
 ## Altura do enquadramento, em metros. Tem que caber o salto, que sobe 55 cm
 ## acima de um corpo de 1,75 m.
 ALTURA_DA_CENA = 2.9
@@ -205,7 +213,10 @@ def preparar_render(largura_mundo: float, largura_px: int) -> None:
 	sombreamento.color_type = "MATERIAL"
 	sombreamento.show_shadows = True
 	sombreamento.show_cavity = True
-	cena.render.resolution_x = largura_px
+	# Teto de resolucao: uma animacao deitada pede uma folha muito larga, e
+	# `LARGURA_POR_AMOSTRA * colunas` sobre um passo grande estourava para
+	# milhares de pixels sem ganhar leitura nenhuma.
+	cena.render.resolution_x = min(largura_px, 2400)
 	cena.render.resolution_y = max(
 		120, int(largura_px * ALTURA_DA_CENA / max(largura_mundo, 0.001))
 	)
@@ -223,6 +234,33 @@ def limpar_copias(copias: list) -> None:
 		bpy.data.objects.remove(objeto, do_unlink=True)
 
 
+def largura_de(armature, malha, quadros: list, giro: float) -> float:
+	"""Quanto a animacao ocupa na horizontal da camera, em metros.
+
+	Mede a malha JA DEFORMADA, em cada quadro amostrado, projetada no eixo que
+	a camera ve — o mesmo `global_transform * AABB` que o resto do projeto usa
+	no lugar de enumerar largura, altura e posicao uma a uma.
+	"""
+	radianos = math.radians(giro)
+	cosseno, seno = math.cos(radianos), math.sin(radianos)
+	maior = 0.0
+	profundidade = bpy.context.evaluated_depsgraph_get()
+	for quadro in quadros:
+		bpy.context.scene.frame_set(quadro)
+		profundidade = bpy.context.evaluated_depsgraph_get()
+		avaliada = malha.evaluated_get(profundidade)
+		temporaria = avaliada.to_mesh()
+		mundo = avaliada.matrix_world
+		xs = []
+		for vertice in temporaria.vertices:
+			p = mundo @ vertice.co
+			xs.append(p.x * cosseno - p.y * seno)
+		avaliada.to_mesh_clear()
+		if xs:
+			maior = max(maior, max(xs) - min(xs))
+	return maior
+
+
 def quadros_de(acao: bpy.types.Action) -> list:
 	inicio, fim = acao.frame_range
 	inicio, fim = int(inicio), int(fim)
@@ -235,11 +273,12 @@ def quadros_de(acao: bpy.types.Action) -> list:
 	return [int(round(inicio + passo * i)) for i in range(AMOSTRAS)]
 
 
-def _render(nome: str, destino: str, armature, malha, copias, colunas: int) -> str:
-	# A largura vem do NUMERO DE COLUNAS, nao de uma constante: a folha de
-	# repouso tem tres e a de animacao tem seis, e fixar em seis deixava a
-	# metade direita da imagem vazia.
-	largura = PASSO * (colunas + 1)
+def _render(nome: str, destino: str, armature, malha, copias, colunas: int,
+            passo: float = PASSO_MINIMO) -> str:
+	# A largura vem do NUMERO DE COLUNAS e do passo, nao de uma constante: a
+	# folha de repouso tem tres e a de animacao tem seis, e fixar em seis
+	# deixava a metade direita da imagem vazia.
+	largura = passo * (colunas + 1)
 	chao = montar_chao(largura)
 	camera = montar_camera(largura)
 	preparar_render(largura + 0.6, LARGURA_POR_AMOSTRA * colunas)
@@ -261,13 +300,19 @@ def _render(nome: str, destino: str, armature, malha, copias, colunas: int) -> s
 
 def folha(armature, malha, nome: str, acao, destino: str) -> str:
 	usar(armature, acao)
+	quadros = quadros_de(acao)
+	passo = max(
+		PASSO_MINIMO,
+		largura_de(armature, malha, quadros, GIRO_DA_ANIMACAO)
+		+ FOLGA_ENTRE_COPIAS,
+	)
 	copias = []
-	for coluna, quadro in enumerate(quadros_de(acao)):
+	for coluna, quadro in enumerate(quadros):
 		bpy.context.scene.frame_set(quadro)
 		copias.extend(congelar(
-			armature, malha, PASSO * (coluna + 1), GIRO_DA_ANIMACAO
+			armature, malha, passo * (coluna + 1), GIRO_DA_ANIMACAO
 		))
-	return _render(nome, destino, armature, malha, copias, AMOSTRAS)
+	return _render(nome, destino, armature, malha, copias, AMOSTRAS, passo)
 
 
 def folha_de_pose(armature, malha, destino: str) -> str:
@@ -285,7 +330,8 @@ def folha_de_pose(armature, malha, destino: str) -> str:
 
 	copias = []
 	for coluna, giro in enumerate((0.0, 90.0, 45.0)):
-		copias.extend(congelar(armature, malha, PASSO * (coluna + 1), giro))
+		copias.extend(congelar(
+			armature, malha, PASSO_MINIMO * (coluna + 1), giro))
 	return _render("pose", destino, armature, malha, copias, 3)
 
 

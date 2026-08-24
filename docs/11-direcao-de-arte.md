@@ -186,7 +186,7 @@ separa o gênero de um MOBA, e nós não temos nenhum.
 
 ### Quanto disto o nosso boneco já tem
 
-O nosso boneco tem **6 dos 22** verbos universais, mais os cinco gestos de
+O nosso boneco tem **8 dos 22** verbos universais, mais os cinco gestos de
 habilidade. Os nomes nossos, e a tradução de cada um para o nome do original,
 vivem em `scripts/gameplay/vocabulario_de_animacao.gd` — que é a lista que o
 JOGO usa. `tools/conferir_numeros.py` exige que ela seja exatamente a mesma

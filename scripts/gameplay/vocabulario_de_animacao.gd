@@ -65,6 +65,22 @@ const ATORDOADO: StringName = &"atordoado"
 ## coerente com ser o único que ninguém precisa poder interromper.
 const MORTE: StringName = &"morte"
 
+## `knockout_idle` — derrubado, esperando. O abatido do battle royale: caiu,
+## não morreu, e alguém ainda pode reerguê-lo ou acabar com ele.
+##
+## Divide a POSTURA com [[morte]] — mesmo corpo de costas — e o que separa os
+## dois é que este respira. Nós ainda não temos o estado de abatido; o clipe
+## existe porque o vocabulário é do BONECO, não do sistema, e um verbo que
+## falta na hora em que o sistema chega é um boneco que trava a fase.
+const CAIDO: StringName = &"caido"
+
+## `knockout_run` — derrubado, se arrastando. É a locomoção do abatido, e o par
+## de [[caido]]: um espera, o outro anda.
+##
+## De bruços, ao contrário do `caido`, que é de costas. As duas posturas são o
+## MESMO osso girado para lados opostos.
+const RASTEJANDO: StringName = &"rastejando"
+
 # ------------------------------------------------------- gestos de habilidade
 
 ## Os cinco gestos que `GestoDeConjuracao` escolhe pela FORMA do primeiro pulso
@@ -94,6 +110,8 @@ const NO_ORIGINAL: Dictionary = {
 	LEVOU_DANO: &"beaten",
 	ATORDOADO: &"stun",
 	MORTE: &"death",
+	CAIDO: &"knockout_idle",
+	RASTEJANDO: &"knockout_run",
 }
 
 ## Os gestos de habilidade — os que `GestoDeConjuracao` escolhe pela forma.
@@ -110,6 +128,8 @@ const TODOS: Array[StringName] = [
 	ATORDOADO,
 	ESTOCADA, GIRO, SALTO, ERGUER, PREPARO,
 	MORTE,
+	CAIDO,
+	RASTEJANDO,
 ]
 
 ## Os que rodam em CICLO. Todo o resto toca uma vez e para.
@@ -125,4 +145,6 @@ const TODOS: Array[StringName] = [
 const CICLOS: Array[StringName] = [
 	PARADO, ANDANDO, CORRENDO,
 	ATORDOADO,
+	CAIDO,
+	RASTEJANDO,
 ]

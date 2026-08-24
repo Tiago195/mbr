@@ -672,6 +672,103 @@ ANIMACOES = {
 				coxa_E=(6, 0, 0), canela_E=(12, 0, 0), pe_E=pe(6, 12))),
 		],
 	},
+	# Caído: `knockout_idle`, **1,33 s nos 32 campeões**, ciclo. É o estado de
+	# quem foi derrubado e ainda não morreu — o abatido do battle royale, que
+	# espera ser reerguido ou acabado.
+	#
+	# Divide a POSTURA com a morte de propósito: mesmo corpo de costas, mesma
+	# base. O que separa os dois é que este RESPIRA e aquele não, e é essa
+	# diferença — não a pose — que diz ao jogador se ainda dá para salvar.
+	"caido": {
+		"ciclo": True,
+		"chaves": [
+			(0, pose(
+				quadril=(-90, 0, 0), peito=(6, 0, 0), cabeca=(10, 0, 0),
+				braco_D=(14, -58, 0), antebraco_D=(-16, 0, 0),
+				braco_E=(14, 58, 0), antebraco_E=(-16, 0, 0),
+				coxa_D=(-3, -7, 0), canela_D=(0, 0, 0), pe_D=pe(-3, 0),
+				coxa_E=(-2, 5, 0), canela_E=(0, 0, 0), pe_E=pe(-2, 0))),
+			# Puxa o ar: o peito sobe, a cabeça pende para o lado, uma perna
+			# tenta se recolher.
+			(13, pose(
+				quadril=(-87, 0, 0), peito=(11, 0, 0), cabeca=(6, -9, 0),
+				braco_D=(19, -50, 0), antebraco_D=(-24, 0, 0),
+				braco_E=(11, 62, 0), antebraco_E=(-11, 0, 0),
+				coxa_D=(-7, -10, 0), canela_D=(-8, 0, 0), pe_D=pe(-7, -8),
+				coxa_E=(-1, 4, 0), canela_E=(0, 0, 0), pe_E=pe(-1, 0))),
+			(26, pose(
+				quadril=(-92, 0, 0), peito=(3, 0, 0), cabeca=(12, 6, 0),
+				braco_D=(11, -62, 0), antebraco_D=(-12, 0, 0),
+				braco_E=(17, 53, 0), antebraco_E=(-21, 0, 0),
+				coxa_D=(-1, -5, 0), canela_D=(0, 0, 0), pe_D=pe(-1, 0),
+				coxa_E=(-6, 7, 0), canela_E=(-7, 0, 0), pe_E=pe(-6, -7))),
+			(40, pose(
+				quadril=(-90, 0, 0), peito=(6, 0, 0), cabeca=(10, 0, 0),
+				braco_D=(14, -58, 0), antebraco_D=(-16, 0, 0),
+				braco_E=(14, 58, 0), antebraco_E=(-16, 0, 0),
+				coxa_D=(-3, -7, 0), canela_D=(0, 0, 0), pe_D=pe(-3, 0),
+				coxa_E=(-2, 5, 0), canela_E=(0, 0, 0), pe_E=pe(-2, 0))),
+		],
+	},
+	# Rastejando: `knockout_run`, 1,13 / 1,13 / 1,33 s, ciclo. O abatido que se
+	# arrasta — a locomoção do estado derrubado.
+	#
+	# **De bruços, e não de costas como o `caido`.** +90 graus no quadril
+	# apontam o tronco para a FRENTE e as pernas para trás; -90 fazem o
+	# contrário, que é o corpo de costas. Os dois estados do abatido usam
+	# rotações opostas do mesmo osso, e é a única diferença estrutural entre
+	# eles.
+	#
+	# O braço precisa de -150 graus para alcançar à frente: de bruços ele nasce
+	# apontando para os pés, e trazê-lo para a frente é quase meia volta. É a
+	# mesma conta do `erguer`, que ergue os braços com -166.
+	#
+	# **E a perna abre em Z, não em Y.** Num corpo de pé o `Y` tomba o membro
+	# para o lado; num corpo DEITADO a perna já aponta ao longo do eixo Y, e
+	# girá-la em torno de Y a faz rodar sobre si mesma — o que não move nada na
+	# tela. Quem abre a perna de um corpo deitado é o `Z`. A primeira versão
+	# usou `Y` e compensou com um joelho de -58 graus, e o resultado foram as
+	# duas canelas em pé no ar: a folha de contato mostrou um corpo rastejando
+	# com as pernas para cima.
+	"rastejando": {
+		"ciclo": True,
+		"chaves": [
+			# Braço direito à frente, joelho esquerdo puxado: é a diagonal, que
+			# é como um corpo se arrasta de verdade.
+			(0, pose(
+				quadril=(88, 0, 0), peito=(-16, 0, 0), cabeca=(-34, 0, 0),
+				braco_D=(-152, -20, 0), antebraco_D=(-28, 0, 0),
+				braco_E=(-96, 22, 0), antebraco_E=(-44, 0, 0),
+				coxa_D=(0, 0, -7), canela_D=(-6, 0, 0), pe_D=pe(0, -6),
+				coxa_E=(-6, 0, 32), canela_E=(-26, 0, 0), pe_E=pe(-6, -26))),
+			# Puxa: o braço da frente traz o corpo, o joelho empurra.
+			(9, pose(
+				quadril=(90, 0, 0), peito=(-11, 0, 0), cabeca=(-30, 0, 0),
+				braco_D=(-124, -14, 0), antebraco_D=(-48, 0, 0),
+				braco_E=(-120, 16, 0), antebraco_E=(-30, 0, 0),
+				coxa_D=(-3, 0, -20), canela_D=(-16, 0, 0), pe_D=pe(-3, -16),
+				coxa_E=(-3, 0, 20), canela_E=(-16, 0, 0), pe_E=pe(-3, -16))),
+			# A diagonal trocada.
+			(17, pose(
+				quadril=(88, 0, 0), peito=(-16, 0, 0), cabeca=(-34, 0, 0),
+				braco_E=(-152, 20, 0), antebraco_E=(-28, 0, 0),
+				braco_D=(-96, -22, 0), antebraco_D=(-44, 0, 0),
+				coxa_E=(0, 0, 7), canela_E=(-6, 0, 0), pe_E=pe(0, -6),
+				coxa_D=(-6, 0, -32), canela_D=(-26, 0, 0), pe_D=pe(-6, -26))),
+			(26, pose(
+				quadril=(90, 0, 0), peito=(-11, 0, 0), cabeca=(-30, 0, 0),
+				braco_E=(-124, 14, 0), antebraco_E=(-48, 0, 0),
+				braco_D=(-120, -16, 0), antebraco_D=(-30, 0, 0),
+				coxa_E=(-3, 0, 20), canela_E=(-16, 0, 0), pe_E=pe(-3, -16),
+				coxa_D=(-3, 0, -20), canela_D=(-16, 0, 0), pe_D=pe(-3, -16))),
+			(35, pose(
+				quadril=(88, 0, 0), peito=(-16, 0, 0), cabeca=(-34, 0, 0),
+				braco_D=(-152, -20, 0), antebraco_D=(-28, 0, 0),
+				braco_E=(-96, 22, 0), antebraco_E=(-44, 0, 0),
+				coxa_D=(0, 0, -7), canela_D=(-6, 0, 0), pe_D=pe(0, -6),
+				coxa_E=(-6, 0, 32), canela_E=(-26, 0, 0), pe_E=pe(-6, -26))),
+		],
+	},
 	# Os cinco gestos de habilidade, com os mesmos nomes que
 	# `GestoDeConjuracao.Gesto` já escolhe pela forma do pulso. Todos têm
 	# ANTECIPAÇÃO no começo — sem ela o golpe parece teleporte.

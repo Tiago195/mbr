@@ -147,6 +147,10 @@ func _ao_deslocar(_offset: Vector3) -> void:
 func _tocar(clipe: StringName) -> bool:
 	if _boneco == null or _boneco.animador() == null or clipe == &"":
 		return false
+	# Com a roda de animação ligada, o jogador está olhando um clipe.
+	var roda: RodaDeAnimacao = _achar_roda()
+	if roda != null and roda.esta_mostrando():
+		return false
 	if not _boneco.tocar(clipe, true):
 		return false
 	_total = maxf(_boneco.duracao_de(clipe), 0.05)
@@ -358,6 +362,15 @@ func global_frente() -> Vector3:
 	if frente.length_squared() <= 0.000001:
 		return Vector3.FORWARD
 	return frente.normalized()
+
+func _achar_roda() -> RodaDeAnimacao:
+	var host: Node = get_parent()
+	if host == null:
+		return null
+	for filho: Node in host.get_children():
+		if filho is RodaDeAnimacao:
+			return filho as RodaDeAnimacao
+	return null
 
 func _achar_boneco() -> Boneco:
 	var host: Node = get_parent()

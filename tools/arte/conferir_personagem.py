@@ -56,6 +56,8 @@ NOMES_EXIGIDOS = [
 	"levou_dano",
 	"atordoado",
 	"morte",
+	"caido",
+	"rastejando",
 	"estocada", "giro", "salto", "erguer", "preparo",
 ]
 ## Quais rodam em CICLO — a coluna "Tipo" do §3 de `docs/11`, medida nos 32
@@ -65,7 +67,7 @@ NOMES_EXIGIDOS = [
 ## primeiro** (item 3 da lista do §10). Sem isso o corpo salta ao emendar a
 ## volta, e o salto e tanto mais visivel quanto mais curto o clipe — na corrida
 ## ele acontece tres vezes por segundo.
-EM_CICLO = {"parado", "andando", "correndo", "atordoado"}
+EM_CICLO = {"parado", "andando", "correndo", "atordoado", "caido", "rastejando"}
 ## Quanto o ultimo quadro de um ciclo pode se afastar do primeiro, em metros —
 ## medido no vertice que mais se afasta. Publicado em `docs/11` §9.
 FECHAMENTO_DO_CICLO = 0.005
@@ -155,6 +157,8 @@ DURACAO_ESPERADA = {
 	"levou_dano": (1.00, 1.00),  # `beaten` medido nos 32 — ponto, nao faixa
 	"atordoado": (0.50, 1.00),  # `stun`  medido nos 32
 	"morte": (1.13, 3.33),  # `death` medido nos 32
+	"caido": (1.33, 1.33),  # `knockout_idle` medido nos 32
+	"rastejando": (1.13, 1.33),  # `knockout_run` medido nos 32
 	"estocada": (0.83, 1.40),
 	"giro": (0.83, 1.40),
 	"salto": (0.83, 1.40),

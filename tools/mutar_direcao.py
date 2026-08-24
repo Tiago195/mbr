@@ -37,6 +37,9 @@ ALVOS = {
     "reacao": os.path.join(RAIZ, "scripts", "gameplay", "gesto_de_reacao.gd"),
     ## E quem poe os ciclos em ciclo ao carregar.
     "boneco": os.path.join(RAIZ, "scripts", "gameplay", "boneco.gd"),
+    ## A roda que percorre o vocabulario inteiro — o unico consumidor de
+    ## metade dos clipes, e a unica conferencia que toca TODOS eles.
+    "roda": os.path.join(RAIZ, "scripts", "gameplay", "roda_de_animacao.gd"),
 }
 ## **Todo artefato rastreado que o gerador escreve.** Restaurar so o `.glb`
 ## deixava o `.blend` da ultima mutacao no disco, e ele foi commitado assim —
@@ -214,6 +217,14 @@ MUTACOES = [
     ("o morto volta a andar", [
         ("reacao", "\treturn _morto or _atordoado or _restante > 0.0",
          "\treturn _atordoado or _restante > 0.0")], False),
+    ("a roda nao toca o clipe que anuncia", [
+        ("roda", "\t_boneco.tocar(nome, true)", "\tpass")], False),
+    ("a caminhada nao da passagem para a roda", [
+        ("caminhada", "\tif _roda != null and _roda.esta_mostrando():\n\t\treturn",
+         "\tif false:\n\t\treturn")], False),
+    ("a roda perde a posicao desligada", [
+        ("roda", "\tvar quantas: int = VocabularioDeAnimacao.TODOS.size()",
+         "\tvar quantas: int = VocabularioDeAnimacao.TODOS.size() - 1")], False),
     ("os ciclos deixam de ser postos em ciclo ao carregar", [
         ("boneco", "\t\t_animador.get_animation(nome).loop_mode = Animation.LOOP_LINEAR",
          "\t\tpass")], False),

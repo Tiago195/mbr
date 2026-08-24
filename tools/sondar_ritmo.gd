@@ -371,6 +371,9 @@ func _conferir_vocabulario(
 				% [animador.current_animation, VocabularioDeAnimacao.PARADO]
 		)
 
+	# ------------------------------------------- a roda percorre TUDO
+	falhas.append_array(await _conferir_a_roda(jogador, boneco, animador))
+
 	# Morrer é a ÚLTIMA coisa que a sonda faz com este corpo, porque ele não
 	# volta. O clipe termina deitado e nenhuma camada desenha por cima.
 	var alto_de_pe: float = _mais_alto(boneco, jogador)
@@ -408,6 +411,75 @@ func _conferir_vocabulario(
 	print(("  vocabulário: dano -> `%s`; atordoado -> `%s`; solto -> `%s`; "
 		+ "morto: corpo a %.2f m (de pé %.2f)")
 		% [reagindo, preso, parado, alto_morto, alto_de_pe])
+	return falhas
+
+
+## A roda de animação toca TODOS os clipes, um a um.
+##
+## **É o que dá consumidor a metade do vocabulário.** Sete dos 22 verbos
+## universais do original são de mundo — colher, cortar, minerar, pegar, comer,
+## beber, operar — e nós não temos loot, árvore nem minério; `caido` e
+## `rastejando` esperam o estado de abatido. Sem a roda, esses clipes existiriam
+## no arquivo e nenhuma linha do jogo os pediria, que é exatamente a situação em
+## que o projeto já estava quando o `.glb` inteiro não era carregado.
+##
+## Percorrer a roda também é a única conferência que toca CADA clipe: as outras
+## tocam os que têm evento.
+func _conferir_a_roda(
+		jogador: CharacterBody3D, boneco: Boneco, animador: AnimationPlayer
+) -> Array[String]:
+	var falhas: Array[String] = []
+	var roda: RodaDeAnimacao = null
+	for filho: Node in jogador.get_children():
+		if filho is RodaDeAnimacao:
+			roda = filho as RodaDeAnimacao
+	if roda == null:
+		return ["a cena não tem RodaDeAnimacao"] as Array[String]
+
+	# **O mapa de entrada também é afirmação.** O nó pode estar certo e a tecla
+	# não existir, e aí a roda é inalcançável — a mesma classe de "existe e
+	# ninguém pede" que motivou tudo isto.
+	for acao: StringName in [&"animacao_next", &"animacao_prev"]:
+		if not InputMap.has_action(acao):
+			falhas.append("falta a ação de entrada `%s` em project.godot" % acao)
+	if not falhas.is_empty():
+		return falhas
+
+	var passo := InputEventAction.new()
+	passo.action = &"animacao_next"
+	passo.pressed = true
+
+	for indice in range(VocabularioDeAnimacao.TODOS.size()):
+		roda._unhandled_input(passo)
+		await process_frame
+		var esperado: StringName = VocabularioDeAnimacao.TODOS[indice]
+		if animador.current_animation != esperado:
+			falhas.append(
+				"a roda na posição %d devia tocar `%s` e toca `%s`"
+					% [indice, esperado, animador.current_animation]
+			)
+		# E as outras camadas têm que dar passagem: andar durante a roda
+		# apagaria o clipe que se está olhando.
+		jogador.velocity = Vector3(0.0, 0.0, -3.0)
+		await physics_frame
+		await process_frame
+		if animador.current_animation != esperado:
+			falhas.append(
+				("andar com a roda ligada trocou `%s` por `%s`; a caminhada "
+				+ "não deu passagem") % [esperado, animador.current_animation]
+			)
+	# Uma posição a mais devolve o corpo ao jogo.
+	roda._unhandled_input(passo)
+	await process_frame
+	if roda.esta_mostrando():
+		falhas.append("a roda não tem posição desligada; não dá para sair dela")
+	jogador.velocity = Vector3.ZERO
+	jogador.set("target_position", jogador.global_position)
+	for _p: int in 4:
+		await physics_frame
+		await process_frame
+	print("  vocabulário: a roda tocou os %d clipes e desligou"
+		% VocabularioDeAnimacao.TODOS.size())
 	return falhas
 
 

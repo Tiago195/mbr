@@ -61,6 +61,7 @@ var _boneco: Boneco
 var _combatente: Combatant
 var _gesto: GestoDeConjuracao
 var _reacao: GestoDeReacao
+var _roda: RodaDeAnimacao
 var _fase: float = 0.0
 var _base_y: float = 0.0
 
@@ -70,6 +71,7 @@ func _ready() -> void:
 	_combatente = _achar(Combatant) as Combatant
 	_gesto = _achar(GestoDeConjuracao) as GestoDeConjuracao
 	_reacao = _achar(GestoDeReacao) as GestoDeReacao
+	_roda = _achar(RodaDeAnimacao) as RodaDeAnimacao
 	if _corpo == null or _boneco == null:
 		push_warning("GestoDeCaminhada sem corpo em '%s'." % get_parent().name)
 	else:
@@ -82,6 +84,11 @@ func _process(delta: float) -> void:
 	# golpe faz o braço tremer no meio do gesto, e o golpe é a informação mais
 	# importante das duas — é ele que o jogador está tentando ler. A reação vem
 	# antes das duas: quem apanhou não está andando.
+	# A roda de animação ganha de tudo: quando ela está ligada, o jogador está
+	# OLHANDO um clipe, e qualquer camada que desenhe por cima apaga
+	# exatamente o que ele está tentando ver.
+	if _roda != null and _roda.esta_mostrando():
+		return
 	if _reacao != null and _reacao.esta_reagindo():
 		return
 	if _gesto != null and _gesto.esta_gesticulando():

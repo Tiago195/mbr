@@ -35,6 +35,7 @@ extends Node
 var _boneco: Boneco
 var _combatente: Combatant
 var _conjuracao: GestoDeConjuracao
+var _roda: RodaDeAnimacao
 
 ## Quanto falta do clipe de reação em curso.
 var _restante: float = 0.0
@@ -64,6 +65,7 @@ func _ready() -> void:
 	_boneco = _irmao(Boneco) as Boneco
 	_combatente = _irmao(Combatant) as Combatant
 	_conjuracao = _irmao(GestoDeConjuracao) as GestoDeConjuracao
+	_roda = _irmao(RodaDeAnimacao) as RodaDeAnimacao
 	if _combatente == null or _boneco == null:
 		push_warning("GestoDeReacao sem corpo em '%s'." % get_parent().name)
 		return
@@ -135,6 +137,9 @@ func _ao_levar_dano(_resultado: DamageResult) -> void:
 ## Toca um clipe de reação e segura o corpo pelo tempo dele. Devolve se tocou.
 func _tocar(clipe: StringName) -> bool:
 	if _boneco == null or _boneco.animador() == null:
+		return false
+	# Com a roda ligada, o jogador está olhando um clipe: não desenhar por cima.
+	if _roda != null and _roda.esta_mostrando():
 		return false
 	if not _boneco.tocar(clipe, true):
 		return false
