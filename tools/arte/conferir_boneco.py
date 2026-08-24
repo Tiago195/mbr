@@ -73,6 +73,17 @@ OSSO_DA_REGIAO = {
 ## de pontos mede o acaso, nao a peca.
 AMOSTRA_MINIMA = 12
 
+## `nome: (duracao em segundos, e ciclo?)`. As duracoes sao a MEDIANA medida
+## nos 1350 clipes do original — §4 de `docs/11` —, repetidas aqui de proposito:
+## uma conferencia que importa a constante do arquivo conferido compara o numero
+## consigo mesmo.
+ANIMACOES_EXIGIDAS = {
+	"parado": (1.33, True),
+}
+FOLGA_DA_DURACAO = 0.05
+## Quanto duas quaternioes podem diferir e ainda contar como a mesma pose.
+FOLGA_DO_CICLO = 0.002
+
 ## Os quinze ossos que o corpo tem que ter, e que a camada de jogo nomeia.
 OSSOS_EXIGIDOS = [
 	"quadril", "peito", "cabeca",
@@ -205,6 +216,28 @@ def escala_das_raizes(g: dict) -> float:
 			atual = pai.get(atual)
 		maior = max(maior, acumulada)
 	return maior
+
+
+def ler_escalares(g: dict, b: bytes, indice: int) -> list:
+	"""Um acessor de floats simples — os tempos de um amostrador."""
+	acesso = g["accessors"][indice]
+	vista = g["bufferViews"][acesso["bufferView"]]
+	base = vista.get("byteOffset", 0) + acesso.get("byteOffset", 0)
+	passo = vista.get("byteStride") or 4
+	return [struct.unpack_from("<f", b, base + i * passo)[0]
+	        for i in range(acesso["count"])]
+
+
+def ler_quaternios(g: dict, b: bytes, indice: int) -> list:
+	"""A saida de um amostrador de rotacao."""
+	acesso = g["accessors"][indice]
+	if acesso.get("type") != "VEC4":
+		return []
+	vista = g["bufferViews"][acesso["bufferView"]]
+	base = vista.get("byteOffset", 0) + acesso.get("byteOffset", 0)
+	passo = vista.get("byteStride") or 16
+	return [struct.unpack_from("<4f", b, base + i * passo)
+	        for i in range(acesso["count"])]
 
 
 def ler_juntas(g: dict, b: bytes, indice: int) -> list:
@@ -454,6 +487,47 @@ def conferir(caminho: str) -> list:
 			"a casca se atravessa em %d pares de faces e o teto conhecido e %d "
 			"— o defeito da axila cresceu ou apareceu em outro lugar"
 			% (len(cruzados), TETO_DE_AUTOINTERSECAO))
+
+	# ------------------------------------------------------- as animacoes
+	#
+	# Duracao e fechamento de ciclo sao lidos do ARQUIVO, que e onde o jogo vai
+	# le-los. Amplitude e pe no chao precisam avaliar a pose deformada, e quem
+	# faz isso e o gerador, dentro do Blender — a divisao esta declarada porque
+	# uma conferencia que so existe de um lado e uma que ninguem confere.
+	animacoes = {a.get("name"): a for a in g.get("animations", [])}
+	for nome, (duracao, ciclo) in sorted(ANIMACOES_EXIGIDAS.items()):
+		if nome not in animacoes:
+			falhas.append("falta a animacao `%s` no `.glb`" % nome)
+			continue
+		amostradores = animacoes[nome].get("samplers", [])
+		if not amostradores:
+			falhas.append("a animacao `%s` nao tem amostrador nenhum" % nome)
+			continue
+		fim = 0.0
+		fecha = True
+		for amostrador in amostradores:
+			tempos = ler_escalares(g, b, amostrador["input"])
+			if tempos:
+				fim = max(fim, tempos[-1])
+			if not ciclo:
+				continue
+			valores = ler_quaternios(g, b, amostrador["output"])
+			if len(valores) >= 2:
+				# **O ultimo quadro tem que repetir o primeiro**, senao o ciclo
+				# salta ao emendar a volta. Item 3 da lista de checagem do §10
+				# de `docs/11`.
+				if max(abs(valores[0][k] - valores[-1][k])
+				       for k in range(4)) > FOLGA_DO_CICLO:
+					fecha = False
+		if abs(fim - duracao) > FOLGA_DA_DURACAO:
+			falhas.append(
+				"a animacao `%s` dura %.3f s e a direcao de arte mede %.2f — "
+				"a mediana dos 1350 clipes do original"
+				% (nome, fim, duracao))
+		if ciclo and not fecha:
+			falhas.append(
+				"a animacao `%s` e ciclo e NAO fecha: o ultimo quadro nao "
+				"repete o primeiro, entao ela salta ao emendar a volta" % nome)
 
 	# --------------------------------------------------------- o esqueleto
 	nos = mundo_dos_nos(g)

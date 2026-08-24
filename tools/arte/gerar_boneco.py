@@ -51,7 +51,7 @@ import os
 import sys
 
 import bpy
-from mathutils import Vector
+from mathutils import Euler, Vector
 
 # O conferidor vive ao lado, e o Blender nao poe o diretorio do script no
 # caminho de importacao.
@@ -345,6 +345,14 @@ SUBDIVISOES = 2
 
 
 def limpar_cena() -> None:
+	# **Volta para o modo Objeto antes de qualquer coisa.**
+	#
+	# Uma execução que aborte dentro de `criar_animacao` deixa o Blender em modo
+	# Pose, e aí `select_all` falha com "context is incorrect" — o gerador
+	# passaria a depender do estado em que a sessão anterior o deixou. Um script
+	# que só roda quando a cena está limpa não é um script, é um ritual.
+	if bpy.context.mode != "OBJECT":
+		bpy.ops.object.mode_set(mode="OBJECT")
 	bpy.ops.object.select_all(action="SELECT")
 	bpy.ops.object.delete(use_global=False)
 	for bloco in (bpy.data.meshes, bpy.data.armatures, bpy.data.actions,
@@ -1239,10 +1247,218 @@ def exportar(caminho: str) -> None:
 
 
 
+
+# --------------------------------------------------------------------------
+# Animação
+#
+# As poses são escritas em eixos do MUNDO — `X` inclina para a frente, `Y`
+# tomba para o lado, `Z` gira em pé —, para qualquer osso. Não é o que o
+# Blender guarda: lá a rotação vive no espaço do osso, onde o eixo que corre ao
+# longo dele é o `Y`, e "girar em pé" para o quadril é "abrir o braço" para o
+# braço. `_para_o_osso` faz a conversão, e por isso cada pose aqui pode ser
+# lida como "inclina 6 graus para a frente" sem depender de qual osso é.
+# --------------------------------------------------------------------------
+
+## Quadros por segundo. Medido nos 1350 clipes do original — §4 de `docs/11`.
+CADENCIA = 30
+
+
+def _para_o_osso(armature: bpy.types.Object, nome: str, graus: tuple) -> Euler:
+	"""A rotação de mundo `graus`, escrita no espaço em que o osso a guarda.
+
+	`matrix_basis` de um osso de pose vive na base de REPOUSO dele. A mesma
+	rotação, noutra base, é a conjugação `B⁻¹ R B` — e é isso e só isso.
+	"""
+	base = armature.data.bones[nome].matrix_local.to_3x3()
+	mundo = Euler([math.radians(g) for g in graus], "XYZ").to_matrix()
+	return (base.inverted() @ mundo @ base).to_euler("XYZ")
+
+
+def curvas_de(acao: bpy.types.Action):
+	"""As curvas de uma ação, nas duas APIs.
+
+	O Blender 4.4 trocou `Action.fcurves` pelo sistema de camadas com slots, e a
+	partir da 5.x o atributo antigo não existe mais: as curvas vivem em
+	`acao.layers[].strips[].channelbags[].fcurves`. Aceitar as duas formas faz o
+	gerador funcionar em qualquer versão instalada, o que importa num script que
+	não é rodado toda hora.
+	"""
+	if hasattr(acao, "fcurves"):
+		return list(acao.fcurves)
+	curvas = []
+	for camada in acao.layers:
+		for trecho in camada.strips:
+			for saco in getattr(trecho, "channelbags", []):
+				curvas.extend(saco.fcurves)
+	return curvas
+
+
+def pose(**ossos) -> dict:
+	"""Açúcar: `pose(peito=(6, 0, 0))` em vez de um dicionário à mão."""
+	return ossos
+
+
+## As animações, uma por verbo do jogo.
+##
+## **Só entram verbos com CONSUMIDOR.** Regra do usuário em 24/08/2026: nada de
+## ataque, nada de pulo, e nada que ficaria órfão hoje — cortar árvore e minerar
+## não têm sistema que os dispare, e conteúdo que existe e ninguém pede é
+## exatamente onde o `.glb` inteiro já esteve.
+##
+## As durações são a MEDIANA medida nos 1350 clipes do original, §4 de
+## `docs/11`. Não são escolha: `idle` mede 1,33 s em 93 controladores.
+ANIMACOES = {
+	"parado": {
+		"ciclo": True,
+		"duracao": 1.33,
+		# **A respiração mora no peito, nos ombros e na cabeça — não no
+		# quadril.** Levantar o quadril tira os dois pés do chão, porque as
+		# pernas são rígidas e não há joelho dobrando para compensar.
+		#
+		# E ela precisa ser VISÍVEL. O boneco anterior girava o peito 2,5 graus
+		# e a cabeça 1,5, e o corpo inteiro se deslocava 12 cm em dois
+		# segundos: na câmera isométrica lia como estátua. Aqui o peito vai a 6
+		# graus e o braço a 7, que é o dobro do que o olho precisa para dizer
+		# "isto está vivo" sem virar dança.
+		"chaves": [
+			(0.0, pose(peito=(3, 0, 0), cabeca=(2, 0, 0),
+			           braco_D=(2, -3, 0), braco_E=(2, 3, 0))),
+			(0.5, pose(peito=(-3, 0, 0), cabeca=(-2.5, 0, 0),
+			           braco_D=(-4, -8, 0), braco_E=(-4, 8, 0))),
+			(1.0, pose(peito=(3, 0, 0), cabeca=(2, 0, 0),
+			           braco_D=(2, -3, 0), braco_E=(2, 3, 0))),
+		],
+	},
+}
+
+
+## O quanto o vértice que mais anda precisa andar para a animação contar como
+## animação, em metros.
+##
+## **Não é um alvo de qualidade, é um piso contra clipe morto.** O original não
+## publica amplitude — o censo mediu duração e ciclo, não excursão —, então não
+## há mediana para perseguir. Este número existe para pegar "gerou chaves e o
+## corpo não se mexeu", que é um defeito que passa em toda conferência de
+## duração e de fechamento.
+##
+## Se a animação lê bem ou não, quem responde é o olho: é o item que não se
+## automatiza, e está declarado como tal.
+AMPLITUDE_MINIMA = 0.05
+
+## Quanto o pé pode sair do chão numa animação que não é de pulo.
+FOLGA_DO_CHAO = 0.015
+
+
+def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
+                   nome: str, ultimo: int) -> tuple:
+	"""`(amplitude, chão mínimo, chão máximo)` da animação, quadro a quadro.
+
+	Mede no corpo DEFORMADO — `evaluated_get` é o que aplica o esqueleto. Ler
+	`corpo.data.vertices` direto devolve a malha em repouso, e uma conferência
+	daí aprovaria qualquer animação, inclusive uma que não anima.
+	"""
+	acao = bpy.data.actions.get(nome)
+	if acao is None:
+		raise RuntimeError("a acao `%s` sumiu antes de ser medida" % nome)
+	armature.animation_data.action = acao
+	if hasattr(armature.animation_data, "action_slot") and acao.slots:
+		armature.animation_data.action_slot = acao.slots[0]
+
+	menor = maior = None
+	chao = []
+	for quadro in range(0, ultimo + 1):
+		bpy.context.scene.frame_set(quadro)
+		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
+		temporaria = avaliado.to_mesh()
+		pontos = [avaliado.matrix_world @ v.co for v in temporaria.vertices]
+		chao.append(min(p.z for p in pontos))
+		if menor is None:
+			menor = [p.copy() for p in pontos]
+			maior = [p.copy() for p in pontos]
+		else:
+			for indice, ponto in enumerate(pontos):
+				for eixo in range(3):
+					menor[indice][eixo] = min(menor[indice][eixo], ponto[eixo])
+					maior[indice][eixo] = max(maior[indice][eixo], ponto[eixo])
+		avaliado.to_mesh_clear()
+	bpy.context.scene.frame_set(0)
+	amplitude = max((maior[i] - menor[i]).length for i in range(len(menor)))
+	return amplitude, min(chao), max(chao)
+
+
+def criar_animacao(armature: bpy.types.Object, nome: str, dados: dict) -> None:
+	"""Uma ação com as chaves declaradas, interpolada em Bézier.
+
+	`AUTO_CLAMPED` e não `AUTO`: a alça automática do Blender ultrapassa a chave
+	para suavizar a curva, e num ciclo isso faz a pose passar do extremo
+	declarado entre duas chaves que estão ambas certas.
+	"""
+	bpy.context.view_layer.objects.active = armature
+	bpy.ops.object.mode_set(mode="POSE")
+
+	acao = bpy.data.actions.new(nome)
+	# Sem `use_fake_user` o Blender descarta a ação ao trocar de contexto e o
+	# exportador não acha nada.
+	acao.use_fake_user = True
+	if armature.animation_data is None:
+		armature.animation_data_create()
+	armature.animation_data.action = acao
+
+	for osso in armature.pose.bones:
+		osso.rotation_mode = "XYZ"
+
+	ultimo = 0
+	for instante, poses in dados["chaves"]:
+		quadro = int(round(instante * dados["duracao"] * CADENCIA))
+		ultimo = max(ultimo, quadro)
+		for osso in armature.pose.bones:
+			osso.rotation_euler = _para_o_osso(
+				armature, osso.name, poses.get(osso.name, (0.0, 0.0, 0.0)))
+			osso.keyframe_insert("rotation_euler", frame=quadro)
+
+	for curva in curvas_de(acao):
+		for ponto in curva.keyframe_points:
+			ponto.interpolation = "BEZIER"
+			ponto.handle_left_type = "AUTO_CLAMPED"
+			ponto.handle_right_type = "AUTO_CLAMPED"
+
+	bpy.ops.object.mode_set(mode="OBJECT")
+	return ultimo
+
+
+
 def main() -> int:
+	# **A cadência tem que chegar à CENA, e não só à constante.**
+	#
+	# `CADENCIA` valia 30 no código e o Blender continuava em 24, que é o padrão
+	# dele. O exportador usa o da cena: 40 quadros saíam como 1,667 s onde a
+	# direção de arte mede 1,33. Declarar um número e não passá-lo adiante é o
+	# mesmo que não tê-lo — e foi o conferidor que acusou, na primeira execução
+	# em que ele passou a olhar duração.
+	bpy.context.scene.render.fps = CADENCIA
+	bpy.context.scene.render.fps_base = 1.0
+
 	corpo, esqueleto, ajuste_base, ajuste_do_braco, fatores = convergir()
 	indices = criar_materiais(corpo)
 	pintar(corpo, indices, ajuste_base, ajuste_do_braco, fatores)
+	for nome, dados in ANIMACOES.items():
+		quadros = criar_animacao(esqueleto, nome, dados)
+		amplitude, chao_min, chao_max = medir_animacao(
+			esqueleto, corpo, nome, quadros)
+		print("[boneco] animacao `%s`: %.2f s, %d quadros, amplitude %.3f m, "
+		      "chao %+.4f a %+.4f"
+		      % (nome, dados["duracao"], quadros, amplitude, chao_min, chao_max))
+		if amplitude < AMPLITUDE_MINIMA:
+			raise RuntimeError(
+				"a animacao `%s` desloca %.3f m e o piso e %.3f — abaixo disso "
+				"ela nao e animacao, e um corpo parado com chaves"
+				% (nome, amplitude, AMPLITUDE_MINIMA))
+		if dados.get("no_chao", True) and (chao_min < -FOLGA_DO_CHAO
+		                                   or chao_max > FOLGA_DO_CHAO):
+			raise RuntimeError(
+				"a animacao `%s` tira o pe do chao: %+.4f a %+.4f, folga %.3f"
+				% (nome, chao_min, chao_max, FOLGA_DO_CHAO))
+
 	rosto = pintar_rosto(corpo, indices)
 	print("[boneco] rosto: %d faces pintadas" % rosto)
 	if rosto == 0:
