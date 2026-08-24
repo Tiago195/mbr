@@ -1222,10 +1222,17 @@ def exportar(caminho: str) -> None:
 	literal — verde por não ter mudado nada.
 
 	Grava em `arte/boneco.glb`, e NÃO em `arte/personagem.glb`, que é o que o
-	jogo carrega. Enquanto este corpo não tiver animação, publicá-lo no lugar do
-	outro faria `Boneco._montar_modelo` avisar que carregou sem `AnimationPlayer`
-	e tiraria do jogo os 25 clipes que já funcionam. Um artefato novo não
-	substitui um que funciona só por ser mais novo.
+	jogo carrega.
+
+	**O motivo mudou, e o antigo está registrado porque venceu.** Ele era "este
+	corpo não tem animação, então trocar tiraria o `AnimationPlayer` do jogo" —
+	falso desde que `parado` e `andando` existem. O motivo de hoje é aritmético:
+	são DOIS clipes contra os 25 que o jogo já toca, e o vocabulário que a
+	camada de jogo pede tem 25 nomes. Trocar agora apagaria 23 verbos.
+
+	`arte/boneco.glb` ainda não tem consumidor nenhum: só este gerador escreve e
+	`conferir_boneco.py` lê. Isso é estado, não descuido — ele substitui o outro
+	quando cobrir o vocabulário.
 	"""
 	os.makedirs(os.path.dirname(caminho), exist_ok=True)
 	bpy.ops.export_scene.gltf(
@@ -1321,6 +1328,21 @@ def _ciclo_de_pernas(pernas: list, bracos: list, tronco: list) -> list:
 		"""
 		alvo = instante % 1.0
 		pontos = sorted(tabela)
+		# **Duplicado e fora de ordem REPROVAM.** Como os instantes viram um
+		# conjunto, toda consulta cai exatamente sobre um ponto da grade, e um
+		# duplicado é o extremo colapsado de um segmento de largura zero: a
+		# chave escrita a mais some sem uma palavra. Medido, uma linha com 42
+		# graus de diferença publicou com saída idêntica ao último dígito. E
+		# `0.375` digitado como `0.250` é um caractere.
+		quando = [ponto[0] for ponto in pontos]
+		if len(set(quando)) != len(quando):
+			raise RuntimeError(
+				"a tabela tem instante repetido: %s — uma das chaves seria "
+				"engolida em silencio" % quando)
+		if [p[0] for p in tabela] != quando:
+			raise RuntimeError(
+				"a tabela nao esta em ordem de instante: %s"
+				% [p[0] for p in tabela])
 		# A volta fecha: depois do último instante vem o primeiro, mais um
 		# ciclo. Sem isto, tudo entre 0,875 e 1,0 ficaria sem entrada.
 		primeiro = pontos[0]
@@ -1515,9 +1537,14 @@ AMPLITUDE_MINIMA = 0.05
 ## Quanto o pé pode sair do chão numa animação que não é de pulo.
 FOLGA_DO_CHAO = 0.015
 
-## Quantos vértices precisam estar no chão para ele contar como chão. Ver
-## `assentar`.
-AMOSTRA_DO_CHAO = 12
+## Quantos pontos da sola são olhados para decidir se há vértice perdido, e
+## quanto eles podem se espalhar em altura.
+##
+## A sola do boneco tem cerca de 2 cm entre o ponto mais baixo e o décimo
+## segundo — ela é uma bola achatada, não um plano. Um vértice bem abaixo disso
+## não é sola: é malha quebrada, e `assentar` por ele levantaria o corpo todo.
+AMOSTRAS_DA_SOLA = 12
+ESPALHAMENTO_DA_SOLA = 0.05
 
 ## Quanto o pé apoiado pode andar PARA A FRENTE enquanto está no chão.
 ##
@@ -1526,10 +1553,16 @@ AMOSTRA_DO_CHAO = 12
 ## passada inteira — é esse recuo que a translação do jogo cancela. Se ele
 ## volta para a frente com a sola no chão, o personagem patina.
 ##
-## Medido no primeiro clipe: o pé recuava 0,301 m e depois arrastava 0,316 m
-## PARA A FRENTE, líquido de -0,015 m por ciclo. O corpo andava no lugar de
-## verdade — e `gesto_de_caminhada.gd` existe porque o usuário reclamou de
-## deslizamento.
+## Medido no primeiro clipe, rerodando-o com esta mesma função: recuo **0,417**
+## e arrasto **0,424**. O corpo andava no lugar.
+##
+## **Este comentário já afirmou 0,301 e 0,316, e nenhum dos dois reproduz.** O
+## 0,301 era o arrasto de uma versão intermediária que nunca foi commitada, e o
+## 0,316 não existe em versão nenhuma — a própria tabela do commit que o
+## introduziu dizia 0,424/0,417 duas linhas abaixo. Número gravado que não
+## reproduz é a classe de defeito que este projeto mais repete.
+##
+## `gesto_de_caminhada.gd` existe porque o usuário reclamou de deslizamento.
 DESLIZE_PARA_A_FRENTE = 0.01
 
 
@@ -1537,9 +1570,20 @@ DESLIZE_PARA_A_FRENTE = 0.01
 ## passada; nenhuma é andar no lugar.
 PASSADA_MINIMA = 0.15
 
-## Quanto os dois pés podem diferir em quadros apoiados, em fração. Uma
-## caminhada é simétrica no tempo; uma manqueira não é.
-DESEQUILIBRIO = 0.25
+## Quanto os dois pés podem diferir, em fração, em qualquer das três medidas.
+##
+## **Já foi 0,25 comparando só a contagem de quadros, e nunca disparou.** Uma
+## perna com 0,85 da amplitude da outra passava: 18 quadros contra 22 é 18%. O
+## defeito não era a constante, era a medida.
+DESEQUILIBRIO = 0.12
+
+## Quanto do ciclo cada pé tem que passar sustentando o corpo SOZINHO.
+##
+## Numa caminhada humana o apoio simples é cerca de 40% do ciclo por perna, com
+## dois trechos curtos de apoio duplo entre eles. Um quinto é folgado o bastante
+## para não brigar com o estilo e apertado o bastante para reprovar um clipe em
+## que as duas pernas fazem a mesma coisa.
+APOIO_SIMPLES_MINIMO = 0.20
 
 
 def _passada(alturas: list, posicoes: list) -> tuple:
@@ -1650,7 +1694,7 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	return amplitude, por_regiao, chao, marcha
 
 
-def assentar(armature: bpy.types.Object, ultimo: int) -> None:
+def assentar(armature: bpy.types.Object, ultimo: int) -> list:
 	"""Baixa ou levanta o quadril até o ponto mais baixo do corpo tocar o chão.
 
 	**Sem isto, girar a perna enfia o pé no chão.** Uma coxa a 22 graus encurta
@@ -1677,6 +1721,7 @@ def assentar(armature: bpy.types.Object, ultimo: int) -> None:
 	quadril = armature.pose.bones.get("quadril")
 	if quadril is None:
 		raise RuntimeError("nao achei o osso `quadril` para assentar")
+	deslocamentos = []
 
 	for quadro in range(0, ultimo + 1):
 		bpy.context.scene.frame_set(quadro)
@@ -1687,24 +1732,38 @@ def assentar(armature: bpy.types.Object, ultimo: int) -> None:
 		alturas = sorted((avaliado.matrix_world @ v.co).z
 		                 for v in temporaria.vertices)
 		avaliado.to_mesh_clear()
-		# **O chão é o k-ésimo ponto mais baixo, e não o primeiro.**
+		# **O chão é o ponto mais baixo, e o vértice perdido é OUTRO defeito.**
 		#
-		# Decidido pelo mínimo, `assentar` repousa num único vértice: medido,
-		# há 1 a 2 vértices dentro de 1 mm do fundo. Afundar UM deles em 15 cm
-		# — mantendo as arestas, então `limpar_soltos` não o vê — levantava o
-		# corpo inteiro 15 cm e fazia o pé direito flutuar o ciclo todo, sem
-		# nada acusar.
+		# Isto já foi o 12º ponto mais baixo, para o assentamento não repousar
+		# num vértice só. Medido, a troca não sustentava peso: afundar 1, 11, 12
+		# ou 24 vértices em 8 mm escapava identicamente, e o caso de 15 cm era
+		# pego por outra conferência. O que ela comprava era zero, e o que
+		# custava era real — **a sola ficava 2,07 cm ENTERRADA no piso o ciclo
+		# inteiro**, porque a própria sola tem 2 cm de altura entre o primeiro e
+		# o décimo segundo ponto dela.
 		#
-		# `conferir_boneco.py` já tinha aprendido isto e escrito
-		# `AMOSTRA_MINIMA = 12`: medida decidida por punhado de pontos mede o
-		# acaso. `assentar` nasceu com amostra de um.
-		menor = alturas[min(AMOSTRA_DO_CHAO, len(alturas)) - 1]
+		# Ancorar no mínimo é a resposta certa para "onde está o chão". Um
+		# vértice perdido lá embaixo é uma malha quebrada, e malha quebrada se
+		# acusa como malha quebrada — `_vertice_perdido`, abaixo — em vez de se
+		# acomodar dentro de uma conferência que responde outra pergunta.
+		perdido = alturas[0] < alturas[min(len(alturas), AMOSTRAS_DA_SOLA) - 1] 			- ESPALHAMENTO_DA_SOLA
+		if perdido:
+			raise RuntimeError(
+				"no quadro %d ha vertice %.3f m abaixo da sola (espalhamento "
+				"maximo %.3f) — a malha tem ponto perdido, e assentar por ele "
+				"levantaria o corpo inteiro"
+				% (quadro, alturas[min(len(alturas), AMOSTRAS_DA_SOLA) - 1]
+				   - alturas[0], ESPALHAMENTO_DA_SOLA))
+		menor = alturas[0]
 		quadril.location = (0.0, -menor, 0.0)
 		quadril.keyframe_insert("location", frame=quadro)
+		deslocamentos.append(-menor)
 	bpy.context.scene.frame_set(0)
+	return deslocamentos
 
 
-def criar_animacao(armature: bpy.types.Object, nome: str, dados: dict) -> int:
+def criar_animacao(armature: bpy.types.Object, nome: str,
+                   dados: dict) -> int:
 	"""Uma ação com as chaves declaradas, interpolada em Bézier.
 
 	`AUTO_CLAMPED` e não `AUTO`: a alça automática do Blender ultrapassa a chave
@@ -1791,12 +1850,23 @@ def main() -> int:
 				"ela nao e animacao, e um corpo parado com chaves"
 				% (nome, amplitude, AMPLITUDE_MINIMA))
 		for pe, alturas in sorted(chao.items()):
-			fora = max(abs(a) for a in alturas)
-			print("[boneco]     %s: sai %.4f m do chao" % (pe, fora))
-			if dados.get("pes_plantados", True) and fora > FOLGA_DO_CHAO:
+			enterrou = -min(alturas)
+			print("[boneco]     %s: sobe %.4f m, enterra %.4f m"
+			      % (pe, max(alturas), enterrou))
+			# **Enterrar reprova SEMPRE; flutuar só quando o clipe diz.**
+			#
+			# As duas metades estavam atrás de `pes_plantados`, e `andando` a
+			# põe em falso — então o único clipe com perna em movimento era o
+			# único sem teto de penetração. Medido, a sola atravessava o piso
+			# 2,07 cm o ciclo inteiro, e nada acusava.
+			if enterrou > FOLGA_DO_CHAO:
+				raise RuntimeError(
+					"em `%s` o `%s` enterra %.4f m no chao e a folga e %.3f"
+					% (nome, pe, enterrou, FOLGA_DO_CHAO))
+			if dados.get("pes_plantados", True) and max(alturas) > FOLGA_DO_CHAO:
 				raise RuntimeError(
 					"em `%s` o `%s` sai %.4f m do chao e a folga e %.3f"
-					% (nome, pe, fora, FOLGA_DO_CHAO))
+					% (nome, pe, max(alturas), FOLGA_DO_CHAO))
 		if dados.get("passada"):
 			for pe in sorted(chao):
 				recuo, avanco = _passada(chao[pe], marcha[pe])
@@ -1810,6 +1880,20 @@ def main() -> int:
 						"em `%s` o `%s` arrasta %.3f m para a frente com a sola "
 						"no chao (maximo %.3f) — isso e deslizamento"
 						% (nome, pe, avanco, DESLIZE_PARA_A_FRENTE))
+				# **A velocidade que este clipe implica, publicada.**
+				#
+				# Nada no repositório liga a passada à velocidade em que o
+				# personagem anda: `player.gd` move a 5,0 e
+				# `gesto_de_caminhada.gd` documenta 3,3 m/s. A um recuo de
+				# 0,69 m por ciclo de 1,27 s, o clipe foi autorado para meio
+				# metro por segundo — e a diferença é deslizamento puro, seis
+				# vezes a passada a cada passo.
+				#
+				# Não há como o clipe resolver isso sozinho: quem tem que
+				# escalar a cadência pela velocidade é a camada de jogo. O que
+				# se pode fazer aqui é não deixar o número escondido.
+				print("[boneco]       -> clipe autorado para %.3f m/s"
+				      % (recuo / (quadros / cadencia)))
 				if recuo < PASSADA_MINIMA:
 					raise RuntimeError(
 						"em `%s` o `%s` recua so %.3f m apoiado (minimo %.3f) — "
@@ -1818,28 +1902,63 @@ def main() -> int:
 			# **As duas pernas fazem a mesma coisa, defasadas.** `movem` usa o
 			# maximo por regiao e os dois lados caem no mesmo numero: medido,
 			# congelar a perna esquerda inteira publicava como caminhada.
-			apoios = {pe: sum(1 for a in chao[pe] if a <= FOLGA_DO_CHAO)
-			          for pe in chao}
-			print("[boneco]     quadros apoiados: %s" % apoios)
-			menor, maior = min(apoios.values()), max(apoios.values())
-			if maior == 0 or (maior - menor) / float(maior) > DESEQUILIBRIO:
-				raise RuntimeError(
-					"em `%s` um pe fica apoiado %d quadros e o outro %d — as "
-					"duas pernas tem que fazer a mesma coisa, defasadas"
-					% (nome, menor, maior))
+			# **Comparados por ALTURA e PASSADA, e não por contagem de
+			# quadros.** Contagem é cega às duas dimensões em que uma manqueira
+			# aparece: medido, uma perna com 0,85 da amplitude da outra ficava
+			# apoiada 18 quadros contra 22 — 18%, abaixo do teto — e publicava,
+			# enquanto o pé subia 0,1064 m contra 0,1425, um quarto a menos,
+			# todo passo. As duas medidas já eram calculadas e impressas; só
+			# não eram comparadas entre si.
+			for rotulo, valores in (
+					("altura do passo",
+					 {pe: max(chao[pe]) for pe in chao}),
+					("passada",
+					 {pe: _passada(chao[pe], marcha[pe])[0] for pe in chao}),
+					("quadros apoiados",
+					 {pe: sum(1 for a in chao[pe] if a <= FOLGA_DO_CHAO)
+					  for pe in chao})):
+				print("[boneco]     %-18s %s" % (rotulo, {
+					pe: round(v, 4) for pe, v in valores.items()}))
+				menor, maior = min(valores.values()), max(valores.values())
+				if maior <= 0 or (maior - menor) / float(maior) > DESEQUILIBRIO:
+					raise RuntimeError(
+						"em `%s` os dois pes diferem em %s: %.4f contra %.4f "
+						"(maximo %.0f%%) — as duas pernas tem que fazer a mesma "
+						"coisa, defasadas"
+						% (nome, rotulo, menor, maior, DESEQUILIBRIO * 100))
 
 		if dados.get("sempre_um_pe_no_chao"):
-			# **Os dois no ar ao mesmo tempo é um SALTO.** Numa caminhada há
-			# sempre um pé apoiado; num salto não há. O usuário mandou não
-			# construir pulo, e sem esta conferência a diferença entre andar e
-			# pular ficaria por conta de quem olha.
-			no_ar = [q for q in range(len(chao["pe_D"]))
-			         if min(chao["pe_D"][q], chao["pe_E"][q]) > FOLGA_DO_CHAO]
-			print("[boneco]     quadros com os DOIS pes no ar: %d" % len(no_ar))
-			if no_ar:
-				raise RuntimeError(
-					"em `%s` os dois pes saem do chao em %d quadro(s) — isso e "
-					"um salto, nao uma caminhada" % (nome, len(no_ar)))
+			# **O que separa andar de pular é FASE, não altura.**
+			#
+			# Duas medidas de altura já falharam aqui, pelo mesmo motivo:
+			# `assentar` normaliza o corpo ao chão em todo quadro. Medindo
+			# depois disso, a resposta é zero por identidade — um pulo de dois
+			# pés publicava com "0 no ar". Desfazendo o assentamento e
+			# ancorando o ciclo pelo instante mais baixo, a caminhada CERTA
+			# acusava 27 quadros de voo, porque o quique natural do corpo passa
+			# a contar como voo.
+			#
+			# Num clipe autorado no lugar, altura absoluta não distingue os
+			# dois. O que distingue é que numa caminhada cada pé passa um trecho
+			# sustentando o corpo SOZINHO, e num salto nenhum passa: os dois
+			# fazem a mesma coisa ao mesmo tempo.
+			contato = {pe: [altura <= FOLGA_DO_CHAO for altura in chao[pe]]
+			           for pe in chao}
+			sozinho = {
+				"pe_D": sum(1 for d, e in zip(contato["pe_D"], contato["pe_E"])
+				            if d and not e),
+				"pe_E": sum(1 for d, e in zip(contato["pe_D"], contato["pe_E"])
+				            if e and not d),
+			}
+			print("[boneco]     quadros de apoio SIMPLES: %s" % sozinho)
+			for pe, quantos in sorted(sozinho.items()):
+				if quantos < APOIO_SIMPLES_MINIMO * (quadros + 1):
+					raise RuntimeError(
+						"em `%s` o `%s` nunca sustenta o corpo sozinho (%d de "
+						"%d quadros, minimo %.0f%%) — os dois pes fazem a mesma "
+						"coisa ao mesmo tempo, e isso e um salto"
+						% (nome, pe, quantos, quadros + 1,
+						   APOIO_SIMPLES_MINIMO * 100))
 
 	rosto = pintar_rosto(corpo, indices)
 	print("[boneco] rosto: %d faces pintadas" % rosto)
