@@ -11,9 +11,10 @@ extends Node3D
 ##
 ## **Feio de propósito, e isso é o critério da Fase 1**: caixas e cápsulas, um
 ## corpo só para todos os campeões, sem textura e sem sombra. O que ele precisa
-## responder é *"o personagem fez o quê?"*, e para isso membro basta. Quando
-## houver modelo com esqueleto de verdade — Meshy e Mixamo, Fase 6 —, este nó
-## sai inteiro e o `GestoDeConjuracao` passa a mexer nos ossos.
+## responder é *"o personagem fez o quê?"*, e para isso membro basta. Este nó
+## sai inteiro quando `arte/personagem.glb` carrega, porque aí há esqueleto de
+## verdade e o `GestoDeConjuracao` mexe nos ossos. Ele é o caminho de quem não
+## gerou o arquivo — e não um estágio anterior a um modelo comprado.
 ##
 ## Montado por código e não em `.tscn` por uma razão medida: a hierarquia tem
 ## nove `Transform3D` aninhados, e o `CLAUDE.md` registra que escrever matriz
@@ -44,6 +45,15 @@ extends Node3D
 ## Um caminho, e não um `PackedScene`: assim o projeto continua abrindo numa
 ## máquina onde o arquivo não foi gerado — cai no corpo de caixas e segue.
 @export var modelo: String = "res://arte/personagem.glb"
+
+## Meia volta, para a frente do modelo bater com a frente da Godot.
+##
+## **Isto não é gosto, é conversão de eixo, e ela estava faltando.** Ver o
+## comentário de `_montar_modelo`. Fica exposto porque é medível: a sonda de
+## campeões projeta o rosto sobre o `-basis.z` do corpo e reprova se ele estiver
+## atrás, então trocar este número por zero fica VERMELHO em vez de silencioso —
+## que foi como o defeito chegou até a tela do usuário.
+@export var giro_do_modelo: Vector3 = Vector3(0.0, 180.0, 0.0)
 
 @export_group("Andaime de teste")
 ## Malhas a carregar em vez de montar o boneco de caixas, se existirem.
@@ -119,10 +129,28 @@ func _ready() -> void:
 ## tem esqueleto, e sem osso o gesto move a malha inteira, que lê como
 ## empurrão em vez de golpe.
 ##
-## O modelo já nasce no sistema de eixos da Godot — Y para cima, olhando para
-## -Z — porque o exportador do gerador usa `export_yup=True` e o boneco encara
-## -Y no Blender. Por isso não leva giro nem escala: qualquer correção aqui
-## seria consertar duas vezes o que já está certo.
+## **Ele entra girado meia volta, e não é remendo — é a conversão que faltava.**
+## O parágrafo que estava aqui afirmava o contrário: que o modelo já nascia
+## olhando para o -Z da Godot e que girar seria consertar duas vezes. Medido no
+## `.glb` publicado, a viseira e o nariz estão em `z = +0,165 a +0,185` e o bico
+## do sapato vai até `z = +0,240` — o rosto olha para **+Z**.
+##
+## A conta é a do exportador: o boneco encara -Y no Blender, e a conversão glTF
+## manda `-Y` do Blender para `+Z`. Isso está CERTO — a especificação do glTF diz
+## que a frente de um asset é +Z. Quem discorda é a Godot, onde a frente de um nó
+## é `-Z`: é para lá que `look_at` aponta, e é o que `player.gd` usa para virar o
+## corpo para onde ele anda. Sem esta meia volta o personagem anda de costas.
+##
+## A correção mora AQUI, e não no gerador, porque este é o único ponto em que o
+## sistema de eixos do glTF encosta no da Godot. O `.glb` continua conforme a
+## especificação, o Blender continua autorando com a frente dele, e a folha de
+## contato continua enquadrando o rosto. Um `giro_do_modelo` em vez de um número
+## solto porque `giro_externo_graus` já existe logo acima pelo mesmo motivo, para
+## as malhas do andaime — a diferença é que esta não é opcional.
+##
+## Nada disto muda o COMBATE: quem decide para onde o personagem olha continua
+## sendo o corpo (`-basis.z`, em `combatant.gd` e em `player.gd`). O que gira é
+## só a malha, dentro dele.
 func _montar_modelo() -> bool:
 	if modelo == "" or not ResourceLoader.exists(modelo):
 		return false
@@ -136,6 +164,7 @@ func _montar_modelo() -> bool:
 		return false
 	add_child(cena)
 	cena.position = Vector3(0.0, -pes_abaixo_do_centro, 0.0)
+	cena.rotation_degrees = giro_do_modelo
 	_animador = _achar_animador(cena)
 	_esqueleto = _achar_esqueleto(cena)
 	_fechar_os_ciclos()

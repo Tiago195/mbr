@@ -140,6 +140,110 @@ func _rodar() -> void:
 		print("  %d FALHA(S)." % lista.size())
 	quit(1 if not lista.is_empty() else 0)
 
+
+## O material das caixas que fazem a cara. `tools/arte/gerar_personagem.py` o
+## nomeia, e ele existe exatamente para o olho saber de frente de costas.
+const MATERIAL_DO_ROSTO: String = "rosto"
+
+## Quanto o rosto tem que estar À FRENTE do centro do corpo, em metros.
+##
+## Não é uma tolerância folgada: a viseira e o nariz saem 17,5 cm do centro, e o
+## piso está em pouco mais de metade disso. Frouxo demais aprovaria um boneco
+## torto; apertado demais reprovaria quando o nariz encolher.
+const ROSTO_ADIANTE_MINIMO: float = 0.10
+
+
+## O rosto do boneco está do lado para onde o corpo anda?
+##
+## **A medida é uma projeção, não uma lista de propriedades.** O centro das
+## caixas do rosto menos o centro do corpo inteiro, projetado no `-basis.z` do
+## corpo — que é a frente da Godot e é o eixo que `player.gd` aponta para onde o
+## personagem se move. Positivo quer dizer "a cara vai na frente". Enumerar
+## eixo, sinal e rotação um a um é a armadilha que mais rendeu achado neste
+## projeto; um produto escalar fecha a classe inteira.
+##
+## Roda uma vez, e basta: o modelo é o mesmo para os 33 campeões — é o critério
+## declarado da Fase 1.
+func _conferir_a_frente(corpo: Node3D) -> Array[String]:
+	if corpo == null:
+		return ["a frente do boneco: não há corpo para medir"] as Array[String]
+	var boneco: Boneco = null
+	for filho: Node in corpo.get_children():
+		if filho is Boneco:
+			boneco = filho as Boneco
+			break
+	if boneco == null:
+		return ["a frente do boneco: a cena não tem Boneco"] as Array[String]
+	var esqueleto: Skeleton3D = boneco.esqueleto()
+	if esqueleto == null:
+		return [
+			"a frente do boneco: carregou sem esqueleto — `arte/personagem.glb` "
+			+ "não entrou, e o corpo de caixas não responde por ele"
+		] as Array[String]
+	var malha: MeshInstance3D = _achar_malha_de(boneco)
+	if malha == null or not (malha.mesh is ArrayMesh):
+		return ["a frente do boneco: o modelo não trouxe malha"] as Array[String]
+
+	var arranjo: ArrayMesh = malha.mesh as ArrayMesh
+	var soma_do_rosto := Vector3.ZERO
+	var soma_do_corpo := Vector3.ZERO
+	var pontos_do_rosto: int = 0
+	var pontos_do_corpo: int = 0
+	for indice: int in range(arranjo.get_surface_count()):
+		var material: Material = arranjo.surface_get_material(indice)
+		var nome: String = material.resource_name if material != null else ""
+		var arrays: Array = arranjo.surface_get_arrays(indice)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		for ponto: Vector3 in vertices:
+			soma_do_corpo += ponto
+			pontos_do_corpo += 1
+			if nome == MATERIAL_DO_ROSTO:
+				soma_do_rosto += ponto
+				pontos_do_rosto += 1
+
+	# **Sumiu o material, REPROVA.** Uma conferência cujo alvo ficou órfão e que
+	# trata "não achei" como aprovação é pior que nenhuma: ela desliga sozinha
+	# quando alguém renomeia uma constante, e em silêncio.
+	if pontos_do_rosto == 0 or pontos_do_corpo == 0:
+		return [
+			"a frente do boneco: o corpo exportado não tem o material `%s` — "
+			% MATERIAL_DO_ROSTO
+			+ "sem ele não há como saber de que lado é a cara"
+		] as Array[String]
+
+	# A malha nasce em repouso e o esqueleto está na pose de vínculo, então a
+	# transformação do esqueleto leva vértice local a ponto de mundo.
+	var para_o_mundo: Transform3D = esqueleto.global_transform
+	var centro_do_rosto: Vector3 = para_o_mundo * (soma_do_rosto / float(pontos_do_rosto))
+	var centro_do_corpo: Vector3 = para_o_mundo * (soma_do_corpo / float(pontos_do_corpo))
+	var frente: Vector3 = -corpo.global_transform.basis.z
+	if frente.length_squared() <= 0.000001:
+		return ["a frente do boneco: o corpo não tem orientação"] as Array[String]
+	var adiante: float = (centro_do_rosto - centro_do_corpo).dot(frente.normalized())
+	print("  o rosto está %+.3f m à frente do centro do corpo (piso %+.3f)" % [
+		adiante, ROSTO_ADIANTE_MINIMO,
+	])
+	if adiante < ROSTO_ADIANTE_MINIMO:
+		return [
+			("a frente do boneco: o rosto está %+.3f m à frente do centro, e o "
+			+ "piso é %+.3f — o personagem anda DE COSTAS. A frente de um nó na "
+			+ "Godot é -Z; a exportação glTF do Blender entrega o rosto em +Z. "
+			+ "Quem converte é `Boneco.giro_do_modelo`.") % [
+				adiante, ROSTO_ADIANTE_MINIMO,
+			]
+		] as Array[String]
+	return [] as Array[String]
+
+
+func _achar_malha_de(no: Node) -> MeshInstance3D:
+	if no is MeshInstance3D:
+		return no as MeshInstance3D
+	for filho: Node in no.get_children():
+		var achada: MeshInstance3D = _achar_malha_de(filho)
+		if achada != null:
+			return achada
+	return null
+
 func _sondar() -> Array[String]:
 	var falhas: Array[String] = []
 
@@ -174,6 +278,15 @@ func _sondar() -> Array[String]:
 	# suprema e para a cadência do ataque, pelo mesmo motivo.
 	unit.ultimate_charge.current = maxf(unit.ultimate_charge.maximum(), 1.0)
 	unit.attack_cooldown = CADENCIA_DA_SONDA
+
+	# **Para onde o boneco OLHA.** Nenhuma ferramenta media isto, e o preço saiu
+	# na tela do usuário: *"nem de frente o boneco tá"*. O `.glb` era gerado,
+	# conferido pela direção de arte, conferido de novo sem o Blender e
+	# rastreado — e as quatro conferências mediam TAMANHO. Nenhuma perguntava
+	# para que lado a cara aponta, e o comentário que afirmava a resposta em
+	# `boneco.gd` estava errado. Lição 9 de novo, agora no eixo.
+	for falha: String in _conferir_a_frente(corpo):
+		falhas.append(falha)
 
 	# Onde cada combatente da cena começa. É o que a normalização de cada
 	# espaço restaura — inclusive os alvos, que a conferência da perseguição

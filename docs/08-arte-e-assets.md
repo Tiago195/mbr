@@ -1,67 +1,55 @@
-# 08 — Arte e Assets
+# 08 — Arte e assets
 
-> **Só é relevante na Fase 6.** Até lá, cápsulas e formas primitivas.
-> Fazer arte antes de o jogo provar que é divertido é a forma mais comum de
-> matar um projeto pequeno.
-
----
-
-## O princípio
-
-**Consistência do personagem vem do 3D, não da IA.**
-
-Geradores de imagem 2D são péssimos em coerência quadro a quadro — cada imagem é
-gerada do zero, sem "lembrar" da anterior. Pede-se oito frames de um ciclo de
-caminhada e vêm oito personagens *parecidos*: o cinto muda de posição, a cor do
-cabelo oscila, um detalhe da armadura some.
-
-A solução não é uma IA melhor. É **gerar o personagem uma vez, em 3D, e animar o
-esqueleto**. Assim a consistência não é *mantida* — é estruturalmente impossível
-de quebrar, porque é a mesma malha em todos os frames.
-
-Analogia: um boneco de ação em cem poses diferentes é obviamente o mesmo boneco,
-porque literalmente é.
+> **A arte deste projeto é gerada por código, no Blender, dentro deste
+> repositório.** Não há serviço externo, não há marketplace, não há
+> auto-rigging de terceiro. O que o jogo consome é `.glb` produzido por script.
 
 ---
 
-## Pipeline
+## A decisão, e quando ela foi tomada
 
-### 1. Concept 2D
+**24/08/2026, pelo usuário**, com estas palavras:
 
-Gerar a arte do personagem numa IA de imagem: **pose T ou A, vista de frente,
-fundo neutro**. Iterar até gostar. Etapa barata e rápida.
+> *"esquece meshy/mixamo, baixei o blender, vc vai gerar tudo q a gente precisa
+> nele, pode remover qualquer espectativa de meshy/mixamo"*
 
-### 2. Imagem → 3D
+Este documento tinha 160 linhas descrevendo um pipeline que não existe mais:
+concept 2D numa IA de imagem → Meshy ou Tripo para virar 3D → auto-rig da Meshy
+ou do Mixamo → ajuste no Blender, com servidores MCP, créditos e prazos de
+expiração de URL. Nada disso vale. Ver a decisão 24 em
+`docs/02-decisoes-tecnicas.md`.
 
-| Ferramenta | Nota |
-|---|---|
-| **Meshy** | Pipeline mais completo num lugar só; auto-rigging nativo |
-| **Tripo** | Rápido, boa reconstrução image-to-3D; rigging separado |
-| **Rodin (Hyper3D)** | Mais detalhe, foco em objeto hero |
+**Também não é mais "só na Fase 6".** O pipeline antigo era adiado porque
+dependia de gastar dinheiro num jogo que ainda não provou ser divertido. Um
+gerador que roda local não tem esse custo, então ele já está em uso — e o boneco
+de teste é o primeiro artefato dele, não um andaime que será jogado fora.
 
-Para personagens estilizados vistos de cima em isométrico, os defeitos típicos
-dessas ferramentas (mão feia, detalhe borrado) praticamente somem — a câmera
-está longe.
+---
 
-Usar o **Low Poly Mode** do Meshy (ou equivalente), que dá topologia limpa com
-contagem de polígonos controlada.
+## O que isso ganha, e é a razão de a troca não ser só de fornecedor
 
-### 3. Rig + animação
+**Consistência do personagem vem do 3D, não da IA.** Esse princípio continua
+valendo e é por isso que o caminho é 3D e não sprite: gerar o personagem uma vez
+e animar o esqueleto torna a coerência quadro a quadro *estruturalmente*
+impossível de quebrar, porque é a mesma malha em todos os frames.
 
-Duas opções:
+O que muda é de onde a malha vem, e o ganho é este:
 
-- **Auto-rig do Meshy/Tripo** — no mesmo fluxo
-- **Mixamo** (Adobe, gratuito) — exportar FBX, subir lá. Auto-rig humanoide
-  funciona bem em bípede estilizado, e a biblioteca de ciclos prontos (andar,
-  correr, pular, atacar) é enorme
-
-Mixamo continua sendo o melhor custo-benefício para indie.
-
-### 4. Ajuste no Blender
-
-Quando precisar de algo específico (uma habilidade, um cast). Aqui se anima à
-mão, mas **sobre um rig que já existe** — ordens de magnitude mais barato que
-animar do zero.
+1. **Toda medida tem origem.** Um modelo comprado tem as proporções que tem; um
+   gerado tem as proporções que alguém escreveu. Se elas saírem de uma medição
+   do original — e saem, ver `docs/11-direcao-de-arte.md` —, a conferência pode
+   reprovar quando o modelo sai da direção. Não dá para conferir um `.fbx`
+   baixado contra nada.
+2. **Regenerar é barato.** Mudar a altura do elenco inteiro é editar uma
+   constante e rodar de novo, em dez segundos. No caminho antigo era refazer o
+   personagem e o rigging.
+3. **Um rig só, por construção.** A regra crítica abaixo deixa de depender de
+   disciplina e passa a ser consequência: todos os personagens saem do mesmo
+   `OSSOS`.
+4. **O artefato é conferível.** `tools/conferir_numeros.py` lê o `.glb`
+   commitado em Python puro e o compara com o código que diz tê-lo gerado. Foi
+   assim que se descobriu, uma vez, que o `.glb` no repositório **não vinha do
+   gerador no repositório**.
 
 ---
 
@@ -70,91 +58,57 @@ animar do zero.
 > **Definir altura, proporção e esqueleto padrão ANTES de gerar o primeiro
 > personagem, e forçar todos a caberem nele.**
 
-Assim uma animação serve para os 15 personagens, e adicionar personagem novo
-custa quase nada.
+Assim uma animação serve para todos os personagens, e acrescentar personagem
+novo custa quase nada. Se cada um vier com esqueleto próprio, o trabalho de
+animação é multiplicado pelo número de personagens — **é o erro que mais atrasa
+projeto pequeno.**
 
-Se cada um vier com esqueleto próprio do auto-rig, o trabalho de animação é
-multiplicado por 15. **Esse é o erro que mais atrasa projeto pequeno.**
-
----
-
-## Integração com Claude Code via MCP
-
-### Meshy — MCP oficial
-
-Servidor MCP open source, publicado no npm como `@meshy-ai/meshy-mcp-server`,
-mantido pela própria Meshy. Cerca de 20 ferramentas: geração texto/imagem→3D,
-remesh, retextura, rigging, animação, gerenciamento de tarefas.
-
-As duas mais relevantes aqui: `meshy_rig` (adiciona esqueleto a humanoide) e
-`meshy_animate` (aplica animação a personagem riggado).
-
-Instalação no Claude Code:
-
-```bash
-claude mcp add meshy -- npx -y @meshy-ai/meshy-mcp-server -e MESHY_API_KEY=SUA_CHAVE
-```
-
-Existe também `add-mcp`, que detecta os clientes de IA instalados na máquina e
-configura em todos de uma vez.
-
-Alternativa mais leve: o skill pack `meshy-3d-agent`, com workflows Meshy
-pré-escritos, sem precisar rodar servidor MCP.
-
-**Detalhes operacionais:**
-- Modelos gerados via MCP **não aparecem no workspace web** da Meshy — trabalha-
-  se com os links de download
-- Essas URLs **expiram em ~3 dias**. Baixar logo
-- Gerações via MCP consomem créditos da conta igual ao app web
-
-### BlenderMCP
-
-Conecta o Blender ao Claude via MCP: modelagem e manipulação de cena por prompt.
-Inclui integração com PolyHaven (texturas, HDRIs), Sketchfab e geração via
-Hyper3D Rodin.
-
-Útil quando for preciso ajustar algo no Blender sem saber onde clicar.
-
-**Ressalva honesta:** a integração é confiável para formas primitivas,
-posicionamento, cenas com múltiplos objetos e materiais básicos, mas tem
-dificuldade com geometria orgânica complexa, dimensões precisas e **rigging**.
-
-Ou seja: rigging fica com a Meshy; BlenderMCP para ajustes e cena.
-
-### Ordem de instalação
-
-Instalar **só o Meshy MCP primeiro** e fazer um personagem de teste. Se
-funcionar bem, aí adicionar o BlenderMCP. Instalar os dois de uma vez, sem saber
-o que cada um resolve, costuma virar duas coisas quebradas em vez de uma
-funcionando.
+No caminho gerado isto não é um cuidado, é uma propriedade: o esqueleto está em
+`OSSOS`, em `tools/arte/gerar_personagem.py`, e não há outro.
 
 ---
 
-## Custos
+## As ferramentas, e o que cada uma responde
 
-O MCP é encanamento, não passe livre: a assinatura do Claude paga o Claude; os
-créditos Meshy pagam os modelos.
+Todas rodam **headless**, sem abrir a interface do Blender, e nenhuma depende de
+rede.
 
-Custos por operação são baixos: rig = 5 créditos, animate = 3, remesh = 5,
-convert = 1. O tier gratuito dá para fazer o primeiro personagem inteiro sem
-pagar nada.
+| Ferramenta | Pergunta que ela responde |
+|---|---|
+| `tools/arte/censo_do_original.py` | *Quais são os números da referência?* Mede proporção, ritmo, vocabulário e esbeltez nos bundles da instalação da Steam e grava `data/direcao-de-arte.json`. **Números e estrutura entram; asset não.** |
+| `tools/arte/gerar_personagem.py` | *Como esses números viram um corpo?* Monta esqueleto, malha e animações e exporta `arte/personagem.glb`. |
+| `tools/arte/conferir_personagem.py` | *O corpo saiu dentro da direção?* Proporção, esbeltez, duração, fechamento de ciclo e pé no chão. O gerador o chama sozinho e **só publica se passar**. |
+| `tools/arte/renderizar_previa.py` | *Como isso fica na tela?* Folhas de contato em `arte/previa/`, uma por animação. É a única que responde à pergunta que nenhuma medição responde. |
+| `tools/conferir_numeros.py` | *O artefato commitado veio deste código?* Lê o `.glb` sem o Blender. |
+| `tools/arte/mutar_boneco.py`, `tools/mutar_direcao.py` | *As conferências acima conferem alguma coisa?* Quebram de propósito e exigem vermelho. |
 
-**Licenciamento:** no tier gratuito do Meshy os modelos ficam **públicos sob CC
-BY 4.0** — qualquer um pode usar e é preciso creditar se publicar. Para projeto
-entre amigos, irrelevante. Se um dia virar algo sério, migrar para o plano pago
-**antes** de gerar os assets definitivos, não depois.
-
-**Segurança:** tratar a API key como segredo — quem tiver acesso gera contra o
-saldo da conta. Variável de ambiente, nunca dentro do repositório.
+Como rodar cada uma está na seção "Como conferir que nada quebrou" do
+`CLAUDE.md`.
 
 ---
 
-## Alternativa considerada e descartada
+## O que ainda não está resolvido
 
-**3D renderizado para sprite sheet** (o método de Diablo 2 e Ragnarok): modelo
-3D animado, cada frame renderizado de um ângulo isométrico fixo, gerando sprites
-2D. Consistência garantida pela origem 3D, visual 2D, custo de runtime baixo.
+**Textura.** Hoje cada região tem uma cor chapada, e o contraste entre elas é
+escolhido para a silhueta ler de longe — não há UV, não há mapa, não há
+material. Quando houver, ele também deve ser gerado.
 
-Descartado aqui porque o jogo tem câmera que gira um pouco e personagens que
-precisam olhar em 360° — manter 3D de verdade é mais simples que renderizar 8 ou
-16 direções de cada animação.
+**Malha contínua.** O boneco de teste é montado como um sólido por osso, e
+sólidos independentes pendurados num esqueleto **se atravessam**: medido em
+repouso, oito pares de peças se cruzam sem serem vizinhas, e a mão fica enterrada
+na coxa. Um personagem é uma superfície contínua, onde membro e tronco se
+encontram na junta. É o próximo trabalho.
+
+**Variação entre personagens.** A Fase 1 declara um modelo para todos. O caminho
+gerado torna a variação barata — trocar proporções e cores por campeão é
+parâmetro —, mas nada disso existe ainda.
+
+---
+
+## O que NÃO entra neste repositório
+
+Continua valendo `docs/01-visao-e-escopo.md`: do Royal Crown entram **números e
+estrutura**, nunca arte, som, código ou texto. O censo mede os bundles da
+instalação da Steam e escreve `data/direcao-de-arte.json`; nenhum byte de malha,
+textura ou animação do original é copiado, e o repositório não contém asset
+extraído de lugar nenhum.

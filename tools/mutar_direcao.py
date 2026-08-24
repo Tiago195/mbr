@@ -2,6 +2,7 @@
 """Quebra a concordancia documento<->codigo<->artefato e exige reprovacao."""
 import io
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -35,6 +36,9 @@ ALVOS = {
     ## A camada que TOCA os clipes de reacao. Sem ela nos alvos, "o clipe
     ## existe" e tudo que o projeto sabia — e existir nao e ser tocado.
     "reacao": os.path.join(RAIZ, "scripts", "gameplay", "gesto_de_reacao.gd"),
+    ## Quem escolhe o clipe da conjuracao.
+    "conjuracao": os.path.join(
+        RAIZ, "scripts", "gameplay", "gesto_de_conjuracao.gd"),
     ## E quem poe os ciclos em ciclo ao carregar.
     "boneco": os.path.join(RAIZ, "scripts", "gameplay", "boneco.gd"),
     ## A roda que percorre o vocabulario inteiro — o unico consumidor de
@@ -48,6 +52,27 @@ ARTEFATOS = [
     os.path.join(RAIZ, "arte", "personagem.glb"),
     os.path.join(RAIZ, "arte", "fonte", "personagem.blend"),
 ]
+
+def _achando(alvo, padrao, troca):
+    """Monta `(velho, novo)` a partir do texto ATUAL do arquivo.
+
+    **Padrao literal envelhece, e a suite so pode acusar isso DEPOIS.** Quatro
+    mutacoes escaparam de uma rodada inteira por casar ZERO vezes: o
+    vocabulario cresceu de 8 clipes para 25, e com ele a linha de `TODOS`, o
+    conjunto `EM_CICLO` e o numero de cobertura publicado no §3 — os tres
+    escritos a mao aqui. Nenhuma delas testou nada, e o placar disse "escapou",
+    que e a leitura certa e tardia.
+
+    Derivando o literal na hora, o padrao acompanha o arquivo. Se um dia ele
+    parar de achar, isto morre em voz alta em vez de virar mutacao vazia.
+    """
+    fonte = io.open(ALVOS[alvo], encoding="utf-8").read()
+    achado = re.search(padrao, fonte)
+    if achado is None:
+        raise SystemExit(
+            "a mutacao nao acha o padrao em %s: %s" % (alvo, padrao))
+    return (achado.group(0), troca(achado))
+
 
 ## `(titulo, [(alvo, velho, novo), ...], regerar_o_glb)`
 MUTACOES = [
@@ -165,14 +190,17 @@ MUTACOES = [
     # vez de contar como pega, que e o comportamento certo: quem esta errada e
     # a mutacao, nao a defesa.
     ("o jogo passa a pedir um clipe que o boneco nao tem", [
-        ("vocabulario", "\tPARADO, ANDANDO, CORRENDO,\n\tESTOCADA",
-         "\tPARADO, ANDANDO, CORRENDO, INVENTADO,\n\tESTOCADA"),
+        ("vocabulario", *_achando(
+            "vocabulario", r"const TODOS: Array\[StringName\] = \[",
+            lambda m: m.group(0) + "\n\tINVENTADO,")),
         ("vocabulario", 'const ERGUER: StringName = &"erguer"',
          'const ERGUER: StringName = &"erguer"\n'
          'const INVENTADO: StringName = &"inventado"')], False),
     ("o jogo deixa de conhecer um clipe que o boneco tem", [
-        ("vocabulario", "\tPARADO, ANDANDO, CORRENDO,\n\tESTOCADA",
-         "\tPARADO, ANDANDO,\n\tESTOCADA")], False),
+        ("vocabulario", *_achando(
+            "vocabulario",
+            r"const TODOS: Array\[StringName\] = \[\n\tPARADO, ",
+            lambda m: "const TODOS: Array[StringName] = [\n\t"))], False),
     ("uma constante do vocabulario fica fora de TODOS", [
         ("vocabulario", 'const PREPARO: StringName = &"preparo"',
          'const PREPARO: StringName = &"preparo"\n'
@@ -185,8 +213,9 @@ MUTACOES = [
         ("vocabulario", "const CICLOS: Array[StringName] = [\n\tPARADO, ANDANDO, CORRENDO,",
          "const CICLOS: Array[StringName] = [\n\tPARADO, ANDANDO,")], False),
     ("o conferidor deixa de exigir que um ciclo feche", [
-        ("conferidor", 'EM_CICLO = {"parado", "andando", "correndo"}',
-         'EM_CICLO = {"parado", "andando"}')], False),
+        ("conferidor", *_achando(
+            "conferidor", r'EM_CICLO = \{"parado", ',
+            lambda m: 'EM_CICLO = {'))], False),
     ("a folga de fechamento de ciclo vira meio metro", [
         ("conferidor", "FECHAMENTO_DO_CICLO = 0.005",
          "FECHAMENTO_DO_CICLO = 0.5")], False),
@@ -225,20 +254,85 @@ MUTACOES = [
     ("a roda perde a posicao desligada", [
         ("roda", "\tvar quantas: int = VocabularioDeAnimacao.TODOS.size()",
          "\tvar quantas: int = VocabularioDeAnimacao.TODOS.size() - 1")], False),
+    # --- para onde o boneco OLHA ---
+    #
+    # **Nenhuma ferramenta media isto**, e o defeito chegou a tela do usuario:
+    # *"nem de frente o boneco ta"*. A viseira e o bico do sapato apontam para
+    # +Z no `.glb` — que e o que a especificacao do glTF manda —, e a frente de
+    # um no na Godot e -Z. Quatro conferencias verdes mediam TAMANHO; nenhuma
+    # perguntava para que lado a cara aponta.
+    ("o boneco volta a andar de costas", [
+        ("boneco",
+         "@export var giro_do_modelo: Vector3 = Vector3(0.0, 180.0, 0.0)",
+         "@export var giro_do_modelo: Vector3 = Vector3(0.0, 0.0, 0.0)")], False),
+    # E o par obrigatorio: a conferencia nao pode aprovar por NAO ACHAR o
+    # rosto. Sem o material a projecao nao tem o que medir, e "nao achei" tem
+    # que reprovar — a armadilha do padrao orfao, que este projeto ja pagou.
+    ("o rosto perde o material que o identifica", [
+        ("gerador", '(0.25, 0.02, 0.08), "rosto"),',
+         '(0.25, 0.02, 0.08), "pele"),')], True),
     ("os ciclos deixam de ser postos em ciclo ao carregar", [
         ("boneco", "\t\t_animador.get_animation(nome).loop_mode = Animation.LOOP_LINEAR",
          "\t\tpass")], False),
+    # --- a regra do §5: conjurar andando dura um ciclo de corrida ---
+    ("o arremesso em movimento deixa de durar um ciclo de corrida", [
+        ("gerador", "\t\t\t(24, pose(\n\t\t\t\tcoxa_D=(-38, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-38, 14, -12),\n\t\t\t\tcoxa_E=(34, 0, 0), canela_E=(10, 0, 0), pe_E=pe(34, 10, 10),\n\t\t\t\tbraco_D=(46, -8, 0), antebraco_D=(-78, 0, 0),\n\t\t\t\tbraco_E=(-46, 8, 0), antebraco_E=(-78, 0, 0),\n\t\t\t\tpeito=(15, 0, 0), cabeca=(-8, 0, 0))),\n\t\t],\n\t},\n\t# Arremesso indo atr",
+         "\t\t\t(30, pose(\n\t\t\t\tcoxa_D=(-38, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-38, 14, -12),\n\t\t\t\tcoxa_E=(34, 0, 0), canela_E=(10, 0, 0), pe_E=pe(34, 10, 10),\n\t\t\t\tbraco_D=(46, -8, 0), antebraco_D=(-78, 0, 0),\n\t\t\t\tbraco_E=(-46, 8, 0), antebraco_E=(-78, 0, 0),\n\t\t\t\tpeito=(15, 0, 0), cabeca=(-8, 0, 0))),\n\t\t],\n\t},\n\t# Arremesso indo atr")], False),
+    ("conjurar andando deixa de escolher o clipe de andando", [
+        ("conjuracao", "\tif em_movimento != &\"\" and not result.started():",
+         "\tif false:")], False),
+    ("conjurar andando escolhe sempre o mesmo lado", [
+        ("conjuracao", "\tif plana.dot(frente) >= 0.0:", "\tif true:")], False),
+    ("o projetil volta a ser desenhado como estocada", [
+        ("conjuracao", "\t\t\t\treturn Gesto.ARREMESSO",
+         "\t\t\t\treturn Gesto.ESTOCADA")], False),
     # --- os dois numeros novos do documento ---
     ("a contagem de tolerancias do §9 fica errada", [
         ("doc", "6 números não saem de faixa nenhuma",
          "5 números não saem de faixa nenhuma")], False),
     ("a cobertura publicada no §3 fica errada", [
-        ("doc", "nosso boneco tem **3 dos 22**",
-         "nosso boneco tem **9 dos 22**")], False),
+        ("doc", *_achando(
+            "doc", r"nosso boneco tem \*\*\d+ dos 22\*\*",
+            lambda m: "nosso boneco tem **9 dos 22**"))], False),
+    # **O alvo desta mutacao mudou de lugar, e o motivo vale registrar.** Ela
+    # renomeava a entrada `"mao_E"` de `CAIXAS`, que era escrita a mao. `CAIXAS`
+    # passou a ser DERIVADA da esbeltez medida, aquela linha sumiu, e a suite
+    # acusou padrao orfao — que e o comportamento certo, e foi como isto foi
+    # descoberto antes de rodar 40 minutos.
+    #
+    # Hoje ela some com a peca no LACO que monta o corpo, e nao numa
+    # declaracao. E de proposito: mutar `REGIAO_DO_OSSO` mudaria os dois lados
+    # da conta ao mesmo tempo — a peca sumiria E o numero esperado cairia
+    # junto —, e a conferencia passaria. Mutacao que se cancela nao prova nada.
     ("o corpo exportado perde uma peca", [
-        ("gerador", '"mao_E": (0.145, 0.13),', '"mao_zz": (0.145, 0.13),'),
+        ("gerador", "		if nome not in CAIXAS:",
+         "		if nome not in CAIXAS or nome == \"mao_E\":"),
         ("gerador", "	return resultado.returncode", "	return 0")], True),
 ]
+
+def _conferir_os_padroes(pares):
+    """Todo padrao casa exatamente uma vez, ANTES de rodar qualquer coisa.
+
+    **Padrao que nao casa nao testa nada, e a suite so descobria no fim.** Numa
+    rodada, quatro mutacoes casaram zero vezes porque os arquivos cresceram, e
+    isso custou os quarenta minutos inteiros para aparecer — no placar, como
+    "escapou", que e a palavra certa e a hora errada.
+
+    Aqui a mesma informacao sai em um segundo, e sai como ERRO: uma suite de
+    mutacao com padrao morto e uma suite que mede menos do que diz medir.
+    """
+    ruins = []
+    for titulo, alvo, velho in pares:
+        quantas = io.open(alvo, encoding="utf-8").read().count(velho)
+        if quantas != 1:
+            ruins.append("  %-56s casa %d vezes" % (titulo, quantas))
+    if ruins:
+        print("PADROES QUE NAO TESTAM NADA:")
+        print("\n".join(ruins))
+        print("conserte-os antes de rodar: uma mutacao que nao aplica nao "
+              "prova defesa nenhuma.")
+    return not ruins
+
 
 def _restaurar(artefatos, ausentes):
     """Devolve cada artefato ao byte, e apaga o que nao existia antes.
@@ -275,6 +369,12 @@ TRAVA = os.path.join(RAIZ, ".mutacao-em-curso")
 
 
 def main():
+    if not _conferir_os_padroes([
+        (titulo, ALVOS[alvo], velho)
+        for titulo, edicoes, _r in MUTACOES
+        for alvo, velho, _novo in edicoes
+    ]):
+        return 1
     if os.path.exists(TRAVA):
         print("ja existe uma rodada de mutacao em curso (%s)." % TRAVA)
         print("se nao existe, apague o arquivo — uma rodada morta o deixa para tras.")

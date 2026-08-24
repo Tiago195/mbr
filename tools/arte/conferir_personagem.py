@@ -35,6 +35,12 @@ import regra_da_folga  # noqa: E402  (depende do sys.path acima)
 TOLERANCIA_DO_CHAO = 0.015
 ## As animacoes em que o boneco DEVE sair do chao, e o minimo que ele sobe.
 NO_AR = {"salto": 0.25, "correndo": 0.04}
+## **As variantes conjuradas em movimento SAO a corrida por baixo** (§5 de
+## `docs/11`), entao herdam o voo dela em vez de declarar um numero proprio.
+## Escrever 0,04 de novo aqui seria o mesmo literal em tres lugares, e o
+## `CLAUDE.md` registra cinco recorrencias dessa especie.
+for _variante in ("arremesso_a_frente", "arremesso_atras"):
+	NO_AR[_variante] = NO_AR["correndo"]
 ## Quanto uma animacao precisa mexer para contar como animacao, em metros —
 ## medido na maior AMPLITUDE de um vertice, de um extremo ao outro do ciclo.
 ##
@@ -58,6 +64,18 @@ NOMES_EXIGIDOS = [
 	"morte",
 	"caido",
 	"rastejando",
+	"colhendo",
+	"pegando",
+	"cortando",
+	"minerando",
+	"comendo",
+	"bebendo",
+	"operando",
+	"arremesso",
+	"arremesso_a_frente",
+	"arremesso_atras",
+	"montado",
+	"montado_correndo",
 	"estocada", "giro", "salto", "erguer", "preparo",
 ]
 ## Quais rodam em CICLO — a coluna "Tipo" do §3 de `docs/11`, medida nos 32
@@ -67,7 +85,7 @@ NOMES_EXIGIDOS = [
 ## primeiro** (item 3 da lista do §10). Sem isso o corpo salta ao emendar a
 ## volta, e o salto e tanto mais visivel quanto mais curto o clipe — na corrida
 ## ele acontece tres vezes por segundo.
-EM_CICLO = {"parado", "andando", "correndo", "atordoado", "caido", "rastejando"}
+EM_CICLO = {"parado", "andando", "correndo", "atordoado", "caido", "rastejando", "colhendo", "cortando", "minerando", "comendo", "bebendo", "operando", "montado", "montado_correndo"}
 ## Quanto o ultimo quadro de um ciclo pode se afastar do primeiro, em metros —
 ## medido no vertice que mais se afasta. Publicado em `docs/11` §9.
 FECHAMENTO_DO_CICLO = 0.005
@@ -159,6 +177,18 @@ DURACAO_ESPERADA = {
 	"morte": (1.13, 3.33),  # `death` medido nos 32
 	"caido": (1.33, 1.33),  # `knockout_idle` medido nos 32
 	"rastejando": (1.13, 1.33),  # `knockout_run` medido nos 32
+	"colhendo": (0.67, 0.67),  # `collect` medido nos 32
+	"pegando": (0.50, 0.50),  # `loot` medido nos 32 — uma vez
+	"cortando": (1.50, 1.50),  # `cut` medido nos 32 — 1,50 s exatos
+	"minerando": (1.50, 1.50),  # `mine` medido nos 32 — 1,50 s exatos
+	"comendo": (6.57, 6.57),  # `eat` medido nos 32 — o mais longo do vocabulario
+	"bebendo": (1.00, 3.00),  # `drink` medido nos 32
+	"operando": (1.00, 1.00),  # `operate` medido nos 32
+	"arremesso": (0.80, 1.37),  # `throw` medido nos 32 — a conjuracao universal
+	"arremesso_a_frente": (0.73, 1.50),  # `throw_f` medido nos 32 — dura um ciclo de corrida
+	"arremesso_atras": (0.73, 1.13),  # `throw_b` medido nos 32 — dura um ciclo de corrida
+	"montado": (1.33, 1.33),  # `ride_idle` medido nos 32
+	"montado_correndo": (0.60, 0.60),  # `ride_run` medido nos 32 — o mais curto do vocabulario
 	"estocada": (0.83, 1.40),
 	"giro": (0.83, 1.40),
 	"salto": (0.83, 1.40),
@@ -274,17 +304,167 @@ def _fechamento(malha, inicio: int, fim: int) -> float:
 	return max((a - b).length for a, b in zip(primeiro, ultimo))
 
 
-def _fundo_do_grupo(malha, grupo: str):
-	"""O ponto mais baixo dos vertices presos a um osso, em repouso."""
+def _mais_longe_do_grupo(malha, grupo: str, origem):
+	"""A DISTANCIA do ponto mais afastado de um grupo ate `origem`, em repouso.
+
+	**Era o ponto mais BAIXO, e isso embutia uma hipotese de pose.** Enquanto o
+	braco caia reto do ombro, "mais baixo" e "mais afastado do ombro" davam o
+	mesmo numero; com o repouso em A eles deixam de dar, e a envergadura sairia
+	menor sem nada parecer errado. Distancia nao depende de para onde o braco
+	aponta, que e o que a medida quer dizer.
+	"""
 	if grupo not in malha.vertex_groups:
 		return None
 	indice = malha.vertex_groups[grupo].index
 	mundo = malha.matrix_world
-	alturas = [
-		(mundo @ v.co).z for v in malha.data.vertices
+	distancias = [
+		((mundo @ v.co) - origem).length for v in malha.data.vertices
 		if any(g.group == indice and g.weight > 0.5 for g in v.groups)
 	]
-	return min(alturas) if alturas else None
+	return max(distancias) if distancias else None
+
+
+## A esbeltez que o GERADOR declara, por regiao. Conferir contra ela, e nao
+## contra a faixa medida no original, e uma escolha com motivo.
+##
+## **A faixa do original nao serve como tolerancia aqui.** Ela e larga — o
+## braco vai de 0,544 a 0,941 entre 27 campeoes, o que da folga +-0,200 pela
+## regra. Com essa folga, o boneco ANTERIOR, que tinha braco 0,603 e foi o que
+## o usuario reprovou na tela, passaria. Uma conferencia que aprova o defeito
+## que acabou de ser corrigido nao e conferencia.
+##
+## O laco e fechado em DOIS pontos apertados, e nao num largo:
+##
+## 1. aqui, a malha exportada tem que bater com o que `ESBELTEZ` declara — e
+##    ela e a origem de `CAIXAS`, entao qualquer espessura mexida a mao reprova;
+## 2. em `tools/conferir_numeros.py`, `ESBELTEZ` tem que bater com a mediana
+##    medida em `data/direcao-de-arte.json` E cair dentro da faixa medida.
+##
+## Nenhum dos dois sozinho fecha: o primeiro aprovaria um numero inventado, e o
+## segundo aprovaria um numero certo que a malha nao usa.
+ESBELTEZ_DECLARADA = {
+	"cabeca": 0.778, "braco": 0.758, "antebraco": 0.716, "mao": 0.752,
+	"coxa": 0.575, "canela": 0.494, "quadril": 0.676, "peito": 0.779,
+}
+
+## De qual regiao e cada grupo de vertices do boneco.
+REGIAO_DO_GRUPO = {
+	"cabeca": "cabeca", "peito": "peito", "quadril": "quadril",
+	"braco_D": "braco", "braco_E": "braco",
+	"antebraco_D": "antebraco", "antebraco_E": "antebraco",
+	"mao_D": "mao", "mao_E": "mao",
+	"coxa_D": "coxa", "coxa_E": "coxa",
+	"canela_D": "canela", "canela_E": "canela",
+}
+
+## Quanto a esbeltez medida na malha pode se afastar da declarada.
+##
+## E apertada de proposito: a peca e construida a partir do numero, entao bater
+## e o normal e qualquer distancia e defeito.
+##
+## **Ela ja foi 0,06 e isso escondia um vies.** Os quatro membros mediam
+## 0,924 vez o declarado — nao ruido, e sim `cos(pi/8)`: o prisma de oito lados
+## nascia inscrito e apresentava a face, nao a quina, aos eixos. A folga
+## engolia os 7,6% e a conferencia dizia "ok". Corrigido o raio no gerador, a
+## folga pode voltar a ser o que uma folga deve ser: pequena o bastante para
+## que qualquer desvio real apareca.
+FOLGA_DA_ESBELTEZ = 0.02
+
+## A cabeca e a excecao, e a excecao tem causa medida.
+##
+## O grupo dela carrega a VISEIRA e o NARIZ, que sao adornos: eles engordam a
+## caixa envolvente sem sair do osso, e a derivacao nao os controla. Medida
+## assim ela da 0,838 contra 0,778 declarados, e a diferenca e exatamente a
+## cara. Apertar aqui seria exigir que a peca derivada compensasse o adorno,
+## acoplando um numero ao outro.
+##
+## A folga dela e a da POPULACAO — meia faixa medida, pela regra do §9 — e isso
+## e comparavel pelo motivo certo: as cabecas do original tambem vem com
+## cabelo, chapeu e orelha, e e por isso que a faixa delas vai de 0,508 a 0,988,
+## a mais larga das nove.
+FOLGA_DA_CABECA = folga_de((0.778, 0.508, 0.988))
+
+## As regioes que NAO derivam da esbeltez, e por isso nao sao conferidas contra
+## ela. Ver `CAIXAS_DO_TRONCO` no gerador: nos cortamos o tronco em dois ossos
+## curtos e o original distribui os vertices dele pelo tronco inteiro, entao a
+## razao mede a nossa segmentacao e nao a forma deles.
+FORA_DA_ESBELTEZ = {"peito", "quadril"}
+
+
+def conferir_esbeltez(armature, malha) -> list:
+	"""A malha exportada tem a espessura que o gerador diz que ela tem?
+
+	**Mede pelo MESMO termo que mediu o original**: a caixa envolvente dos
+	vertices de cada osso, com os dois lados menores contra o maior. Medir de um
+	jeito la e de outro aqui produziria dois numeros que nao se comparam, e a
+	comparacao seria decorativa.
+	"""
+	reprovas = []
+	grupos = {g.index: g.name for g in malha.vertex_groups}
+	caixas = {}
+	mundo = malha.matrix_world
+	# **A medida e no eixo do OSSO, nao no do mundo.** Um membro inclinado tem
+	# caixa envolvente de mundo maior que a secao dele — o repouso em A fazia os
+	# bracos medirem 4% mais grossos sem nada ter engordado. E e tambem o mesmo
+	# termo com que o original foi medido: `m_BonesAABB` da Unity e local ao
+	# osso. Medir de um jeito la e de outro aqui produziria dois numeros que nao
+	# se comparam.
+	para_o_osso = {}
+	for osso in armature.data.bones:
+		para_o_osso[osso.name] = osso.matrix_local.inverted()
+	for vertice in malha.data.vertices:
+		ponto = mundo @ vertice.co
+		for peso in vertice.groups:
+			nome = grupos.get(peso.group)
+			if nome is None or nome not in para_o_osso:
+				continue
+			ponto = para_o_osso[nome] @ (mundo @ vertice.co)
+			menor, maior = caixas.get(nome, (None, None))
+			if menor is None:
+				caixas[nome] = ([ponto.x, ponto.y, ponto.z],
+				                [ponto.x, ponto.y, ponto.z])
+			else:
+				for eixo in range(3):
+					menor[eixo] = min(menor[eixo], ponto[eixo])
+					maior[eixo] = max(maior[eixo], ponto[eixo])
+
+	print("[confere] -- esbeltez, espessura sobre comprimento do osso --")
+	vistas = {}
+	for grupo, (menor, maior) in sorted(caixas.items()):
+		regiao = REGIAO_DO_GRUPO.get(grupo)
+		if regiao is None or regiao in FORA_DA_ESBELTEZ:
+			continue
+		lados = sorted(maior[e] - menor[e] for e in range(3))
+		if lados[2] <= 0.0:
+			reprovas.append("o grupo '%s' nao tem volume" % grupo)
+			continue
+		vistas.setdefault(regiao, []).append(
+			((lados[0] + lados[1]) * 0.5) / lados[2])
+
+	# **Regiao declarada que a malha nao tem REPROVA.** Uma conferencia que
+	# percorre o que achou aprova por ausencia: renomear um grupo desligaria o
+	# julgamento dessa peca sem ruido nenhum.
+	for regiao, esperada in sorted(ESBELTEZ_DECLARADA.items()):
+		if regiao in FORA_DA_ESBELTEZ:
+			continue
+		if regiao not in vistas:
+			reprovas.append(
+				"a regiao '%s' e declarada em ESBELTEZ e nao tem vertice nenhum "
+				"na malha — a conferencia dela ficou orfa" % regiao
+			)
+			continue
+		medida = sum(vistas[regiao]) / len(vistas[regiao])
+		folga = FOLGA_DA_CABECA if regiao == "cabeca" else FOLGA_DA_ESBELTEZ
+		ok = abs(medida - esperada) <= folga
+		print("[confere]   %-10s %.3f  (gerador %.3f +-%.3f)  %s" % (
+			regiao, medida, esperada, folga, "ok" if ok else "FORA"))
+		if not ok:
+			reprovas.append(
+				"a esbeltez de '%s' e %.3f e o gerador declara %.3f +-%.3f — a "
+				"espessura da malha nao veio da medicao"
+				% (regiao, medida, esperada, folga)
+			)
+	return reprovas
 
 
 def conferir_proporcao(armature, malha) -> list:
@@ -356,11 +536,16 @@ def conferir_proporcao(armature, malha) -> list:
 	if ombros is None:
 		return reprovas
 
-	def alcance(rotulo, ate, alvo):
-		if ate is None:
+	def alcance(rotulo, comprimento, alvo):
+		"""`comprimento` e a distancia do OMBRO ate onde a medida termina.
+
+		O original mede as duas com os bracos abertos em T; nos medimos o
+		comprimento da corrente, que da o mesmo numero em qualquer repouso.
+		"""
+		if comprimento is None:
 			reprovas.append("nao consegui medir %s" % rotulo)
 			return
-		v = ombros + 2.0 * (ossos["braco_D"].head_local.z - ate) / altura
+		v = ombros + 2.0 * comprimento / altura
 		ok = abs(v - alvo[0]) <= alvo[1]
 		print("[confere]   %-10s %.3f  (direcao %.3f +-%.3f)  %s" % (
 			rotulo, v, alvo[0], alvo[1], "ok" if ok else "FORA"))
@@ -372,11 +557,14 @@ def conferir_proporcao(armature, malha) -> list:
 		reprovas.append("o boneco nao tem osso de mao — sem ele o alcance do "
 		                "braco e o da mao viram o mesmo numero")
 		return reprovas
-	alcance("vao maos", ossos["mao_D"].head_local.z, VAO_DAS_MAOS)
+	ombro_direito = ossos["braco_D"].head_local
+	alcance("vao maos",
+	        (ossos["mao_D"].head_local - ombro_direito).length, VAO_DAS_MAOS)
 	# **A ponta vem da MALHA, nao do osso.** O glTF nao guarda o comprimento de
 	# um osso, so a posicao da junta, e o importador do Blender INVENTA a cauda.
 	# Lendo `tail_local` a envergadura saia 0,857 onde a construcao da 0,895.
-	alcance("envergad.", _fundo_do_grupo(malha, "mao_D"), ENVERGADURA)
+	alcance("envergad.",
+	        _mais_longe_do_grupo(malha, "mao_D", ombro_direito), ENVERGADURA)
 	return reprovas
 
 
@@ -415,6 +603,9 @@ def main() -> int:
 
 	print("[confere] %d ossos, %d animacoes" % (len(armature.pose.bones), len(acoes)))
 	reprovas.extend(conferir_proporcao(armature, malha))
+	# **A esbeltez vem DEPOIS da proporcao**, que e quem poe o corpo em repouso.
+	# Medir espessura sobre um corpo animado leria a pose, nao a peca.
+	reprovas.extend(conferir_esbeltez(armature, malha))
 	for nome in NOMES_EXIGIDOS:
 		m = medir(armature, malha, acoes[nome])
 		print(

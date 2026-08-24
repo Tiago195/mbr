@@ -19,6 +19,32 @@ GERADOR = os.path.join(RAIZ, "tools", "arte", "gerar_personagem.py")
 CONFERE = os.path.join(RAIZ, "tools", "arte", "conferir_personagem.py")
 REGRA = os.path.join(RAIZ, "tools", "arte", "regra_da_folga.py")
 
+def _no_bloco(nome, velho, novo):
+    """Torna um padrao unico PRENDENDO-O ao bloco de uma animacao.
+
+    **Quatro mutacoes escaparam de uma rodada inteira por padrao ambiguo**, e as
+    quatro pela mesma causa: animacoes novas repetiram texto que so existia numa
+    delas. `(30, pose())` fechava a `estocada` e passou a fechar tambem o
+    `levou_dano`; o voo `{0: 0.0, 6: 0.14, ...}` era so da corrida e passou a
+    ser tambem dos dois arremessos em movimento, que SAO a corrida por baixo.
+
+    A suite acusou — ela exige que o padrao case exatamente uma vez —, mas
+    acusar depois nao e o mesmo que nao poder acontecer. Prendendo o padrao ao
+    bloco, o `velho` comeca em `"<nome>": {`, que e unico por construcao: uma
+    animacao nova nao tem como colidir com ele.
+    """
+    fonte = io.open(GERADOR, encoding="utf-8").read()
+    inicio = fonte.index('\t"%s": {' % nome)
+    fim = fonte.index("\n\t},\n", inicio) + len("\n\t},\n")
+    bloco = fonte[inicio:fim]
+    if bloco.count(velho) != 1:
+        raise SystemExit(
+            "o padrao de `%s` casa %d vezes dentro do bloco: %r"
+            % (nome, bloco.count(velho), velho[:60])
+        )
+    return (bloco, bloco.replace(velho, novo, 1))
+
+
 ## `(titulo, velho, novo)` no gerador, ou `(titulo, velho, novo, arquivo)`.
 MUTACOES = [
     ("o quadril nao assenta no chao",
@@ -28,15 +54,15 @@ MUTACOES = [
      "local = _para_o_osso(armature, osso.name, poses.get(osso.name, (0.0, 0.0, 0.0)))",
      "local = _para_o_osso(armature, osso.name, (0.0, 0.0, 0.0))"),
     ("o salto nao sai do chao",
-     '"voo": {0: 0.0, 7: 0.0, 18: 0.55, 26: 0.0, 36: 0.0},',
-     '"voo": {0: 0.0, 7: 0.0, 18: 0.02, 26: 0.0, 36: 0.0},'),
+     *_no_bloco("salto", "18: 0.55,", "18: 0.02,")),
     ("uma animacao muda de nome",
      '\t"preparo": {', '\t"preparo_zz": {'),
     ("o boneco encolhe",
      "ALTURA = 1.75", "ALTURA = 1.20"),
     ("a corrida nunca tira os pes do chao",
-     '"voo": {0: 0.0, 6: 0.14, 12: 0.0, 18: 0.14, 24: 0.0},',
-     '"voo": {0: 0.0, 6: 0.0, 12: 0.0, 18: 0.0, 24: 0.0},'),
+     *_no_bloco("correndo",
+                '"voo": {0: 0.0, 6: 0.14, 12: 0.0, 18: 0.14, 24: 0.0},',
+                '"voo": {0: 0.0, 6: 0.0, 12: 0.0, 18: 0.0, 24: 0.0},')),
     ("o pescoco sobe para a altura humana",
      '"pescoco": 0.763,', '"pescoco": 0.823,'),
     ("os ombros ficam largos como os de um humano",
@@ -50,20 +76,20 @@ MUTACOES = [
     ("o joelho sobe",
      '"joelho": 0.283,', '"joelho": 0.360,'),
     ("a estocada fica rapida demais para ler",
-     "(30, pose())", "(18, pose())"),
+     *_no_bloco("estocada", "(30, pose())", "(18, pose())")),
     ("a corrida fica lenta demais",
-     "(24, pose(", "(44, pose("),
+     *_no_bloco("correndo", "(24, pose(", "(44, pose(")),
     ("o parado vira um piscar",
-     "(60, pose(peito=(2, 0, 0), cabeca=(1.5, 0, 0),",
-     "(20, pose(peito=(2, 0, 0), cabeca=(1.5, 0, 0),"),
+     *_no_bloco("parado", "(60, pose(", "(20, pose(")),
     # **Ciclo que nao fecha.** So o ULTIMO quadro da corrida muda, e so ele: a
     # duracao continua 0,80 s, a amplitude continua grande e o pe continua no
     # chao, porque `assentar` recalcula o quadril quadro a quadro. A unica
     # coisa que sai do lugar e a emenda da volta — que era exatamente o que
     # nenhuma ferramenta media antes.
     ("um ciclo deixa de fechar",
-     "(24, pose(\n\t\t\t\tcoxa_D=(-38, 0, 0)",
-     "(24, pose(\n\t\t\t\tcoxa_D=(-8, 0, 0)"),
+     *_no_bloco("correndo",
+                "(24, pose(\n\t\t\t\tcoxa_D=(-38, 0, 0)",
+                "(24, pose(\n\t\t\t\tcoxa_D=(-8, 0, 0)")),
     # A formula de onde saem TODAS as tolerancias, no conferidor.
     ("a formula da folga multiplica por cem",
      "meia = (faixa[2] - faixa[1]) * 0.5",
@@ -79,6 +105,30 @@ QUEBRA = "\n"
 TRAVA = os.path.join(RAIZ, ".mutacao-em-curso")
 
 
+def _conferir_os_padroes(pares):
+    """Todo padrao casa exatamente uma vez, ANTES de rodar qualquer coisa.
+
+    **Padrao que nao casa nao testa nada, e a suite so descobria no fim.** Numa
+    rodada, quatro mutacoes casaram zero vezes porque os arquivos cresceram, e
+    isso custou os quarenta minutos inteiros para aparecer — no placar, como
+    "escapou", que e a palavra certa e a hora errada.
+
+    Aqui a mesma informacao sai em um segundo, e sai como ERRO: uma suite de
+    mutacao com padrao morto e uma suite que mede menos do que diz medir.
+    """
+    ruins = []
+    for titulo, alvo, velho in pares:
+        quantas = io.open(alvo, encoding="utf-8").read().count(velho)
+        if quantas != 1:
+            ruins.append("  %-56s casa %d vezes" % (titulo, quantas))
+    if ruins:
+        print("PADROES QUE NAO TESTAM NADA:")
+        print("\n".join(ruins))
+        print("conserte-os antes de rodar: uma mutacao que nao aplica nao "
+              "prova defesa nenhuma.")
+    return not ruins
+
+
 def roda(script):
     r = subprocess.run([BLENDER, "--background", "--python", script],
                        capture_output=True, text=True, encoding="utf-8",
@@ -90,6 +140,10 @@ def roda(script):
 
 
 def main():
+    if not _conferir_os_padroes([
+        (m[0], m[3] if len(m) > 3 else GERADOR, m[1]) for m in MUTACOES
+    ]):
+        return 1
     if os.path.exists(TRAVA):
         print("ja existe uma rodada de mutacao em curso (%s)." % TRAVA)
         print("se nao existe, apague o arquivo — rodada morta o deixa para tras.")

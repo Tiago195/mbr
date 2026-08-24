@@ -1106,3 +1106,257 @@ No corpus inteiro são **89 habilidades** com corrente emitida.
   o teste do consumo dava ao elo seguinte uma recarga de 10 s, e assim "a
   corrente foi consumida" e "o elo está em recarga" produziam o mesmo
   `ON_COOLDOWN`. **Fixture degenerado outra vez**, e a mutação o pegou.
+
+## 22. O boneco fala o vocabulário inteiro do original, e o JOGO o executa
+
+**Decidido em 24/08/2026.** O boneco tinha três clipes de locomoção e cinco
+gestos de habilidade. Agora tem **20 dos 22 verbos universais** que os 32
+campeões do original têm (§3 de `docs/11-direcao-de-arte.md`), mais os cinco
+gestos e o arremesso — 25 clipes.
+
+### O que estava errado antes de qualquer animação nova
+
+`arte/personagem.glb` era gerado, conferido contra a direção de arte pelo
+Blender, conferido de novo sem o Blender por `conferir_numeros.py`, e
+rastreado no repositório. **E o jogo não o carregava.** `Boneco` montava o
+corpo de caixas, e os nomes que a camada de jogo pedia — `run`, `idle`,
+`swing`, `swing2`, `comboslash`, `shieldrush`, `shieldthrow`, `shieldwall` —
+eram do Leo do Royal Crown, herdados da pasta de assets extraídos que foi
+removida. Nenhum dos oito existia no nosso arquivo, e `Boneco.tocar` devolvia
+`false` sem dizer nada.
+
+Quatro ferramentas verdes, e nenhuma perguntava *o jogo consegue tocar isto?*.
+É a lição 9 do `CLAUDE.md` na forma mais pura, e a resposta é estrutural:
+`VocabularioDeAnimacao` guarda os nomes num lugar só, e `conferir_numeros.py`
+exige que cinco listas digam o mesmo — o vocabulário do jogo, `ANIMACOES` do
+gerador, as animações do `.glb` publicado, `NOMES_EXIGIDOS` e `EM_CICLO` do
+conferidor — e reprova `tocar("literal")`.
+
+### Três decisões que a medição obrigou
+
+- **`ride2_idle` e `ride2_run` dividem o clipe com `ride_idle` e `ride_run`.**
+  Mesma forma, mesmas durações medianas (1,33 s e 0,60 s), e duas coisas com a
+  mesma forma dividem o gesto — é o que o original faz no extremo dos seis
+  campeões sem clipe exclusivo nenhum. É por isso que 20 nomes cobrem 22
+  clipes.
+- **Os clipes de montaria são autorados no chão.** A altura da sela decidiria a
+  pose inteira de um corpo montado e não existe enquanto a montaria não
+  existir. Quem levanta o personagem até a sela é a CENA. Assim o item 5 do §10
+  continua valendo em vez de virar uma exceção com folga inventada.
+- **Reação não tem antecipação.** O item 4 do §10 pede recuo antes do golpe;
+  numa reação a regra se inverte, porque antecipar faria o personagem parecer
+  que sabia que ia apanhar. O §10 agora diz isso.
+
+### E o arremesso deixou de ser estocada
+
+`throw` é a conjuração UNIVERSAL do original: todo campeão tem `throw`,
+`throw_f` e `throw_b`, e os clipes próprios dele vêm por cima. Aqui,
+`GestoDeConjuracao` passou a escolher o arremesso para a forma `PROJECTILE` —
+**359 pulsos de projétil no corpus, em 223 habilidades**, a forma mais comum
+sem gesto próprio, e desenhá-la como estocada fazia lançar parecer esfaquear.
+
+Conjurar em MOVIMENTO usa `throw_f` ou `throw_b`, escolhidos pelo sinal de
+`velocidade · frente`. Os dois duram exatamente um ciclo de `correndo`, que é
+a regra do §5 medida em 30 e 29 dos 32 campeões — o corpo de cima é sobreposto
+às pernas que continuam correndo, e um comprimento diferente faria o passo
+saltar no meio do arremesso. `conferir_numeros.py` reprova se as três durações
+se separarem.
+
+### Home e End: a roda que dá consumidor a metade do vocabulário
+
+Sete dos 22 verbos universais são de MUNDO — colher, cortar, minerar, pegar,
+comer, beber, operar — e não temos loot, árvore nem minério; o par do abatido
+espera o estado de abatido; a montaria espera montaria. Sem um jeito de
+olhá-los em jogo eles seriam conteúdo que existe e ninguém pede, que é
+exatamente onde o `.glb` inteiro estava.
+
+`RodaDeAnimacao` percorre `VocabularioDeAnimacao.TODOS` com Home e End, com uma
+posição a mais que é "desligada". As três camadas visuais dão passagem a ela. É
+provisória pela mesma razão que o Page Down dos campeões é: sem ela, testar 25
+clipes exigiria 25 edições de cena.
+
+E a **sonda de ritmo percorre a roda inteira**, conferindo que cada clipe toca
+na posição dele e que a caminhada não o atropela. É a única conferência que
+executa TODOS os clipes.
+
+### Duas armadilhas pagas aqui, e nenhuma delas era mecânica
+
+- **A Godot não reimporta em `--headless --script`.** Ela serve o que está em
+  `.godot/imported/`, refeito só ao abrir o editor: regerar o boneco e rodar a
+  sonda em seguida testa o boneco ANTERIOR, com tudo verde. Só apareceu porque
+  o clipe novo mudou de NOME; se a mudança fosse de POSE, nada teria acusado.
+  `conferir_numeros.py` compara o md5 que a própria Godot grava ao lado do
+  artefato importado com o md5 do arquivo no disco.
+- **A folha de contato mentia por espaçamento.** O passo entre as cópias era
+  1,1 m fixo, escolhido para um boneco de pé, e a primeira animação deitada
+  saiu com as seis empilhadas uma sobre a outra — imagem gerada, script dizendo
+  "6 imagens", e nada julgável. Hoje o passo sai da largura medida da própria
+  animação.
+
+### O que só o olho pegou
+
+Nenhuma medição pega pose errada, e três saíram só na folha de contato:
+
+- em `levou_dano`, os braços iam para a FRENTE: num osso que aponta para baixo
+  o +X leva a ponta para trás, e eu escrevi -38. Na tela virou o personagem
+  estendendo as duas mãos como quem alcança alguma coisa
+- em `colhendo` e `pegando`, a mão parava na altura do peito. O braço tem
+  0,40 m do ombro ao pulso e não alcança o chão por rotação nenhuma — quem o
+  leva lá é o TRONCO
+- em `rastejando`, a perna abria em `Y`. Num corpo de pé o `Y` tomba o membro
+  para o lado; num corpo DEITADO a perna já aponta ao longo de `Y` e girá-la em
+  torno de `Y` a faz rodar sobre o próprio eixo. Quem abre a perna de um corpo
+  deitado é o `Z`, e a compensação errada pôs as duas canelas em pé no ar
+
+Duração, chão e amplitude estavam corretos nos três casos.
+
+---
+
+## 23. A meia volta do modelo mora na Godot, não no Blender
+
+**Decidido em 24/08/2026.** O usuário abriu o jogo depois que o boneco ganhou os
+25 clipes e disse: *"além de uma animação ruim, nem de frente o boneco tá"*.
+
+### O que estava acontecendo
+
+Medido dentro da engine, lendo as superfícies do `.glb` carregado:
+
+| superfície | material | z de | z a |
+|---|---|---|---|
+| 1 | `pele` (cabeça) | -0,170 | **+0,220** |
+| 4 | `sapato` (bico do pé) | -0,060 | **+0,240** |
+| 5 | `rosto` (viseira e nariz) | **+0,165** | **+0,185** |
+
+O rosto e o bico do pé apontam para **+Z**. A frente de um nó na Godot é
+**-Z** — é para lá que `look_at` aponta, e `player.gd` usa `look_at` para virar
+o corpo na direção em que ele anda. O personagem andava de costas, e como o
+gesto de conjuração também é desenhado a partir do corpo, ele golpeava para
+trás. As 25 animações eram lidas ao contrário.
+
+### Nada estava errado no `.glb`
+
+Esta é a parte que decide onde a correção vai. A especificação do glTF diz que
+**a frente de um asset é +Z**. O boneco é autorado encarando **-Y** no Blender,
+que é a frente de lá, e a conversão do exportador manda `-Y` do Blender para
+`+Z` do glTF. Cada etapa está correta pela regra da etapa.
+
+Quem diverge é a Godot, que adota `-Z`. Ou seja: não há defeito a consertar no
+gerador — há uma **conversão de sistema de eixos que ninguém fazia**.
+
+### Por que na fronteira, e não na origem
+
+A correção poderia ir no gerador, girando o esqueleto meia volta antes de
+exportar. Foi descartado por três motivos, nesta ordem:
+
+1. **Espalharia a mudança.** As poses são escritas em eixos do mundo (`+X`
+   inclina para a frente), `assentar` mede o chão, e `renderizar_previa.py`
+   enquadra a câmera contando com o rosto em `-Y`. Girar na origem obriga a
+   mexer nos três, e o preço de errar num deles é uma pose torta que passa por
+   todas as ferramentas — que é exatamente o defeito que estamos consertando.
+2. **Quebraria a conformidade do arquivo.** Um `.glb` com a frente em `-Z` está
+   errado para qualquer outro consumidor de glTF, e qualquer ferramenta que um
+   dia leia ou escreva este arquivo — um visualizador, um validador, outro
+   gerador — vai discordar dele pela regra da especificação.
+3. **`boneco.gd` já é essa fronteira.** `giro_externo_graus` existe ali há
+   sessões, pelo mesmo motivo, para as malhas do andaime.
+
+A decisão: `Boneco.giro_do_modelo`, `Vector3(0, 180, 0)`, aplicado ao instanciar
+a cena. Gira só a MALHA. Quem decide para onde o personagem olha continua sendo
+o corpo — `-basis.z`, em `combatant.gd` e em `player.gd` —, então combate,
+telegrafia e alcance não mudam de comportamento.
+
+### A defesa que faltava, e é o achado que vale mais
+
+Quatro ferramentas verdes, e o defeito chegou à tela. Elas mediam **tamanho**:
+proporção contra a direção de arte, duração de clipe, fechamento de ciclo, pé no
+chão, nome de animação nos dois sentidos. Nenhuma perguntava *para que lado a
+cara aponta*.
+
+E havia coisa pior que ausência: o comentário de `_montar_modelo` **afirmava a
+resposta**, dizendo que o modelo já nascia olhando para `-Z` e que girar seria
+consertar duas vezes. Justificativa gravada que ninguém mede é afirmação, e esta
+estava errada — a mesma classe que já custou cinco rodadas neste projeto.
+
+Hoje `tools/sondar_campeoes.gd` mede, e a medida é uma **projeção, não uma lista
+de propriedades**: o centro das caixas de material `rosto` menos o centro do
+corpo inteiro, projetado no `-basis.z` do corpo. Positivo quer dizer que a cara
+vai na frente. Enumerar eixo, sinal e rotação um a um é a armadilha que mais
+rendeu achado aqui; um produto escalar fecha a classe.
+
+Piso de 10 cm contra os 14,3 cm medidos. Duas mutações provam que ela confere:
+
+- **zerar `giro_do_modelo`** dá -0,143 m e reprova — o defeito original;
+- **tirar o material `rosto` do gerador** faz a conferência não achar o que
+  medir, e ela reprova em vez de aprovar. Sem esse par, um `rename` desligaria
+  a defesa em silêncio, que é a armadilha do padrão órfão.
+
+### O que isto NÃO resolve
+
+*"Animação ruim"* é a outra metade da frase do usuário, e ela continua aberta.
+Parte dela é consequência disto — um ciclo de caminhada visto ao contrário lê
+como deslizamento —, mas nem tudo é: medido, `parado` desloca **0,12 m** em 2 s
+no vértice que mais se move, e `montado` desloca 0,05 m. O piso do conferidor é
+0,03 m, então os dois passam com folga e mesmo assim leem como corpo congelado.
+
+Não há número do original para ancorar amplitude: o censo mediu duração e
+ciclo, não excursão. Enquanto não houver, **quem julga é o olho** — e é por isso
+que isto está registrado como pendência, e não corrigido por chute.
+
+---
+
+## 24. A arte é gerada por script no Blender, e não comprada
+
+**Decidido em 24/08/2026, pelo usuário**, com estas palavras:
+
+> *"esquece meshy/mixamo, baixei o blender, vc vai gerar tudo q a gente precisa
+> nele, pode remover qualquer espectativa de meshy/mixamo"*
+
+### O que existia antes
+
+`docs/08-arte-e-assets.md` descrevia, em 160 linhas, um pipeline de compra:
+concept 2D numa IA de imagem → Meshy ou Tripo para virar 3D → auto-rig da Meshy
+ou do Mixamo → ajuste no Blender, servido por dois servidores MCP, com créditos
+por operação e URLs de download que expiram em três dias. E o roadmap marcava
+tudo isso como Fase 6, atrás de *"só começa depois que a Fase 5 provou que o
+jogo é divertido"*.
+
+Nada disso vale mais. O documento foi reescrito, e as menções em `CLAUDE.md`,
+`docs/04-roadmap.md` e nos comentários de `boneco.gd` e `gesto_de_conjuracao.gd`
+foram trocadas.
+
+### Por que a troca não é só de fornecedor
+
+Um modelo comprado tem as proporções que tem. Um modelo gerado tem as
+proporções que alguém escreveu — e se elas vierem de uma medição, a conferência
+pode reprovar quando o modelo sai da direção. **Não há como conferir um `.fbx`
+baixado contra coisa nenhuma**, e este projeto já mede proporção, ritmo,
+vocabulário e esbeltez do original em 27 campeões.
+
+Três consequências que valem além do boneco:
+
+1. **Regenerar é barato.** Mudar a altura do elenco é editar uma constante e
+   rodar dez segundos. No caminho antigo era refazer personagem e rigging.
+2. **Um rig só deixa de depender de disciplina.** A "regra crítica" de
+   `docs/08` — definir esqueleto padrão antes do primeiro personagem, senão o
+   trabalho de animação é multiplicado — passa a ser consequência da
+   construção: existe um `OSSOS`, e não há outro.
+3. **O artefato é conferível sem a engine e sem o Blender.**
+   `tools/conferir_numeros.py` lê o `.glb` commitado em Python puro. Foi assim
+   que se descobriu, uma vez, que o `.glb` do repositório não vinha do gerador
+   do repositório.
+
+### E ela deixa de ser Fase 6
+
+O adiamento existia porque o caminho antigo custava dinheiro num jogo que ainda
+não provou ser divertido. Um gerador local não tem esse custo. A regra do
+roadmap — *"❌ Fazer arte antes da Fase 6"* — continua valendo para o que ela
+protege, que é **acabamento**: textura, som, iluminação, variação de elenco. Não
+para ter um corpo que o jogador consiga ler, que é requisito de teste e não
+enfeite.
+
+### O que isto NÃO autoriza
+
+Continua valendo `docs/01`: do Royal Crown entram **números e estrutura**, nunca
+arte, som, código ou texto. Gerar em vez de comprar não muda a fronteira — o
+censo lê os bundles da Steam e escreve um JSON de medidas, e nenhum byte de
+malha, textura ou animação do original entra neste repositório.

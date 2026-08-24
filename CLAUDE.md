@@ -38,7 +38,7 @@ jogam até o fim, e alguém ganha.*
 | Renderer | **Forward+** (GPU dedicada: AMD Radeon RX 7600 XT), driver D3D12 |
 | Multiplayer | Godot high-level networking + export headless de servidor |
 | Lobby/matchmaking | A definir (provável Node ou Spring — fora da engine) |
-| Arte 3D | Meshy (via MCP) + Mixamo — **só na Fase 6** |
+| Arte 3D | **Gerada por script no Blender**, neste repositório — decisão 24 |
 | Controles | **Esquema do League of Legends** (ver decisão 7) |
 
 ## Controles
@@ -177,7 +177,7 @@ Ordem de desenho entre materiais com `no_depth_test` é decidida por
 | `docs/05-extracao-dados-apk.md` | Recuperar as tabelas de design do jogo original |
 | `docs/06-setup-ambiente.md` | Godot, WSL, Git, renderer |
 | `docs/07-primeira-cena.md` | Passo a passo da Fase 1.1, com código |
-| `docs/08-arte-e-assets.md` | Meshy, Mixamo, MCP — só relevante na Fase 6 |
+| `docs/08-arte-e-assets.md` | **O pipeline de arte: geração por script no Blender** |
 | `docs/09-glossario.md` | Termos de game dev traduzidos |
 | `docs/10-traducao-do-original.md` | **O original traduzido para o nosso vocabulário** — o mapeamento, o que cresceu e as lacunas |
 | `docs/11-direcao-de-arte.md` | **Proporção, ritmo e vocabulário de animação**, medidos em 25 campeões e 1350 clipes do original |
@@ -191,7 +191,7 @@ Classificação honesta do conteúdo:
 - Fatos sobre o Royal Crown original (datas, campeões, jogadores, mecânicas)
 - APIs de GDScript usadas em `07-primeira-cena.md`
 - Breaking changes da 4.6→4.7 (nenhum afeta o código aqui)
-- Integração MCP da Meshy: comandos, ferramentas, créditos, licença
+- ~~Integração MCP da Meshy~~ — descartada em 24/08/2026 (decisão 24)
 
 **Não verificado — tratar como plausível, não como fato:**
 - Passo a passo de navegação do editor (nomes de menu podem diferir na 4.7)
@@ -215,12 +215,57 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 
 ## Estado atual
 
-> Última atualização: **23/08/2026**. Repositório em `github.com:Tiago195/mbr`,
+> Última atualização: **24/08/2026**. Repositório em `github.com:Tiago195/mbr`,
 > branch `master`. **478 testes, 1304 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
 > **PARE AQUI E LEIA.** Esta seção é o ponto de partida da próxima sessão.
+
+### O que esta sessão fez, e o buraco que ela achou primeiro
+
+**`arte/personagem.glb` era gerado, conferido, rastreado — e o jogo não o
+carregava.** `Boneco` montava o corpo de caixas, e os nomes que a camada de
+jogo pedia (`run`, `idle`, `swing`, `swing2`, `comboslash`, `shieldrush`,
+`shieldthrow`, `shieldwall`) eram do Leo do Royal Crown, herdados da pasta de
+assets extraídos que foi removida. Nenhum dos oito existia no nosso arquivo, e
+`Boneco.tocar` devolvia `false` calado. Quatro ferramentas verdes, e nenhuma
+perguntava *o jogo consegue tocar isto?* — lição 9, na forma mais pura.
+
+Fechado isso, o boneco passou a falar o vocabulário do original: **20 dos 22
+verbos universais** medidos no §3 de `docs/11`, mais os cinco gestos e o
+arremesso — **25 clipes**. Os dois que faltam para 22 são `ride2_idle` e
+`ride2_run`, que dividem o clipe com `ride_idle` e `ride_run` pela regra do
+próprio documento: mesma forma, mesmo gesto. Ver a decisão 22 em
+`docs/02-decisoes-tecnicas.md`.
+
+**E ele estava DE COSTAS.** O usuário abriu na Godot e disse: *"além de uma
+animação ruim, nem de frente o boneco tá"*. Medido dentro da engine, a viseira e
+o nariz ficavam em `z = +0,165 a +0,185` e o bico do sapato ia a `z = +0,240` —
+o rosto olhava para **+Z**, e a frente de um nó na Godot é **-Z**, que é para
+onde `player.gd` aponta o corpo com `look_at`. O personagem andava para trás,
+golpeava para trás, e todas as 25 animações eram lidas ao contrário.
+
+**O `.glb` não estava errado**: a especificação do glTF diz que a frente de um
+asset é +Z, e o exportador do Blender entrega exatamente isso a partir do -Y em
+que o boneco é autorado. Quem discorda é a Godot. A conversão faltava, e agora
+mora em `Boneco.giro_do_modelo` — o único ponto em que os dois sistemas de eixo
+se encostam. Ver a decisão 23 em `docs/02-decisoes-tecnicas.md`.
+
+**O que deixou isso passar é a lição 9 outra vez, num eixo novo.** As quatro
+ferramentas mediam TAMANHO — proporção, duração, fechamento de ciclo, pé no
+chão — e nenhuma perguntava *para que lado a cara aponta*. Pior: o comentário de
+`boneco.gd` AFIRMAVA a resposta, e a afirmação estava errada. Hoje
+`sondar_campeoes.gd` projeta o centro das caixas do rosto sobre o `-basis.z` do
+corpo e reprova abaixo de 10 cm; medido, dá +0,143 m, e zerar o giro dá -0,143.
+
+**Home e End percorrem os 25 clipes em jogo** (`RodaDeAnimacao`). Existe porque
+metade do vocabulário não tem sistema que a dispare — sete dos 22 verbos
+universais são de mundo, e não temos loot, árvore nem minério — e sem um jeito
+de olhá-los eles seriam conteúdo que existe e ninguém pede, que é exatamente
+onde o `.glb` inteiro estava.
+
+---
 
 O usuário testou os campeões em jogo e disse: *"achei vários problemas com as
 skills, várias não estão funcionando como deveria"*. Medido, não era bug de
@@ -241,9 +286,16 @@ esperando ser ligado.
 
 **O que exige o usuário, e vem antes.** Em **23/08/2026** ele testou em jogo e
 validou a telegrafia, a carga de suprema e o ritmo do reset de auto-ataque
-(*"bom, melhorou"*). **Continua sem ver a perseguição da âncora e a corrente de
-combo** — as duas são sensação de jogo, e as sondas sabem que não quebrou, não
-que ficou bom. É a lista completa do que falta de olho humano; não há outra.
+(*"bom, melhorou"*). Falta ele ver:
+
+1. **a perseguição da âncora e a corrente de combo** — as duas são sensação de
+   jogo, e as sondas sabem que não quebrou, não que ficou bom;
+2. **os 25 clipes do boneco**, com Home e End. As sondas conferem que cada um
+   existe, dura o que a direção de arte manda, fecha o ciclo, mantém o pé no
+   chão e é tocado pelo evento certo. Nenhuma delas sabe se a silhueta diz o
+   que a animação é — que é o item 7 do §10, e o único que não se automatiza.
+
+É a lista completa do que falta de olho humano; não há outra.
 
 **E ele não conseguiu testá-las.** Palavras dele: *"não sei se estou usando a
 mesma habilidade ou se são habilidades diferentes, tudo que vejo são formas"*.
@@ -262,8 +314,13 @@ vê. Daí saíram três coisas, todas camada visual pura:
   varia de 2 m a 6 m entre campeões e era invisível; sem ele, "a mira estava
   torta" e "o alvo estava longe demais" têm a mesma aparência: nada acontece
 - `scripts/gameplay/gesto_de_conjuracao.gd` — **o corpo faz alguma coisa ao
-  conjurar**. Estocada, giro, salto, erguer, e um preparo que dura a conjuração
-  inteira, escolhidos pela forma do primeiro pulso com efeito
+  conjurar**. Estocada, giro, salto, erguer, arremesso, e um preparo que dura a
+  conjuração inteira, escolhidos pela forma do primeiro pulso com efeito.
+  Conjurar ANDANDO tem clipe próprio, como no original — `throw_f` e `throw_b`,
+  que duram exatamente um ciclo de corrida (§5)
+- `scripts/gameplay/gesto_de_reacao.gd` — **o corpo reage ao que fazem com
+  ele**: levou dano, atordoado e morte. As outras duas camadas desenham o que o
+  jogador MANDA; num jogo de luta o que o adversário faz é a outra metade
 - `scripts/gameplay/gesto_de_caminhada.gd` — passada em vez de deslizamento
 
 **E existe uma direção de arte agora, medida e executável.** O usuário pediu
@@ -296,7 +353,7 @@ Três achados que valem além da arte:
 `tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
 — e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
 reprova quando documento e código discordam, mediana E faixa.
-**49 mutações, 49 pegas** — 16 no boneco e 33 na concordância.
+**75 mutações, 75 pegas** — 17 no boneco e 58 na concordância.
 
 **E isto foi REPROVADO DUAS VEZES por um validador adversarial**, com 17 e 12
 achados. A segunda rodada achou o pior de todos, e era de processo: **o `.glb`
@@ -349,8 +406,8 @@ está registrada aqui porque vai voltar: **o repositório não tem um único
 asset** — 79 scripts, 13 documentos, 3 JSONs, 2 cenas, zero imagens, malhas ou
 sons. O que a tradução guarda de uma habilidade é `cooldown: 0.8`,
 `cast_range: 2.0` e o NOME de um ícone. Número de recarga é fato funcional;
-malha e animação são obra expressiva, e é a linha de `docs/01`. O caminho
-previsto para os bonecos é Meshy + Mixamo, na Fase 6.
+malha e animação são obra expressiva, e é a linha de `docs/01`. O caminho dos
+bonecos é **gerá-los no Blender**, aqui — decisão 24.
 
 #### A tabela, e como ela terminou
 
@@ -458,7 +515,7 @@ py tools/arte/mutar_boneco.py
 py tools/mutar_direcao.py
 ```
 
-**49 mutações, 49 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
+**75 mutações, 75 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
 artefatos inclusive** — restaurar só o código-fonte já deixou um `.glb`
 commitado vindo de uma mutação, e restaurar só o `.glb` deixou o `.blend`.
 **Rodar uma de cada vez:** as duas mutam os mesmos arquivos, e sobrepô-las
@@ -478,7 +535,7 @@ Estado ao fim desta sessão: **478 testes, 1304 asserções**, stderr 0 bytes,
 sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
 44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
 conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
-**330 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**403 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar

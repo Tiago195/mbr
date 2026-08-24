@@ -374,6 +374,9 @@ func _conferir_vocabulario(
 	# ------------------------------------------- a roda percorre TUDO
 	falhas.append_array(await _conferir_a_roda(jogador, boneco, animador))
 
+	# ------------------------------------ conjurar ANDANDO tem clipe próprio
+	falhas.append_array(await _conferir_conjurar_andando(jogador, meu, animador))
+
 	# Morrer é a ÚLTIMA coisa que a sonda faz com este corpo, porque ele não
 	# volta. O clipe termina deitado e nenhuma camada desenha por cima.
 	var alto_de_pe: float = _mais_alto(boneco, jogador)
@@ -411,6 +414,147 @@ func _conferir_vocabulario(
 	print(("  vocabulário: dano -> `%s`; atordoado -> `%s`; solto -> `%s`; "
 		+ "morto: corpo a %.2f m (de pé %.2f)")
 		% [reagindo, preso, parado, alto_morto, alto_de_pe])
+	return falhas
+
+
+## Conjurar em movimento usa `throw_f` ou `throw_b`, e o lado certo de cada um.
+##
+## No original as duas variantes existem nos 32 campeões: são a conjuração
+## UNIVERSAL, e os clipes próprios de campeão vêm por cima delas. Quem se afasta
+## do lado para onde olha está recuando, e é `throw_b` que desenha isso.
+##
+## Sem esta conferência, `_clipe_em_movimento` podia devolver o nome certo e
+## `_ao_conjurar` ignorá-lo — a diferença entre a regra existir e a regra valer.
+func _conferir_conjurar_andando(
+		jogador: CharacterBody3D, meu: Combatant, animador: AnimationPlayer
+) -> Array[String]:
+	var falhas: Array[String] = []
+	var caster: AbilityCaster = null
+	for filho: Node in jogador.get_children():
+		if filho is AbilityCaster:
+			caster = filho as AbilityCaster
+	if caster == null:
+		return ["a cena não tem AbilityCaster"] as Array[String]
+
+	# A frente do personagem, para montar uma velocidade de cada lado dela.
+	var frente: Vector3 = -jogador.global_transform.basis.z
+	frente.y = 0.0
+	frente = frente.normalized()
+	for direcao_e_clipe: Array in [
+		[frente, VocabularioDeAnimacao.ARREMESSO_A_FRENTE],
+		[-frente, VocabularioDeAnimacao.ARREMESSO_ATRAS],
+	]:
+		caster.book.clear_cooldowns()
+		meu.unit.mana.current = meu.unit.mana.maximum()
+		meu.unit.status.clear_all()
+		# **A velocidade é reposta a cada quadro**: `move_and_slide` a consome,
+		# e uma velocidade escrita uma vez só já era zero quando a conjuração
+		# saía — a conferência aprovaria o clipe parado achando que media o de
+		# movimento.
+		jogador.velocity = (direcao_e_clipe[0] as Vector3) * 3.0
+		caster.call("_try_cast", AbilityBook.Slot.Q)
+		await process_frame
+		var tocando: StringName = animador.current_animation
+		if tocando != StringName(direcao_e_clipe[1]):
+			falhas.append(
+				"conjurar andando para %s tocou `%s` em vez de `%s`"
+					% ["a frente" if direcao_e_clipe[0] == frente else "trás",
+					   tocando, direcao_e_clipe[1]]
+			)
+		for _passo: int in 40:
+			await physics_frame
+			await process_frame
+
+	# E o par de controle: PARADO, o mesmo aperto tem que dar um gesto que NÃO
+	# é o de movimento. Sem ele, devolver `throw_f` sempre passaria.
+	caster.book.clear_cooldowns()
+	meu.unit.mana.current = meu.unit.mana.maximum()
+	jogador.velocity = Vector3.ZERO
+	jogador.set("target_position", jogador.global_position)
+	caster.call("_try_cast", AbilityBook.Slot.Q)
+	await process_frame
+	var parado_toca: StringName = animador.current_animation
+	if (parado_toca == VocabularioDeAnimacao.ARREMESSO_A_FRENTE
+			or parado_toca == VocabularioDeAnimacao.ARREMESSO_ATRAS):
+		falhas.append(
+			"conjurar PARADO tocou `%s`, que é o clipe de conjurar andando"
+				% parado_toca
+		)
+	print("  vocabulário: conjurar andando -> `%s` / `%s`; parado -> `%s`"
+		% [VocabularioDeAnimacao.ARREMESSO_A_FRENTE,
+		   VocabularioDeAnimacao.ARREMESSO_ATRAS, parado_toca])
+	for _passo: int in 40:
+		await physics_frame
+		await process_frame
+
+	# ------------------------------------------ a FORMA escolhe o gesto
+	#
+	# **Isto escapou de uma rodada de mutação**: trocar `PROJECTILE` de volta
+	# para `ESTOCADA` em `_gesto_para` passava por todas as ferramentas, porque
+	# nenhuma conjurava uma habilidade de projétil PARADO. O kit do campeão da
+	# sonda não tem uma, e por isso a conjuração vem de um pulso montado aqui —
+	# a mesma técnica das habilidades de sonda que já existem neste arquivo.
+	#
+	# São 359 pulsos de projétil no corpus, em 223 habilidades: é a forma mais
+	# comum do jogo, e ela desenhada como estocada faz lançar parecer
+	# esfaquear.
+	falhas.append_array(await _conferir_a_forma(jogador, animador))
+	return falhas
+
+
+## Cada FORMA de pulso escolhe o gesto dela.
+##
+## Conjura direto pelo sinal `cast_attempted`, que é o que `GestoDeConjuracao`
+## escuta: o que se está conferindo é a tradução forma -> gesto -> clipe, e não
+## o motor de habilidade, que a suíte já cobre.
+func _conferir_a_forma(
+		jogador: CharacterBody3D, animador: AnimationPlayer
+) -> Array[String]:
+	var falhas: Array[String] = []
+	var caster: AbilityCaster = null
+	for filho: Node in jogador.get_children():
+		if filho is AbilityCaster:
+			caster = filho as AbilityCaster
+	if caster == null:
+		return ["a cena não tem AbilityCaster"] as Array[String]
+
+	jogador.velocity = Vector3.ZERO
+	jogador.set("target_position", jogador.global_position)
+	var vistos: Array[String] = []
+	for forma_e_clipe: Array in [
+		[AbilityPulse.Form.PROJECTILE, VocabularioDeAnimacao.ARREMESSO],
+		[AbilityPulse.Form.LINE, VocabularioDeAnimacao.ESTOCADA],
+	]:
+		var ability := Ability.new()
+		ability.id = &"sonda_de_forma"
+		var pulse: AbilityPulse = ability.single_pulse()
+		pulse.form = forma_e_clipe[0]
+		pulse.effects = [DamageEffect.new()]
+		caster.cast_attempted.emit(
+			AbilityBook.Slot.Q, ability,
+			CastResult.of(CastResult.Status.SUCCESS, ability)
+		)
+		await process_frame
+		vistos.append(String(animador.current_animation))
+		if animador.current_animation != StringName(forma_e_clipe[1]):
+			falhas.append(
+				"a forma %s devia desenhar `%s` e desenhou `%s`"
+					% [AbilityPulse.Form.keys()[forma_e_clipe[0]],
+					   forma_e_clipe[1], animador.current_animation]
+			)
+		for _passo: int in 40:
+			await physics_frame
+			await process_frame
+	# **E as duas têm que ser DIFERENTES.** Um gesto só para as duas formas
+	# passaria nas comparações acima se as duas esperassem o mesmo nome — e foi
+	# assim que projétil e estocada dividiram o mesmo clipe sem ninguém ver.
+	if vistos.size() == 2 and vistos[0] == vistos[1]:
+		falhas.append(
+			"projétil e linha desenharam o mesmo clipe (`%s`)" % vistos[0]
+		)
+	print("  vocabulário: projétil -> `%s`; linha -> `%s`"
+		% [vistos[0] if vistos.size() > 0 else "?",
+		   vistos[1] if vistos.size() > 1 else "?"])
 	return falhas
 
 

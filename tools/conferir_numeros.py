@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import contextlib
 import json
+import math
 import os
+import ast
 import re
 import struct
 import subprocess
@@ -1353,9 +1355,65 @@ GEOMETRIA_DO_GLB = {
     "ombro": lambda p, h: p["braco_D"][1] / h,
     "vao_dos_ombros": lambda p, h: abs(p["braco_D"][0] - p["braco_E"][0]) / h,
     "vao_dos_quadris": lambda p, h: abs(p["coxa_D"][0] - p["coxa_E"][0]) / h,
+    # **DISTÂNCIA do ombro ao pulso, não a diferença de altura entre eles.**
+    #
+    # Enquanto o braço caía reto, os dois números eram o mesmo e a diferença de
+    # altura era mais barata de escrever. Com o repouso em A eles se separam por
+    # `cos(20°)`, e a conta dava 0,602 onde o gerador diz 0,629 — reprovando o
+    # artefato por um defeito que estava na régua.
+    #
+    # A mesma hipótese existia no conferidor que roda dentro do Blender, e foi
+    # corrigida lá primeiro. Duas réguas para a mesma medida é uma delas ficar
+    # para trás, e ficou.
     "vao_das_maos": lambda p, h: (abs(p["braco_D"][0] - p["braco_E"][0])
-                                  + 2.0 * (p["braco_D"][1] - p["mao_D"][1])) / h,
+                                  + 2.0 * _distancia(p["braco_D"],
+                                                     p["mao_D"])) / h,
 }
+
+
+def _distancia(a, b) -> float:
+    """Distância entre dois pontos do `.glb`, sem depender de qual eixo é qual."""
+    return math.sqrt(sum((a[i] - b[i]) ** 2 for i in range(3)))
+
+
+def _dicionario_de_texto(fonte: str, nome: str) -> dict:
+    """`{chave: "valor"}` de um dicionário literal de strings, lido do texto."""
+    trecho = re.search(r"^%s = \{(.*?)^\}" % nome, fonte, re.S | re.M)
+    if trecho is None:
+        return {}
+    return dict(re.findall(r'"(\w+)":\s*"(\w+)"', trecho.group(1)))
+
+
+def _vertices_esperados(gerador: str):
+    """Quantos vértices o corpo exportado deve ter, DERIVADO do gerador.
+
+    **Era `peças × 24`, e envelheceu junto com a forma.** Vinte e quatro era o
+    número de uma caixa reta; hoje uma peça pode ser caixa chanfrada, que
+    exporta 216, ou prisma de oito lados, que exporta 48. Um literal aqui
+    envelheceria de novo na próxima vez que a forma mudasse — por isso ela lê as
+    duas contagens E as duas listas do próprio gerador, e a conta segue a
+    decisão dele em vez de repeti-la.
+
+    Devolve `None` quando não consegue montar a conta, e quem chama trata isso
+    como falha: conferência que não acha o que conferir não aprova nada.
+    """
+    por_osso = _dicionario_de_texto(gerador, "REGIAO_DO_OSSO")
+    bloco = re.search(r"^DESENHADOS_COMO_TUBO = \{(.*?)^\}", gerador, re.S | re.M)
+    adornos = re.search(r"^ADORNOS = \[(.*?)^\]", gerador, re.S | re.M)
+    caixa = re.search(r"^VERTICES_DA_CAIXA = (\d+)", gerador, re.M)
+    tubo = re.search(r"^VERTICES_DO_TUBO = (\d+)", gerador, re.M)
+    if not por_osso or bloco is None or adornos is None or not caixa or not tubo:
+        return None
+    tubos = set(re.findall(r'"(\w+)"', bloco.group(1)))
+    if not tubos:
+        return None
+    # O pé é desenhado como adorno, não como caixa de osso.
+    de_osso = [osso for osso, regiao in por_osso.items() if regiao != "pe"]
+    quantos_tubos = len([osso for osso in de_osso if osso in tubos])
+    quantas_caixas = (len(de_osso) - quantos_tubos
+                      + len(re.findall(r"^\t\(\"", adornos.group(1), re.M)))
+    return (quantas_caixas * int(caixa.group(1))
+            + quantos_tubos * int(tubo.group(1)))
 
 
 def _conferir_a_geometria_do_glb(c: "Conferencia", gerador: str) -> None:
@@ -1384,24 +1442,21 @@ def _conferir_a_geometria_do_glb(c: "Conferencia", gerador: str) -> None:
     # a mão, por exemplo, cuja falta produziu o "número certo pelo motivo
     # errado" da primeira revisão.
     c.contar()
-    caixas = re.search(r"^CAIXAS = \{(.*?)^\}", gerador, re.S | re.M)
-    adornos = re.search(r"^ADORNOS = \[(.*?)^\]", gerador, re.S | re.M)
-    if caixas is None or adornos is None:
-        c.falhas.append("não achei as caixas do corpo no gerador")
+    esperado = _vertices_esperados(gerador)
+    if esperado is None:
+        c.falhas.append("não achei as peças do corpo no gerador")
     else:
-        pecas = (len(re.findall(r"^\t\"\w+\":", caixas.group(1), re.M))
-                 + len(re.findall(r"^\t\(\"", adornos.group(1), re.M)))
         vertices = 0
         for malha in cabecalho.get("meshes", []):
             for primitiva in malha.get("primitives", []):
                 indice = primitiva.get("attributes", {}).get("POSITION")
                 if indice is not None:
                     vertices += cabecalho["accessors"][indice].get("count", 0)
-        if vertices != pecas * 24:
+        if vertices != esperado:
             c.falhas.append(
-                "o gerador descreve %d caixas (%d vértices) e o `.glb` tem %d "
-                "— o corpo exportado tem outra quantidade de peças"
-                % (pecas, pecas * 24, vertices)
+                "o gerador descreve %d vértices de corpo e o `.glb` tem %d — o "
+                "corpo exportado tem outra quantidade de peças"
+                % (esperado, vertices)
             )
 
     for chave, ler_do_glb in sorted(GEOMETRIA_DO_GLB.items()):
@@ -1620,6 +1675,36 @@ def _conferir_o_vocabulario(
              r"nosso boneco tem \*\*(\d+) dos 22\*\*",
              len(vocab["no_original"]))
 
+    # **A regra do §5: conjurar andando dura um ciclo de corrida.**
+    #
+    # No original `throw_b` bate com `run` em 30 dos 32 campeões e `throw_f`
+    # em 29 — o corpo de cima é sobreposto às pernas que continuam correndo, e
+    # um comprimento diferente faria o passo saltar no meio do arremesso. Os
+    # nossos três saem daqui pelo nome do ORIGINAL, e não por uma lista escrita
+    # nesta função: se um dia o vocabulário renomear os clipes, a conferência
+    # acompanha em vez de ficar órfã.
+    duracoes = _duracoes_do_gerador(gerador)
+    do_original = {deles: nossa for nossa, deles in vocab["no_original"].items()}
+    corrida = do_original.get("run")
+    for variante in ("throw_f", "throw_b"):
+        c.contar()
+        nossa = do_original.get(variante)
+        if nossa is None or corrida is None:
+            # As três existem ou nenhuma: enquanto o vocabulário não tiver as
+            # variantes, não há o que comparar — e isso não é falha.
+            continue
+        if nossa not in duracoes or corrida not in duracoes:
+            c.falhas.append(
+                "o gerador não descreve `%s` ou `%s` — a regra do §5 ficou órfã"
+                % (nossa, corrida)
+            )
+        elif abs(duracoes[nossa] - duracoes[corrida]) > 1e-9:
+            c.falhas.append(
+                "docs/11 §5: `%s` dura %.3f s e `%s` dura %.3f s — conjurar em "
+                "movimento tem que durar exatamente um ciclo de corrida"
+                % (nossa, duracoes[nossa], corrida, duracoes[corrida])
+            )
+
     # **Nome de clipe escrito à mão volta a ser nome que ninguém confere.**
     # Toda chamada tem que passar por uma constante do vocabulário; um literal
     # em `tocar("...")` é exatamente como os oito nomes do Royal Crown
@@ -1634,6 +1719,197 @@ def _conferir_o_vocabulario(
         c.falhas.append(
             "há chamada de `tocar` com nome escrito à mão em %s — use uma "
             "constante de `VocabularioDeAnimacao`" % sorted(set(soltos))
+        )
+
+
+def _quantas_mutacoes(caminho: str) -> int:
+    """Quantas entradas tem a lista `MUTACOES` de uma suíte de mutação.
+
+    Lida por `ast`, e não por regex nem por `import`: regex conta parêntese e
+    erra quando uma entrada ocupa várias linhas — que é o caso das duas —, e
+    importar executaria o módulo. Devolve -1 quando a lista não existe, para
+    que `afirma` trate como órfã em vez de aprovar.
+    """
+    try:
+        arvore = ast.parse(ler(caminho))
+    except (OSError, SyntaxError):
+        return -1
+    for no in ast.walk(arvore):
+        if not isinstance(no, ast.Assign):
+            continue
+        for alvo in no.targets:
+            if isinstance(alvo, ast.Name) and alvo.id == "MUTACOES":
+                if isinstance(no.value, (ast.List, ast.Tuple)):
+                    return len(no.value.elts)
+    return -1
+
+
+def _conferir_as_mutacoes(c: "Conferencia") -> None:
+    """O `CLAUDE.md` publica quantas mutações existem; elas têm que existir.
+
+    **Este número já era escrito à mão, e é o pior tipo de número escrito à
+    mão**: ele mede o TAMANHO da defesa, então quem o lê está decidindo o
+    quanto confiar no resto. Uma mutação acrescentada sem atualizar o documento
+    deixava o texto subestimando a suíte, e uma removida deixava o texto
+    prometendo cobertura que não existia — sem ruído nos dois casos.
+
+    Confere o total E as duas parcelas. Só o total deixaria mover uma mutação
+    de uma suíte para a outra sem ninguém ver, e as duas suítes rodam por
+    caminhos diferentes: uma precisa do Blender, a outra da Godot.
+    """
+    try:
+        claude = ler("CLAUDE.md")
+    except OSError as erro:
+        c.contar()
+        c.falhas.append("o CLAUDE.md não pôde ser lido: %s" % erro)
+        return
+    no_boneco = _quantas_mutacoes("tools/arte/mutar_boneco.py")
+    na_concordancia = _quantas_mutacoes("tools/mutar_direcao.py")
+    for onde, quantas in (("tools/arte/mutar_boneco.py", no_boneco),
+                          ("tools/mutar_direcao.py", na_concordancia)):
+        if quantas < 0:
+            c.contar()
+            c.falhas.append(
+                "não achei a lista `MUTACOES` em %s — a conferência das "
+                "contagens de mutação ficou órfã" % onde
+            )
+            return
+    c.afirma("CLAUDE.md mutações no boneco", claude,
+             r"\*\*(?:\d+) mutações, (?:\d+) pegas\*\* — (\d+) no boneco",
+             no_boneco)
+    c.afirma("CLAUDE.md mutações na concordância", claude,
+             r"— (?:\d+) no boneco e (\d+) na concordância",
+             na_concordancia)
+    # O total é afirmado DUAS vezes no documento, em seções diferentes, e as
+    # duas são conferidas: elas já discordaram entre si.
+    total = no_boneco + na_concordancia
+    # O `\.?` não é zelo: a segunda ocorrência termina em "pegas.**", com o
+    # ponto DENTRO do negrito, e sem ele o padrão achava uma só. A conferência
+    # acusou isso na primeira execução — que é o que ela deve fazer quando só
+    # acha metade do que promete conferir.
+    achados = re.findall(r"\*\*(\d+) mutações, (\d+) pegas\.?\*\*", claude)
+    c.contar()
+    if len(achados) < 2:
+        c.falhas.append(
+            "o CLAUDE.md publica a contagem de mutações %d vez(es); ela "
+            "aparece em duas seções e as duas são conferidas" % len(achados)
+        )
+        return
+    for publicado, pegas in achados:
+        if int(publicado) != total or int(pegas) != total:
+            c.falhas.append(
+                "o CLAUDE.md diz \"%s mutações, %s pegas\" e as suítes têm %d "
+                "(%d no boneco + %d na concordância)"
+                % (publicado, pegas, total, no_boneco, na_concordancia)
+            )
+            return
+
+
+def _dicionario_do_fonte(fonte: str, nome: str) -> dict:
+    """`{chave: float}` de um dicionário literal no texto de um arquivo.
+
+    Lido do TEXTO e não importado, pelo mesmo motivo de `_proporcao_do_gerador`:
+    o gerador faz `import bpy` no topo e esta ferramenta roda no Python do
+    sistema. Devolve vazio quando o bloco não existe — e quem chama trata isso
+    como falha, nunca como "nada a conferir".
+    """
+    trecho = re.search(r"^%s = \{(.*?)^\}" % nome, fonte, re.S | re.M)
+    if trecho is None:
+        return {}
+    return {
+        chave: float(valor)
+        for chave, valor in re.findall(r'"(\w+)":\s*([0-9.]+)', trecho.group(1))
+    }
+
+
+def _conferir_a_esbeltez(c: "Conferencia") -> None:
+    """A espessura do boneco veio da medição, e não da cabeça de quem escreveu.
+
+    **Esta é a metade do laço que o conferidor do boneco não fecha.** Ele
+    confere que a malha exportada tem a esbeltez que `ESBELTEZ` declara; se o
+    número declarado fosse inventado, ele aprovaria assim mesmo. Aqui o número
+    é comparado com `data/direcao-de-arte.json`, que sai de
+    `censo_do_original.py` medindo 27 campeões.
+
+    Confere a MEDIANA e a FAIXA, como todo o resto: só a mediana deixaria
+    alargar a faixa até nada reprovar, que é a classe de defeito que já passou
+    por dez mutações deste projeto.
+
+    E confere nos DOIS SENTIDOS. Região medida que o gerador não declara é
+    cobertura que ninguém pediu; região declarada que o censo não mede é um
+    número sem origem — que é exatamente o defeito que esta seção existe para
+    ter apagado.
+    """
+    try:
+        gerador = ler("tools/arte/gerar_personagem.py")
+        conferidor = ler("tools/arte/conferir_personagem.py")
+        instantaneo = json.loads(ler("data/direcao-de-arte.json"))
+    except (OSError, ValueError) as erro:
+        c.contar()
+        c.falhas.append("a esbeltez não pôde ser lida: %s" % erro)
+        return
+
+    medido = instantaneo.get("esbeltez") or {}
+    declarado = _dicionario_do_fonte(gerador, "ESBELTEZ")
+    c.contar()
+    if not declarado:
+        c.falhas.append(
+            "não achei `ESBELTEZ` em `tools/arte/gerar_personagem.py` — a "
+            "espessura do boneco voltou a não ter origem medida"
+        )
+        return
+    c.contar()
+    if not medido:
+        c.falhas.append(
+            "`data/direcao-de-arte.json` não tem a seção `esbeltez` — regere "
+            "com `py tools/arte/censo_do_original.py`"
+        )
+        return
+
+    regioes_medidas = {k for k, v in medido.items() if isinstance(v, list)}
+    c.contar()
+    if regioes_medidas != set(declarado):
+        c.falhas.append(
+            "o censo mede a esbeltez de %s e o gerador declara %s — as duas "
+            "listas têm que ser a mesma"
+            % (sorted(regioes_medidas), sorted(declarado))
+        )
+        return
+
+    for regiao in sorted(declarado):
+        faixa = medido[regiao]
+        c.contar()
+        if abs(declarado[regiao] - faixa[0]) > 0.0005:
+            c.falhas.append(
+                "a esbeltez de '%s' no gerador é %.3f e o censo mediu %.3f"
+                % (regiao, declarado[regiao], faixa[0])
+            )
+            continue
+        # **A mediana tem que estar DENTRO da faixa.** Sem isto, um censo que
+        # devolvesse mediana e extremos incoerentes passaria — e a faixa é o
+        # que dá a tolerância da cabeça no conferidor do boneco.
+        if not (faixa[1] <= faixa[0] <= faixa[2]):
+            c.falhas.append(
+                "a faixa de '%s' é incoerente: mediana %.3f fora de %.3f a %.3f"
+                % (regiao, faixa[0], faixa[1], faixa[2])
+            )
+
+    # E a folga da cabeça, que o conferidor do boneco deriva da faixa medida.
+    c.contar()
+    cabeca = medido.get("cabeca")
+    esperada = re.search(
+        r"FOLGA_DA_CABECA = folga_de\(\(([0-9.]+), ([0-9.]+), ([0-9.]+)\)\)",
+        conferidor)
+    if esperada is None:
+        c.falhas.append(
+            "não achei `FOLGA_DA_CABECA` no conferidor do boneco — a "
+            "tolerância da cabeça deixou de sair da faixa medida"
+        )
+    elif not cabeca or [round(float(g), 3) for g in esperada.groups()] != [
+            round(v, 3) for v in cabeca]:
+        c.falhas.append(
+            "a folga da cabeça é derivada de %s e o censo mediu %s"
+            % (list(esperada.groups()), cabeca)
         )
 
 
@@ -3207,6 +3483,8 @@ def main() -> int:
     # era conferido por nada — o mesmo estado em que estavam as "12
     # afirmações" que eram 15.
     _conferir_direcao_de_arte(c)
+    _conferir_a_esbeltez(c)
+    _conferir_as_mutacoes(c)
     _conferir_o_artefato(c)
     _conferir_que_a_arvore_nao_esta_mutada(c)
     _conferir_bytes_de_controle(c)

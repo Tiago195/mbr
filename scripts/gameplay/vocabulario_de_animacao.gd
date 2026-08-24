@@ -81,6 +81,99 @@ const CAIDO: StringName = &"caido"
 ## MESMO osso girado para lados opostos.
 const RASTEJANDO: StringName = &"rastejando"
 
+# ------------------------------------------------------ verbos de mundo
+#
+# **Sete dos 22 clipes universais do original são estes**, e nenhum é combate:
+# colher, cortar, minerar, pegar do chão, comer, beber e operar. Um terço do
+# vocabulário obrigatório de um battle royale é interagir com o cenário, e é o
+# que mais separa o gênero de um MOBA.
+#
+# Nós não temos nenhum dos sistemas que os disparam — nem loot, nem árvore, nem
+# minério. Eles existem porque o vocabulário é do BONECO, não do sistema: um
+# verbo que falta na hora em que o sistema chega é um boneco que trava a fase.
+# Enquanto isso, quem os toca é `RodaDeAnimacao`.
+
+## `collect` — colhendo. Ciclo, 0,67 s.
+const COLHENDO: StringName = &"colhendo"
+
+## `loot` — pegando do chão. **Uma vez**, e é o único
+## verbo de mundo que não é ciclo: colher e minerar são trabalho que continua,
+## pegar do chão acontece uma vez e acaba. 0,50 s é o clipe mais curto de todo
+## o vocabulário universal.
+const PEGANDO: StringName = &"pegando"
+
+## `cut` — cortando árvore. Ciclo, **1,50 s exatos nos
+## 32 campeões**. Golpe HORIZONTAL, na altura do peito: é o plano que o separa
+## de [[minerando]], que tem a mesma duração.
+const CORTANDO: StringName = &"cortando"
+
+## `mine` — minerando. Ciclo, **1,50 s exatos nos 32**,
+## a mesma duração de `cut`. Golpe VERTICAL, de cima para baixo.
+const MINERANDO: StringName = &"minerando"
+
+## `eat` — comendo. Ciclo, **6,57 s nos 32 campeões**:
+## o clipe mais longo de todo o `_animation.pak`, cinco vezes a mediana. A
+## duração é a informação — quem come está indefeso por seis segundos e meio.
+const COMENDO: StringName = &"comendo"
+
+## `drink` — bebendo. Ciclo. Divide o braço com
+## [[comendo]]; o que separa os dois é a CABEÇA — comer avança o queixo, beber
+## a joga para trás.
+const BEBENDO: StringName = &"bebendo"
+
+## `operate` — operando uma máquina. Ciclo, 1,00 s. O
+## sétimo e último verbo de mundo.
+const OPERANDO: StringName = &"operando"
+
+# -------------------------------------------------------------- arremesso
+#
+# **A conjuração universal do original**, e a prova de que os cinco gestos de
+# habilidade não bastam: todo campeão tem `throw` parado, `throw_f` indo à
+# frente e `throw_b` indo atrás, e só DEPOIS disso vêm os clipes próprios dele.
+
+## `throw` — arremesso parado. `GestoDeConjuracao` o
+## escolhe para a forma PROJECTILE: são 359 pulsos de projétil no corpus, em
+## 223 habilidades, e desenhá-los como estocada fazia arremessar parecer
+## esfaquear.
+const ARREMESSO: StringName = &"arremesso"
+
+## `throw_f` — arremesso indo à frente. **Dura
+## exatamente um ciclo de [[correndo]]**: é o corpo de cima sobreposto às
+## pernas que continuam correndo, e se o comprimento não casasse o passo daria
+## um salto no meio do arremesso (§5 de `docs/11`).
+const ARREMESSO_A_FRENTE: StringName = &"arremesso_a_frente"
+
+## `throw_b` — arremesso indo atrás. Mesma duração,
+## mesma regra: as pernas são as da corrida na ordem invertida.
+const ARREMESSO_ATRAS: StringName = &"arremesso_atras"
+
+# ---------------------------------------------------------------- montaria
+#
+# **A montaria é o único verbo universal que ainda não existe como sistema, e
+# o único cuja pose depende de um objeto que não temos.** Um clipe de montado é
+# um corpo sentado sobre ALGUMA COISA, e a altura da sela é a medida que
+# decide a pose inteira.
+#
+# A saída é a que a prática de animação usa: o clipe é autorado **no chão**,
+# como todos os outros, e quem levanta o personagem até a sela é a CENA, no dia
+# em que houver montaria. Isso mantém o item 5 do §10 valendo — o pé encosta no
+# chão, e a conferência mede — em vez de abrir uma exceção cuja folga seria
+# inventada.
+#
+# `ride2_idle` e `ride2_run` são a segunda montaria do original, com as MESMAS
+# durações medianas: 1,33 s e 0,60 s. Eles dividem estes dois clipes, pela
+# regra do §3 — duas coisas com a mesma FORMA dividem o gesto. É por isso que
+# o vocabulário fecha em 20 nomes para os 22 clipes.
+
+## `ride_idle` — montado, parado. Serve também para
+## `ride2_idle`, a segunda montaria: as duas têm 1,33 s de mediana e a mesma
+## FORMA, e dividir o gesto é a regra do §3.
+const MONTADO: StringName = &"montado"
+
+## `ride_run` — montado, andando. Serve também para
+## `ride2_run`. 0,60 s: o clipe mais curto de todo o vocabulário universal.
+const MONTADO_CORRENDO: StringName = &"montado_correndo"
+
 # ------------------------------------------------------- gestos de habilidade
 
 ## Os cinco gestos que `GestoDeConjuracao` escolhe pela FORMA do primeiro pulso
@@ -112,6 +205,18 @@ const NO_ORIGINAL: Dictionary = {
 	MORTE: &"death",
 	CAIDO: &"knockout_idle",
 	RASTEJANDO: &"knockout_run",
+	COLHENDO: &"collect",
+	PEGANDO: &"loot",
+	CORTANDO: &"cut",
+	MINERANDO: &"mine",
+	COMENDO: &"eat",
+	BEBENDO: &"drink",
+	OPERANDO: &"operate",
+	ARREMESSO: &"throw",
+	ARREMESSO_A_FRENTE: &"throw_f",
+	ARREMESSO_ATRAS: &"throw_b",
+	MONTADO: &"ride_idle",
+	MONTADO_CORRENDO: &"ride_run",
 }
 
 ## Os gestos de habilidade — os que `GestoDeConjuracao` escolhe pela forma.
@@ -130,6 +235,18 @@ const TODOS: Array[StringName] = [
 	MORTE,
 	CAIDO,
 	RASTEJANDO,
+	COLHENDO,
+	PEGANDO,
+	CORTANDO,
+	MINERANDO,
+	COMENDO,
+	BEBENDO,
+	OPERANDO,
+	ARREMESSO,
+	ARREMESSO_A_FRENTE,
+	ARREMESSO_ATRAS,
+	MONTADO,
+	MONTADO_CORRENDO,
 ]
 
 ## Os que rodam em CICLO. Todo o resto toca uma vez e para.
@@ -147,4 +264,12 @@ const CICLOS: Array[StringName] = [
 	ATORDOADO,
 	CAIDO,
 	RASTEJANDO,
+	COLHENDO,
+	CORTANDO,
+	MINERANDO,
+	COMENDO,
+	BEBENDO,
+	OPERANDO,
+	MONTADO,
+	MONTADO_CORRENDO,
 ]

@@ -65,7 +65,7 @@ import subprocess
 import sys
 
 import bpy
-from mathutils import Euler, Vector
+from mathutils import Euler, Quaternion, Vector
 
 # --------------------------------------------------------------------------
 # Medidas do corpo. **Nada aqui é gosto: é `docs/11-direcao-de-arte.md`.**
@@ -120,9 +120,40 @@ COMPRIMENTO_ATE_O_PULSO = (
 COMPRIMENTO_DA_MAO = (
 	(PROPORCAO["envergadura"] - PROPORCAO["vao_das_maos"]) * ALTURA * 0.5
 )
-Y_COTOVELO = Y_OMBRO - COMPRIMENTO_ATE_O_PULSO * 0.47
-Y_PULSO = Y_OMBRO - COMPRIMENTO_ATE_O_PULSO
-Y_PONTA_DA_MAO = Y_PULSO - COMPRIMENTO_DA_MAO
+## Quanto o braço abre para fora do corpo no REPOUSO, em graus.
+##
+## **Não é estilo, é a única saída geométrica.** Com o braço caindo reto do
+## ombro, a mão do boneco ficava DENTRO da coxa: ombro a 0,153 do centro, coxa
+## indo até 0,215, mão ocupando de 0,066 a 0,241. Medido em repouso, oito pares
+## de peças se cruzavam sem serem vizinhas, e a pior era essa. Foi o que o
+## usuário viu na tela: *"várias peças dele entra uma dentro da outra, até com
+## ele parado"*.
+##
+## E não havia como resolver engrossando ou afinando: para a mão passar por
+## fora da coxa com o braço na vertical, o centro dela teria que estar a 0,30
+## do eixo — o dobro do vão dos ombros, que é medido e vale 0,175 da altura.
+## Braço vertical mais coxa medida é uma colisão obrigatória.
+##
+## Vinte graus é o mínimo que faz a borda interna da mão passar por fora da
+## borda externa da coxa, com folga. Modelador chama isso de pose em A, e é a
+## pose de repouso padrão para personagem exatamente por este motivo.
+ABERTURA_DO_BRACO = 20.0
+
+_SENO_DO_BRACO = math.sin(math.radians(ABERTURA_DO_BRACO))
+_COSSENO_DO_BRACO = math.cos(math.radians(ABERTURA_DO_BRACO))
+
+
+def _no_braco(lado: float, distancia: float) -> tuple:
+	"""Um ponto da corrente do braço, a `distancia` do ombro, ao longo dela."""
+	return (lado * (X_OMBRO + distancia * _SENO_DO_BRACO),
+	        0.0, Y_OMBRO - distancia * _COSSENO_DO_BRACO)
+
+
+## Onde o cotovelo cai ao longo do braço. O original põe ombro, cotovelo e mão
+## na mesma altura na pose T, então a divisão não sai de lá; 0,47 é a proporção
+## de um braço humano, e é o que sobrou de escrito à mão aqui.
+FRACAO_ATE_O_COTOVELO = 0.47
+COMPRIMENTO_DO_BRACO = COMPRIMENTO_ATE_O_PULSO * FRACAO_ATE_O_COTOVELO
 
 COMPRIMENTO_DO_PE = 0.24
 COMPRIMENTO_DA_COXA = Y_QUADRIL - Y_JOELHO
@@ -134,12 +165,18 @@ OSSOS = [
 	("quadril",     (0.0, 0.0, Y_QUADRIL), (0.0, 0.0, Y_PEITO), None),
 	("peito",       (0.0, 0.0, Y_PEITO), (0.0, 0.0, Y_PESCOCO), "quadril"),
 	("cabeca",      (0.0, 0.0, Y_PESCOCO), (0.0, 0.0, Y_TOPO), "peito"),
-	("braco_D",     (X_OMBRO, 0.0, Y_OMBRO), (X_OMBRO, 0.0, Y_COTOVELO), "peito"),
-	("antebraco_D", (X_OMBRO, 0.0, Y_COTOVELO), (X_OMBRO, 0.0, Y_PULSO), "braco_D"),
-	("mao_D",       (X_OMBRO, 0.0, Y_PULSO), (X_OMBRO, 0.0, Y_PONTA_DA_MAO), "antebraco_D"),
-	("braco_E",     (-X_OMBRO, 0.0, Y_OMBRO), (-X_OMBRO, 0.0, Y_COTOVELO), "peito"),
-	("antebraco_E", (-X_OMBRO, 0.0, Y_COTOVELO), (-X_OMBRO, 0.0, Y_PULSO), "braco_E"),
-	("mao_E",       (-X_OMBRO, 0.0, Y_PULSO), (-X_OMBRO, 0.0, Y_PONTA_DA_MAO), "antebraco_E"),
+	("braco_D",     _no_braco(1.0, 0.0), _no_braco(1.0, COMPRIMENTO_DO_BRACO), "peito"),
+	("antebraco_D", _no_braco(1.0, COMPRIMENTO_DO_BRACO),
+	                _no_braco(1.0, COMPRIMENTO_ATE_O_PULSO), "braco_D"),
+	("mao_D",       _no_braco(1.0, COMPRIMENTO_ATE_O_PULSO),
+	                _no_braco(1.0, COMPRIMENTO_ATE_O_PULSO + COMPRIMENTO_DA_MAO),
+	                "antebraco_D"),
+	("braco_E",     _no_braco(-1.0, 0.0), _no_braco(-1.0, COMPRIMENTO_DO_BRACO), "peito"),
+	("antebraco_E", _no_braco(-1.0, COMPRIMENTO_DO_BRACO),
+	                _no_braco(-1.0, COMPRIMENTO_ATE_O_PULSO), "braco_E"),
+	("mao_E",       _no_braco(-1.0, COMPRIMENTO_ATE_O_PULSO),
+	                _no_braco(-1.0, COMPRIMENTO_ATE_O_PULSO + COMPRIMENTO_DA_MAO),
+	                "antebraco_E"),
 	("coxa_D",      (X_QUADRIL, 0.0, Y_QUADRIL), (X_QUADRIL, 0.0, Y_JOELHO), "quadril"),
 	("canela_D",    (X_QUADRIL, 0.0, Y_JOELHO), (X_QUADRIL, 0.0, Y_TORNOZELO), "coxa_D"),
 	("pe_D",        (X_QUADRIL, 0.0, Y_TORNOZELO),
@@ -150,30 +187,111 @@ OSSOS = [
 	                (-X_QUADRIL, -COMPRIMENTO_DO_PE, Y_TORNOZELO), "canela_E"),
 ]
 
-## `(osso, largura, profundidade)`. A caixa de cada osso vai da cabeça à cauda
-## dele; só a espessura é declarada aqui. Vale para osso VERTICAL — o pé, que
-## aponta para a frente, é desenhado como adorno.
-CAIXAS = {
-	"quadril": (0.26, 0.19),
+## A ESBELTEZ de cada região: espessura dividida pelo COMPRIMENTO do osso.
+##
+## **Isto é a medida que faltava, e a falta tinha nome.** `PROPORCAO`, logo
+## acima, tem dez números e todos são altura de junta ou vão entre juntas — ou
+## seja, ela descreve o ESQUELETO. A espessura, que é o que faz a silhueta, era
+## escrita à mão e derivada de nada. O boneco passava nas nove conferências de
+## proporção e ainda assim era uma pilha de lajes finas, porque nenhuma delas
+## olhava para a carne. Palavras do usuário ao ver na tela: *"o próprio boneco
+## de teste tá ruim, ele foge da direção de arte, totalmente quadrado"*.
+##
+## Medida em **27 campeões** por `tools/arte/censo_do_original.py`, que lê
+## `m_BonesAABB` — a caixa envolvente dos vértices que cada osso influencia.
+##
+## **É razão, e não espessura absoluta, por uma razão medida.** Com skinning
+## suave a caixa de um osso invade a do vizinho, e o absoluto sai inflado: por
+## ali a coxa dava 0,266 da altura, o que faria duas coxas ocuparem 0,53 num
+## quadril de 0,33 — geometricamente impossível. A inflação empurra os três
+## lados da caixa, então a RAZÃO entre eles sobrevive. É ela que responde
+## *"isto é um palito ou é um toco?"*, que é a pergunta do usuário.
+ESBELTEZ = {
+	"cabeca": 0.778,
+	"braco": 0.758,
+	"antebraco": 0.716,
+	"mao": 0.752,
+	"coxa": 0.575,
+	"canela": 0.494,
+	"pe": 0.672,
+	# **As duas do tronco são medidas e NÃO são usadas.** Ficam aqui porque o
+	# censo as publica e `conferir_numeros.py` exige que as nove batam com o
+	# instantâneo; a decisão de não derivar delas está em `CAIXAS_DO_TRONCO`.
+	"peito": 0.779,
+	"quadril": 0.676,
+}
+
+## Qual região responde por cada osso. Direito e esquerdo são a mesma região.
+REGIAO_DO_OSSO = {
+	"cabeca": "cabeca", "peito": "peito", "quadril": "quadril",
+	"braco_D": "braco", "braco_E": "braco",
+	"antebraco_D": "antebraco", "antebraco_E": "antebraco",
+	"mao_D": "mao", "mao_E": "mao",
+	"coxa_D": "coxa", "coxa_E": "coxa",
+	"canela_D": "canela", "canela_E": "canela",
+	"pe_D": "pe", "pe_E": "pe",
+}
+
+## O tronco NÃO deriva da esbeltez, e a exclusão é medida, não preguiça.
+##
+## Nós cortamos o tronco em dois ossos curtos — `quadril` tem 0,30 m e `peito`
+## 0,19 m. No original, as caixas de influência de `Hips` e `Chest` cobrem o
+## tronco INTEIRO, porque é assim que o skinning suave distribui os vértices.
+## Dividir espessura por um comprimento que significa outra coisa mede a nossa
+## segmentação, não a forma deles: por esse caminho o peito dava esbeltez 1,78
+## vez a do original, que é artefato e não achado.
+##
+## A largura sai de onde ela é medida de verdade — o vão dos ombros e o dos
+## quadris, que estão em `PROPORCAO`. A profundidade continua declarada, e é a
+## última medida do boneco que não tem origem. Está registrado como lacuna no
+## §11 de `docs/11-direcao-de-arte.md`.
+CAIXAS_DO_TRONCO = {
 	# O peito não passa do vão dos ombros: ombro largo é o que mais separa
 	# "atleta" de "boneco", e o original está em 0,175 da altura contra 0,229
 	# de um humano.
 	"peito": (X_OMBRO * 2.0, 0.21),
-	# Cabeça quase tão larga quanto alta. É ela que carrega a leitura de longe.
-	"cabeca": (0.36, 0.34),
-	"braco_D": (0.12, 0.12),
-	"antebraco_D": (0.11, 0.11),
-	# A mão é a peça mais grossa do braço, e é assim no original: punho curto,
-	# mão grande. É ela que o olho segue durante o golpe.
-	"mao_D": (0.145, 0.13),
-	"braco_E": (0.12, 0.12),
-	"antebraco_E": (0.11, 0.11),
-	"mao_E": (0.145, 0.13),
-	"coxa_D": (0.155, 0.155),
-	"canela_D": (0.135, 0.135),
-	"coxa_E": (0.155, 0.155),
-	"canela_E": (0.135, 0.135),
+	# E o quadril não pode ser mais estreito que o vão dos quadris, senão as
+	# coxas nascem para fora dele.
+	"quadril": (max(0.26, X_QUADRIL * 2.0), 0.19),
 }
+
+
+def _comprimento(nome: str) -> float:
+	"""O comprimento do osso, da cabeça à cauda dele."""
+	for osso, cabeca, cauda, _pai in OSSOS:
+		if osso == nome:
+			return (Vector(cauda) - Vector(cabeca)).length
+	raise KeyError(nome)
+
+
+def _derivar_caixas() -> dict:
+	"""`{osso: (largura, profundidade)}`, da esbeltez vezes o comprimento.
+
+	**Uma linha por osso era o defeito.** Treze pares escritos à mão são treze
+	oportunidades de errar em silêncio, e a conferência não podia pegar nenhuma
+	porque não havia com o que comparar. Agora há um número por REGIÃO, medido,
+	e o osso só escolhe a região dele.
+	"""
+	saida = {}
+	for nome, _cabeca, _cauda, _pai in OSSOS:
+		if nome in CAIXAS_DO_TRONCO:
+			saida[nome] = CAIXAS_DO_TRONCO[nome]
+			continue
+		regiao = REGIAO_DO_OSSO.get(nome)
+		if regiao is None or regiao not in ESBELTEZ:
+			continue
+		# O pé é desenhado como adorno, não como caixa de osso.
+		if regiao == "pe":
+			continue
+		espessura = ESBELTEZ[regiao] * _comprimento(nome)
+		saida[nome] = (espessura, espessura)
+	return saida
+
+
+## `(osso, largura, profundidade)`. A caixa de cada osso vai da cabeça à cauda
+## dele; só a espessura é declarada aqui. Vale para osso VERTICAL — o pé, que
+## aponta para a frente, é desenhado como adorno.
+CAIXAS = _derivar_caixas()
 
 ## Onde a cabeça está e onde é a cara dela, DERIVADO das medidas acima.
 ##
@@ -203,12 +321,21 @@ ADORNOS = [
 
 ## Uma cor por região, e elas não são enfeite: a mão colorida é o que o olho
 ## segue durante o golpe, e o rosto é o que diz para onde o personagem olha.
+## **O contraste é de VALOR, não de matiz.** O braço e o tronco eram dois azuis
+## quase do mesmo brilho — 0,33 contra 0,44 — e na folha de contato do `parado`
+## não dava para dizer onde o braço acabava e o corpo começava. A única peça que
+## o olho conseguia seguir era a mão, e é a única que tinha cor própria: isso é
+## a evidência de que o que faltava era contraste, e não curva na quina.
+##
+## Os valores aproximados (0,30·R + 0,59·G + 0,11·B), de trás para a frente:
+## sapato 0,17, rosto 0,11, membro 0,23, roupa 0,44, pele 0,74, mão 0,60. O
+## membro está agora a quase o dobro de distância do tronco.
 CORES = {
 	"pele": (0.85, 0.72, 0.60, 1.0),
 	"roupa": (0.35, 0.45, 0.62, 1.0),
-	"membro": (0.28, 0.34, 0.46, 1.0),
+	"membro": (0.17, 0.21, 0.31, 1.0),
 	"mao": (0.90, 0.52, 0.22, 1.0),
-	"sapato": (0.15, 0.17, 0.21, 1.0),
+	"sapato": (0.13, 0.15, 0.19, 1.0),
 	"rosto": (0.10, 0.11, 0.14, 1.0),
 }
 MATERIAL_DO_OSSO = {
@@ -267,17 +394,135 @@ def criar_armature() -> bpy.types.Object:
 	return objeto
 
 
-def _caixa(nome: str, centro: Vector, tamanho: Vector, material, grupo: str):
-	bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 0))
+## Quanto da menor dimensão da peça vira chanfro. Zero é o prisma reto que o
+## usuário reprovou; um meio arredondaria a peça inteira e apagaria a silhueta.
+CHANFRO = 0.22
+## Em quantos passos o chanfro é cortado. Dois já lê como curva a três metros
+## de distância, que é onde a câmera isométrica está; mais que isso é vértice
+## gasto num boneco que é feio de propósito.
+SEGMENTOS_DO_CHANFRO = 2
+## Quantos vertices cada peca exporta. Sao invariantes da CONSTRUCAO — uma
+## caixa chanfrada em dois passos, um prisma de oito lados — e estao declarados
+## aqui para `tools/conferir_numeros.py` poder conferir o `.glb` commitado sem
+## abrir o Blender. Trocar a forma sem trocar estes numeros reprova, que e o
+## ponto: a contagem existe para pegar peca que sumiu do corpo exportado.
+VERTICES_DA_CAIXA = 216
+VERTICES_DO_TUBO = 48
+
+## Lados do prisma dos membros. Oito lê como cilindro de longe e custa
+## dezesseis vértices; quatro é a laje de antes.
+LADOS_DO_MEMBRO = 8
+
+## Que osso é desenhado como TUBO em vez de caixa chanfrada.
+##
+## Membro é a peça que mais precisa: ele é longo e fino, então a quina reta
+## corre pelo comprimento inteiro e é ela que dá a leitura de tábua. Tronco e
+## cabeça continuam caixa — chanfrada —, porque massa grande arredondada perde
+## a orientação e o rosto precisa de uma frente chata onde a viseira assente.
+DESENHADOS_COMO_TUBO = {
+	"braco_D", "braco_E", "antebraco_D", "antebraco_E",
+	"coxa_D", "coxa_E", "canela_D", "canela_E",
+}
+
+
+def _chanfrar(parte, tamanho: Vector) -> None:
+	"""Corta as quinas da peça, proporcionalmente ao lado mais fino dela.
+
+	**Proporcional e não em metros.** Um chanfro fixo de 2 cm é 6% da cabeça e
+	17% do antebraço — a mesma linha de código produzindo peças com aparências
+	diferentes. E um chanfro maior que a metade do lado mais fino consome a
+	peça inteira, o que a Godot recebe como malha degenerada sem reclamar.
+	"""
+	menor = min(abs(v) for v in tamanho)
+	largura = menor * CHANFRO
+	if largura <= 0.0:
+		return
+	modificador = parte.modifiers.new(name="chanfro", type="BEVEL")
+	modificador.width = largura
+	modificador.segments = SEGMENTOS_DO_CHANFRO
+	modificador.limit_method = "ANGLE"
+	modificador.angle_limit = math.radians(30.0)
+	bpy.context.view_layer.objects.active = parte
+	bpy.ops.object.modifier_apply(modifier=modificador.name)
+
+
+def _caixa(nome: str, centro: Vector, tamanho: Vector, material, grupo: str,
+           tubo: bool = False, giro_do_osso: Quaternion = None):
+	"""Uma peça, presa a um osso, chanfrada ou em forma de tubo.
+
+	**O chanfro não mexe na caixa envolvente**, e isso não é sorte: o
+	modificador corta só as ARESTAS e deixa o centro de cada face onde estava.
+	Por isso a conferência de proporção continua medindo a mesma coisa que
+	media quando cada peça era um prisma reto.
+	"""
+	if tubo:
+		# O prisma nasce com o eixo em Z, que é a direção em que o osso corre.
+		# O giro de meio lado põe uma FACE para a frente em vez de uma quina:
+		# quina apontando para a câmera é exatamente o brilho que faz um tubo
+		# parecer uma caixa girada.
+		# **O raio é CIRCUNSCRITO, não inscrito, e a diferença foi medida.**
+		# Um prisma de oito lados com o giro de meio lado apresenta a FACE para
+		# os eixos, e a face está a `cos(pi/8)` do raio — 0,924. Com raio 0,5 a
+		# peça saía 7,6% mais fina que a espessura pedida, sistematicamente, nos
+		# quatro membros. A conferência aprovava porque a folga engolia o viés,
+		# que é o pior jeito de uma tolerância ser útil: ela deixa de medir
+		# defeito e passa a esconder um.
+		#
+		# Dividindo pelo cosseno, a caixa envolvente da peça volta a ser
+		# exatamente a espessura declarada, e a folga volta a ser folga.
+		bpy.ops.mesh.primitive_cylinder_add(
+			vertices=LADOS_DO_MEMBRO,
+			radius=0.5 / math.cos(math.pi / LADOS_DO_MEMBRO), depth=1.0,
+			location=(0, 0, 0),
+		)
+	else:
+		bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 0))
 	parte = bpy.context.active_object
 	parte.name = "malha_" + nome
 	parte.scale = tamanho
+	# **A peça acompanha o OSSO — a matriz dele, não só a direção dele.**
+	#
+	# Enquanto todo osso era vertical, peça alinhada ao Z do mundo e peça
+	# alinhada ao osso eram a mesma coisa. Com o braço aberto deixam de ser.
+	#
+	# E alinhar só a DIREÇÃO não basta: um osso tem torção em volta do próprio
+	# eixo — o roll —, e um prisma de oito lados torcido em relação a ela volta
+	# a apresentar a quina, medindo `1/cos(pi/8)` mais grosso. Foi o que fez os
+	# dois braços reprovarem por 8% depois de as pernas já estarem exatas. Quem
+	# carrega direção E torção é `matrix_local` do osso; a rotação de -90 graus
+	# em X é só o remapeamento do eixo, porque a peça nasce com o comprimento
+	# em Z e o osso corre em Y.
+	# O giro do octógono e o giro do osso se COMPÕEM, e a ordem importa: o
+	# prisma gira meio lado em torno do próprio eixo, e só depois o conjunto vai
+	# para a direção do osso. Escritos como duas atribuições, a segunda apagava
+	# a primeira — o prisma voltava a apresentar a QUINA aos eixos, e a caixa
+	# envolvente dele crescia exatamente `1/cos(pi/8)`, que é 1,082. Foi assim
+	# que as quatro pernas e braços reprovaram por 8% de uma vez só.
+	giro = giro_do_osso if giro_do_osso is not None else Quaternion(
+		(1.0, 0.0, 0.0), 0.0)
+	if tubo:
+		giro = giro @ Quaternion((0.0, 0.0, 1.0), math.pi / LADOS_DO_MEMBRO)
+	parte.rotation_euler = giro.to_euler()
 	parte.location = centro
 	bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+	if not tubo:
+		_chanfrar(parte, tamanho)
 	parte.data.materials.append(material)
 	vertices = parte.vertex_groups.new(name=grupo)
 	vertices.add(range(len(parte.data.vertices)), 1.0, "REPLACE")
 	return parte
+
+
+## Leva o eixo do comprimento da peça (Z) para o eixo do osso (Y).
+_DE_Z_PARA_Y = Quaternion((1.0, 0.0, 0.0), -math.pi * 0.5)
+
+
+def _giro_do_osso(armature: bpy.types.Object, nome: str) -> Quaternion:
+	"""A orientação de repouso do osso, já remapeada para o eixo da peça."""
+	osso = armature.data.bones.get(nome)
+	if osso is None:
+		return Quaternion((1.0, 0.0, 0.0), 0.0)
+	return osso.matrix_local.to_quaternion() @ _DE_Z_PARA_Y
 
 
 def criar_corpo(armature: bpy.types.Object) -> bpy.types.Object:
@@ -300,6 +545,8 @@ def criar_corpo(armature: bpy.types.Object) -> bpy.types.Object:
 			nome, (c + t) * 0.5,
 			Vector((largura, profundidade, (t - c).length)),
 			materiais[MATERIAL_DO_OSSO[nome]], nome,
+			tubo=nome in DESENHADOS_COMO_TUBO,
+			giro_do_osso=_giro_do_osso(armature, nome),
 		))
 
 	for indice, (osso, centro, tamanho, material) in enumerate(ADORNOS):
@@ -767,6 +1014,529 @@ ANIMACOES = {
 				braco_E=(-96, 22, 0), antebraco_E=(-44, 0, 0),
 				coxa_D=(0, 0, -7), canela_D=(-6, 0, 0), pe_D=pe(0, -6),
 				coxa_E=(-6, 0, 32), canela_E=(-26, 0, 0), pe_E=pe(-6, -26))),
+		],
+	},
+	# Colhendo: `collect`, 0,67 s nos 32, ciclo — o mais curto do vocabulário
+	# universal junto com `loot`. Agachado, a mão indo ao chão e voltando.
+	#
+	# **Quem leva a mão ao chão é o TRONCO, não o ombro.** A primeira versão
+	# girava o braço 46 graus para a frente e dobrava o cotovelo, e o resultado
+	# foi um personagem agachado APONTANDO para a frente, com a mão na altura do
+	# peito. O braço tem 0,40 m do ombro ao pulso — não alcança o chão por
+	# rotação nenhuma. Ele fica quase pendurado, e são os 54 graus de peito e os
+	# 78 de joelho que descem o ombro até onde a mão chega.
+	#
+	# **É um dos três clipes do original que carregam evento de animação**, com
+	# `cut` e `mine` — os três de bater ou colher, e nenhum de combate (§7).
+	# O nosso não tem: dano e colheita vêm da tabela, não do quadro.
+	"colhendo": {
+		"ciclo": True,
+		"chaves": [
+			(0, pose(
+				peito=(54, 0, 0), cabeca=(-24, 0, 0),
+				braco_D=(-4, -11, 0), antebraco_D=(-12, 0, 0),
+				braco_E=(8, 17, 0), antebraco_E=(-22, 0, 0),
+				coxa_D=(-42, 0, 0), canela_D=(78, 0, 0), pe_D=pe(-42, 78),
+				coxa_E=(-42, 0, 0), canela_E=(78, 0, 0), pe_E=pe(-42, 78))),
+			# Fecha a mão e traz para junto do corpo.
+			(7, pose(
+				peito=(34, 0, 0), cabeca=(-14, 0, 0),
+				braco_D=(10, -9, 0), antebraco_D=(-78, 0, 0),
+				braco_E=(6, 14, 0), antebraco_E=(-18, 0, 0),
+				coxa_D=(-30, 0, 0), canela_D=(56, 0, 0), pe_D=pe(-30, 56),
+				coxa_E=(-30, 0, 0), canela_E=(56, 0, 0), pe_E=pe(-30, 56))),
+			(13, pose(
+				peito=(46, 0, 0), cabeca=(-20, 0, 0),
+				braco_D=(2, -10, 0), antebraco_D=(-40, 0, 0),
+				braco_E=(7, 16, 0), antebraco_E=(-20, 0, 0),
+				coxa_D=(-37, 0, 0), canela_D=(69, 0, 0), pe_D=pe(-37, 69),
+				coxa_E=(-37, 0, 0), canela_E=(69, 0, 0), pe_E=pe(-37, 69))),
+			(20, pose(
+				peito=(54, 0, 0), cabeca=(-24, 0, 0),
+				braco_D=(-4, -11, 0), antebraco_D=(-12, 0, 0),
+				braco_E=(8, 17, 0), antebraco_E=(-22, 0, 0),
+				coxa_D=(-42, 0, 0), canela_D=(78, 0, 0), pe_D=pe(-42, 78),
+				coxa_E=(-42, 0, 0), canela_E=(78, 0, 0), pe_E=pe(-42, 78))),
+		],
+	},
+	# Pegando: `loot`, 0,50 s nos 32, e **uma vez** — é o único verbo de mundo
+	# que não é ciclo. Faz sentido: colher, cortar e minerar são trabalho que
+	# continua; pegar do chão acontece uma vez e acaba.
+	#
+	# 15 quadros é o clipe mais curto do vocabulário inteiro, e por isso ele não
+	# tem antecipação nenhuma: em meio segundo não cabe recuo, golpe e volta.
+	"pegando": {
+		"ciclo": False,
+		"chaves": [
+			(0, pose()),
+			(6, pose(
+				peito=(60, 0, 0), cabeca=(-28, 0, 0),
+				braco_D=(-8, -12, 0), antebraco_D=(-10, 0, 0),
+				braco_E=(12, 22, 0), antebraco_E=(-26, 0, 0),
+				coxa_D=(-46, 0, 0), canela_D=(84, 0, 0), pe_D=pe(-46, 84),
+				coxa_E=(-32, 0, 0), canela_E=(60, 0, 0), pe_E=pe(-32, 60))),
+			# Fecha a mão. O corpo já começa a subir — o objeto sobe com ele,
+			# que é o que faz o gesto ler como "pegou" e não como "encostou".
+			(10, pose(
+				peito=(26, 0, 0), cabeca=(-10, 0, 0),
+				braco_D=(14, -9, 0), antebraco_D=(-96, 0, 0),
+				braco_E=(8, 14, 0), antebraco_E=(-16, 0, 0),
+				coxa_D=(-22, 0, 0), canela_D=(42, 0, 0), pe_D=pe(-22, 42),
+				coxa_E=(-16, 0, 0), canela_E=(30, 0, 0), pe_E=pe(-16, 30))),
+			(15, pose()),
+		],
+	},
+	# Cortando árvore: `cut`, **1,50 s exatos nos 32 campeões**, ciclo. Junto com
+	# `mine` é o clipe mais longo do vocabulário de trabalho, e os dois têm a
+	# mesma duração — são a mesma ação com ferramenta diferente.
+	#
+	# **O que separa `cortando` de `minerando` é o PLANO do golpe**: cortar é
+	# horizontal, na altura do peito, e quem o executa é a torção do quadril;
+	# minerar é vertical, de cima para baixo, e quem o executa é o ombro. Com o
+	# mesmo plano os dois seriam o mesmo clipe com dois nomes.
+	"cortando": {
+		"ciclo": True,
+		"chaves": [
+			# Armado: o corpo torcido para a direita, as duas mãos juntas.
+			(0, pose(
+				quadril=(0, 0, 42), peito=(4, 0, 0), cabeca=(2, -14, 0),
+				braco_D=(-72, -20, 0), antebraco_D=(-48, 0, 0),
+				braco_E=(-66, 10, 0), antebraco_E=(-58, 0, 0),
+				coxa_D=(-13, 0, 0), canela_D=(24, 0, 0), pe_D=pe(-13, 24),
+				coxa_E=(-13, 0, 0), canela_E=(24, 0, 0), pe_E=pe(-13, 24))),
+			# O golpe atravessa. O quadril chega primeiro e os braços vêm
+			# atrás — é o que dá peso, e é por isso que a torção é a chave.
+			(14, pose(
+				quadril=(0, 0, -32), peito=(15, 0, 0), cabeca=(4, 10, 0),
+				braco_D=(-86, -6, 0), antebraco_D=(-18, 0, 0),
+				braco_E=(-80, 20, 0), antebraco_E=(-28, 0, 0),
+				coxa_D=(-19, 0, 0), canela_D=(34, 0, 0), pe_D=pe(-19, 34),
+				coxa_E=(-10, 0, 0), canela_E=(19, 0, 0), pe_E=pe(-10, 19))),
+			# A madeira devolve: pequeno repique para trás.
+			(22, pose(
+				quadril=(0, 0, -14), peito=(9, 0, 0), cabeca=(2, 5, 0),
+				braco_D=(-74, -10, 0), antebraco_D=(-32, 0, 0),
+				braco_E=(-70, 15, 0), antebraco_E=(-40, 0, 0),
+				coxa_D=(-15, 0, 0), canela_D=(28, 0, 0), pe_D=pe(-15, 28),
+				coxa_E=(-12, 0, 0), canela_E=(22, 0, 0), pe_E=pe(-12, 22))),
+			# Arma de novo, devagar: metade do ciclo é a recarga.
+			(33, pose(
+				quadril=(0, 0, 20), peito=(6, 0, 0), cabeca=(2, -7, 0),
+				braco_D=(-78, -16, 0), antebraco_D=(-42, 0, 0),
+				braco_E=(-72, 12, 0), antebraco_E=(-50, 0, 0),
+				coxa_D=(-14, 0, 0), canela_D=(26, 0, 0), pe_D=pe(-14, 26),
+				coxa_E=(-14, 0, 0), canela_E=(26, 0, 0), pe_E=pe(-14, 26))),
+			(45, pose(
+				quadril=(0, 0, 42), peito=(4, 0, 0), cabeca=(2, -14, 0),
+				braco_D=(-72, -20, 0), antebraco_D=(-48, 0, 0),
+				braco_E=(-66, 10, 0), antebraco_E=(-58, 0, 0),
+				coxa_D=(-13, 0, 0), canela_D=(24, 0, 0), pe_D=pe(-13, 24),
+				coxa_E=(-13, 0, 0), canela_E=(24, 0, 0), pe_E=pe(-13, 24))),
+		],
+	},
+	# Minerando: `mine`, **1,50 s exatos nos 32**, ciclo — a mesma duração de
+	# `cut`, e o mesmo trabalho num plano diferente: aqui o golpe é VERTICAL, de
+	# cima para baixo, e quem o executa é o ombro em vez da torção.
+	"minerando": {
+		"ciclo": True,
+		"chaves": [
+			# Picareta no alto, atrás da cabeça.
+			(0, pose(
+				peito=(-10, 0, 0), cabeca=(14, 0, 0),
+				braco_D=(-168, -12, 0), antebraco_D=(-46, 0, 0),
+				braco_E=(-160, 12, 0), antebraco_E=(-52, 0, 0),
+				coxa_D=(-11, 0, 0), canela_D=(20, 0, 0), pe_D=pe(-11, 20),
+				coxa_E=(-11, 0, 0), canela_E=(20, 0, 0), pe_E=pe(-11, 20))),
+			# Desce. O tronco dobra junto — a força vem das costas, não do
+			# braço, e sem a dobra o gesto lê como acenar.
+			(13, pose(
+				peito=(38, 0, 0), cabeca=(-16, 0, 0),
+				braco_D=(-16, -10, 0), antebraco_D=(-12, 0, 0),
+				braco_E=(-14, 10, 0), antebraco_E=(-14, 0, 0),
+				coxa_D=(-30, 0, 0), canela_D=(56, 0, 0), pe_D=pe(-30, 56),
+				coxa_E=(-30, 0, 0), canela_E=(56, 0, 0), pe_E=pe(-30, 56))),
+			# A pedra devolve.
+			(20, pose(
+				peito=(28, 0, 0), cabeca=(-12, 0, 0),
+				braco_D=(-40, -11, 0), antebraco_D=(-26, 0, 0),
+				braco_E=(-38, 11, 0), antebraco_E=(-28, 0, 0),
+				coxa_D=(-24, 0, 0), canela_D=(44, 0, 0), pe_D=pe(-24, 44),
+				coxa_E=(-24, 0, 0), canela_E=(44, 0, 0), pe_E=pe(-24, 44))),
+			(33, pose(
+				peito=(4, 0, 0), cabeca=(2, 0, 0),
+				braco_D=(-118, -12, 0), antebraco_D=(-40, 0, 0),
+				braco_E=(-112, 12, 0), antebraco_E=(-44, 0, 0),
+				coxa_D=(-15, 0, 0), canela_D=(28, 0, 0), pe_D=pe(-15, 28),
+				coxa_E=(-15, 0, 0), canela_E=(28, 0, 0), pe_E=pe(-15, 28))),
+			(45, pose(
+				peito=(-10, 0, 0), cabeca=(14, 0, 0),
+				braco_D=(-168, -12, 0), antebraco_D=(-46, 0, 0),
+				braco_E=(-160, 12, 0), antebraco_E=(-52, 0, 0),
+				coxa_D=(-11, 0, 0), canela_D=(20, 0, 0), pe_D=pe(-11, 20),
+				coxa_E=(-11, 0, 0), canela_E=(20, 0, 0), pe_E=pe(-11, 20))),
+		],
+	},
+	# Comendo: `eat`, **6,57 s nos 32 campeões**, ciclo — o clipe mais LONGO de
+	# todo o `_animation.pak`, cinco vezes a mediana de 1,20 s.
+	#
+	# A duração é a informação: comer é a ação mais demorada de um battle
+	# royale, e quem come está indefeso por seis segundos e meio. Encurtá-la
+	# para caber num ritmo de combate seria apagar exatamente o que ela diz.
+	#
+	# 197 quadros a 30 fps dão 6,567 s, que arredonda para os 6,57 publicados.
+	# Não existe número inteiro de quadros que dê 6,57 exatos — é por isso que
+	# a conferência compara a duração ARREDONDADA.
+	"comendo": {
+		"ciclo": True,
+		"chaves": [
+			# Segurando junto ao peito.
+			(0, pose(
+				peito=(6, 0, 0), cabeca=(4, 0, 0),
+				braco_D=(-18, -12, 0), antebraco_D=(-72, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			# Leva à boca.
+			(32, pose(
+				peito=(3, 0, 0), cabeca=(6, 0, 0),
+				braco_D=(-46, -15, 0), antebraco_D=(-118, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			# Morde: a cabeça avança e volta.
+			(46, pose(
+				peito=(3, 0, 0), cabeca=(15, 0, 0),
+				braco_D=(-48, -15, 0), antebraco_D=(-122, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			# Mastiga: a mão desce um pouco e a cabeça balança devagar. É a
+			# parte mais longa, e é o que faz seis segundos e meio passarem.
+			(70, pose(
+				peito=(5, 0, 0), cabeca=(-2, 0, 0),
+				braco_D=(-26, -13, 0), antebraco_D=(-88, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			(90, pose(
+				peito=(6, 0, 0), cabeca=(9, -4, 0),
+				braco_D=(-24, -12, 0), antebraco_D=(-84, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			(110, pose(
+				peito=(5, 0, 0), cabeca=(-1, 4, 0),
+				braco_D=(-26, -13, 0), antebraco_D=(-88, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			# Segunda mordida.
+			(134, pose(
+				peito=(3, 0, 0), cabeca=(6, 0, 0),
+				braco_D=(-46, -15, 0), antebraco_D=(-118, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			(148, pose(
+				peito=(3, 0, 0), cabeca=(15, 0, 0),
+				braco_D=(-48, -15, 0), antebraco_D=(-122, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			(172, pose(
+				peito=(6, 0, 0), cabeca=(0, 0, 0),
+				braco_D=(-22, -12, 0), antebraco_D=(-80, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			(197, pose(
+				peito=(6, 0, 0), cabeca=(4, 0, 0),
+				braco_D=(-18, -12, 0), antebraco_D=(-72, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-24, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+		],
+	},
+	# Bebendo: `drink`, 1,00 / 1,00 / 3,00 s, ciclo. A mediana é 1,00 s e é ela
+	# que vale: a faixa até 3,00 vem de poucos campeões.
+	#
+	# O que separa `bebendo` de `comendo` é a CABEÇA: comer avança o queixo,
+	# beber joga a cabeça para trás. São o mesmo braço.
+	"bebendo": {
+		"ciclo": True,
+		"chaves": [
+			(0, pose(
+				peito=(4, 0, 0), cabeca=(2, 0, 0),
+				braco_D=(-20, -12, 0), antebraco_D=(-76, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-20, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			# Leva à boca e joga a cabeça para trás.
+			(11, pose(
+				peito=(-4, 0, 0), cabeca=(-26, 0, 0),
+				braco_D=(-58, -14, 0), antebraco_D=(-112, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-20, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			(19, pose(
+				peito=(-7, 0, 0), cabeca=(-38, 0, 0),
+				braco_D=(-70, -14, 0), antebraco_D=(-104, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-20, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+			(30, pose(
+				peito=(4, 0, 0), cabeca=(2, 0, 0),
+				braco_D=(-20, -12, 0), antebraco_D=(-76, 0, 0),
+				braco_E=(4, 10, 0), antebraco_E=(-20, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(9, 0, 0), pe_D=pe(-5, 9),
+				coxa_E=(-5, 0, 0), canela_E=(9, 0, 0), pe_E=pe(-5, 9))),
+		],
+	},
+	# Operando: `operate`, 1,00 s nos 32, ciclo. Mexer numa máquina — alavanca,
+	# manivela, painel. É o sétimo e último verbo de mundo do original.
+	#
+	# As duas mãos ficam à frente, na altura do peito, e ALTERNAM. Alternar é o
+	# que separa "operando" de "parado com os braços erguidos": o olho lê
+	# trabalho quando as duas partes se revezam.
+	"operando": {
+		"ciclo": True,
+		"chaves": [
+			(0, pose(
+				peito=(11, 0, 0), cabeca=(3, 0, 0),
+				braco_D=(-68, -9, 0), antebraco_D=(-38, 0, 0),
+				braco_E=(-44, 11, 0), antebraco_E=(-66, 0, 0),
+				coxa_D=(-7, 0, 0), canela_D=(13, 0, 0), pe_D=pe(-7, 13),
+				coxa_E=(-7, 0, 0), canela_E=(13, 0, 0), pe_E=pe(-7, 13))),
+			(10, pose(
+				peito=(14, 0, 0), cabeca=(2, 0, 0),
+				braco_D=(-44, -11, 0), antebraco_D=(-66, 0, 0),
+				braco_E=(-68, 9, 0), antebraco_E=(-38, 0, 0),
+				coxa_D=(-10, 0, 0), canela_D=(19, 0, 0), pe_D=pe(-10, 19),
+				coxa_E=(-10, 0, 0), canela_E=(19, 0, 0), pe_E=pe(-10, 19))),
+			(20, pose(
+				peito=(9, 0, 0), cabeca=(4, 0, 0),
+				braco_D=(-60, -10, 0), antebraco_D=(-50, 0, 0),
+				braco_E=(-52, 10, 0), antebraco_E=(-54, 0, 0),
+				coxa_D=(-6, 0, 0), canela_D=(11, 0, 0), pe_D=pe(-6, 11),
+				coxa_E=(-6, 0, 0), canela_E=(11, 0, 0), pe_E=pe(-6, 11))),
+			(30, pose(
+				peito=(11, 0, 0), cabeca=(3, 0, 0),
+				braco_D=(-68, -9, 0), antebraco_D=(-38, 0, 0),
+				braco_E=(-44, 11, 0), antebraco_E=(-66, 0, 0),
+				coxa_D=(-7, 0, 0), canela_D=(13, 0, 0), pe_D=pe(-7, 13),
+				coxa_E=(-7, 0, 0), canela_E=(13, 0, 0), pe_E=pe(-7, 13))),
+		],
+	},
+	# ------------------------------------------------------------ arremesso
+	#
+	# `throw`, 0,80 s de mediana nos 32, uma vez. **É a conjuração universal**:
+	# no original todo campeão tem `throw`, `throw_f` e `throw_b`, e os clipes
+	# PRÓPRIOS de habilidade — de 2 a 14 por campeão — vêm por cima disso.
+	#
+	# Aqui ele é o gesto de quem lança alguma coisa, e `GestoDeConjuracao` o
+	# escolhe para a forma PROJECTILE. São 359 pulsos de projétil no corpus
+	# traduzido, em 223 habilidades: era a forma mais comum sem gesto próprio,
+	# e desenhá-la como estocada fazia arremessar parecer esfaquear.
+	"arremesso": {
+		"ciclo": False,
+		"chaves": [
+			(0, pose()),
+			# Arma: o corpo torce para a direita e o braço vai para trás e para
+			# cima. É a antecipação, e num arremesso ela é o gesto inteiro —
+			# sem ela a mão só aparece do outro lado.
+			(7, pose(
+				quadril=(0, 0, 34), peito=(-9, 0, 0), cabeca=(0, -10, 0),
+				braco_D=(76, -22, 0), antebraco_D=(-84, 0, 0),
+				braco_E=(-34, 16, 0), antebraco_E=(-30, 0, 0),
+				coxa_D=(10, 0, 0), canela_D=(14, 0, 0), pe_D=pe(10, 14),
+				coxa_E=(-8, 0, 0), canela_E=(15, 0, 0), pe_E=pe(-8, 15))),
+			# Solta: o braço passa por cima e a torção se desfaz na frente.
+			(14, pose(
+				quadril=(0, 0, -26), peito=(16, 0, 0), cabeca=(-4, 8, 0),
+				braco_D=(-126, -8, 0), antebraco_D=(-12, 0, 0),
+				braco_E=(28, 18, 0), antebraco_E=(-46, 0, 0),
+				coxa_D=(-22, 0, 0), canela_D=(16, 0, 0), pe_D=pe(-22, 16),
+				coxa_E=(16, 0, 0), canela_E=(12, 0, 0), pe_E=pe(16, 12, -10))),
+			# Acompanha: a mão continua descendo depois de soltar.
+			(19, pose(
+				quadril=(0, 0, -16), peito=(12, 0, 0), cabeca=(-2, 5, 0),
+				braco_D=(-78, -10, 0), antebraco_D=(-26, 0, 0),
+				braco_E=(20, 14, 0), antebraco_E=(-38, 0, 0),
+				coxa_D=(-16, 0, 0), canela_D=(12, 0, 0), pe_D=pe(-16, 12),
+				coxa_E=(12, 0, 0), canela_E=(9, 0, 0), pe_E=pe(12, 9, -8))),
+			(24, pose()),
+		],
+	},
+	# Arremesso indo à frente: `throw_f`.
+	#
+	# **Dura EXATAMENTE um ciclo de `correndo`, e isso é regra medida.** No
+	# original `throw_b` tem a mesma duração de `run` em 30 dos 32 campeões e
+	# `throw_f` em 29 — não é coincidência, é o corpo de cima sobreposto às
+	# pernas que continuam correndo. Se o comprimento não casasse, o passo daria
+	# um salto no meio do arremesso. É o §5 de `docs/11`, e
+	# `conferir_numeros.py` reprova se as três durações se separarem.
+	#
+	# As pernas são as MESMAS chaves de `correndo`, inclusive o voo: por baixo
+	# isto é a corrida. O que muda é da cintura para cima.
+	"arremesso_a_frente": {
+		"ciclo": False,
+		"voo": {0: 0.0, 6: 0.14, 12: 0.0, 18: 0.14, 24: 0.0},
+		"chaves": [
+			(0, pose(
+				coxa_D=(-38, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-38, 14, -12),
+				coxa_E=(34, 0, 0), canela_E=(10, 0, 0), pe_E=pe(34, 10, 10),
+				braco_D=(46, -8, 0), antebraco_D=(-78, 0, 0),
+				braco_E=(-46, 8, 0), antebraco_E=(-78, 0, 0),
+				peito=(15, 0, 0), cabeca=(-8, 0, 0))),
+			# Arma sem parar de correr: o braço vai para trás e para cima
+			# enquanto a perna faz a passagem.
+			(6, pose(
+				coxa_D=(-10, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-10, 14),
+				coxa_E=(-24, 0, 0), canela_E=(92, 0, 0), pe_E=pe(-24, 92, 20),
+				braco_D=(74, -20, 0), antebraco_D=(-80, 0, 0),
+				braco_E=(-40, 14, 0), antebraco_E=(-40, 0, 0),
+				peito=(8, 0, 0), cabeca=(-4, -10, 0))),
+			(12, pose(
+				coxa_E=(-38, 0, 0), canela_E=(14, 0, 0), pe_E=pe(-38, 14, -12),
+				coxa_D=(34, 0, 0), canela_D=(10, 0, 0), pe_D=pe(34, 10, 10),
+				braco_D=(-124, -8, 0), antebraco_D=(-14, 0, 0),
+				braco_E=(24, 16, 0), antebraco_E=(-50, 0, 0),
+				peito=(20, 0, 0), cabeca=(-10, 6, 0))),
+			(18, pose(
+				coxa_E=(-10, 0, 0), canela_E=(14, 0, 0), pe_E=pe(-10, 14),
+				coxa_D=(-24, 0, 0), canela_D=(92, 0, 0), pe_D=pe(-24, 92, 20),
+				braco_D=(-40, -9, 0), antebraco_D=(-56, 0, 0),
+				braco_E=(-10, 10, 0), antebraco_E=(-70, 0, 0),
+				peito=(17, 0, 0), cabeca=(-9, 2, 0))),
+			# O último quadro repete o primeiro para a passada emendar de volta
+			# na corrida. Ele não é ciclo — mas a perna precisa fechar mesmo
+			# assim, porque é para o ciclo dela que o corpo volta.
+			(24, pose(
+				coxa_D=(-38, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-38, 14, -12),
+				coxa_E=(34, 0, 0), canela_E=(10, 0, 0), pe_E=pe(34, 10, 10),
+				braco_D=(46, -8, 0), antebraco_D=(-78, 0, 0),
+				braco_E=(-46, 8, 0), antebraco_E=(-78, 0, 0),
+				peito=(15, 0, 0), cabeca=(-8, 0, 0))),
+		],
+	},
+	# Arremesso indo atrás: `throw_b`, e a mesma duração — um ciclo de corrida.
+	#
+	# As pernas são as de `correndo` na ordem INVERTIDA, que é o que dá o
+	# recuo, e o tronco se inclina para trás em vez de para a frente. O
+	# arremesso de cima é o mesmo: é a mesma habilidade saindo, e mudar o gesto
+	# do braço faria a mesma conjuração parecer duas.
+	"arremesso_atras": {
+		"ciclo": False,
+		"voo": {0: 0.0, 6: 0.14, 12: 0.0, 18: 0.14, 24: 0.0},
+		"chaves": [
+			(0, pose(
+				coxa_D=(34, 0, 0), canela_D=(10, 0, 0), pe_D=pe(34, 10, 10),
+				coxa_E=(-38, 0, 0), canela_E=(14, 0, 0), pe_E=pe(-38, 14, -12),
+				braco_D=(46, -8, 0), antebraco_D=(-70, 0, 0),
+				braco_E=(-46, 8, 0), antebraco_E=(-70, 0, 0),
+				peito=(-12, 0, 0), cabeca=(6, 0, 0))),
+			(6, pose(
+				coxa_D=(-24, 0, 0), canela_D=(92, 0, 0), pe_D=pe(-24, 92, 20),
+				coxa_E=(-10, 0, 0), canela_E=(14, 0, 0), pe_E=pe(-10, 14),
+				braco_D=(74, -20, 0), antebraco_D=(-78, 0, 0),
+				braco_E=(-40, 14, 0), antebraco_E=(-40, 0, 0),
+				peito=(-16, 0, 0), cabeca=(8, -10, 0))),
+			(12, pose(
+				coxa_E=(34, 0, 0), canela_E=(10, 0, 0), pe_E=pe(34, 10, 10),
+				coxa_D=(-38, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-38, 14, -12),
+				braco_D=(-124, -8, 0), antebraco_D=(-14, 0, 0),
+				braco_E=(24, 16, 0), antebraco_E=(-50, 0, 0),
+				peito=(-4, 0, 0), cabeca=(2, 6, 0))),
+			(18, pose(
+				coxa_E=(-24, 0, 0), canela_E=(92, 0, 0), pe_E=pe(-24, 92, 20),
+				coxa_D=(-10, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-10, 14),
+				braco_D=(-40, -9, 0), antebraco_D=(-56, 0, 0),
+				braco_E=(-10, 10, 0), antebraco_E=(-70, 0, 0),
+				peito=(-10, 0, 0), cabeca=(5, 2, 0))),
+			(24, pose(
+				coxa_D=(34, 0, 0), canela_D=(10, 0, 0), pe_D=pe(34, 10, 10),
+				coxa_E=(-38, 0, 0), canela_E=(14, 0, 0), pe_E=pe(-38, 14, -12),
+				braco_D=(46, -8, 0), antebraco_D=(-70, 0, 0),
+				braco_E=(-46, 8, 0), antebraco_E=(-70, 0, 0),
+				peito=(-12, 0, 0), cabeca=(6, 0, 0))),
+		],
+	},
+	# Montado, parado: `ride_idle`, **1,33 s nos 32**, ciclo.
+	#
+	# A perna vai à frente e o joelho volta para baixo — é a posição de quem
+	# monta, e o que a distingue de um agachamento é o TRONCO: aqui ele fica
+	# ereto e as mãos ficam à frente, segurando.
+	"montado": {
+		"ciclo": True,
+		"chaves": [
+			(0, pose(
+				peito=(6, 0, 0), cabeca=(-2, 0, 0),
+				braco_D=(-54, -16, 0), antebraco_D=(-40, 0, 0),
+				braco_E=(-54, 16, 0), antebraco_E=(-40, 0, 0),
+				coxa_D=(-66, -20, 0), canela_D=(62, 0, 0), pe_D=pe(-66, 62),
+				coxa_E=(-66, 20, 0), canela_E=(62, 0, 0), pe_E=pe(-66, 62))),
+			# O animal respira por baixo: o corpo sobe e desce um pouco.
+			(13, pose(
+				peito=(3, 0, 0), cabeca=(0, 0, 0),
+				braco_D=(-50, -15, 0), antebraco_D=(-44, 0, 0),
+				braco_E=(-50, 15, 0), antebraco_E=(-44, 0, 0),
+				coxa_D=(-70, -21, 0), canela_D=(68, 0, 0), pe_D=pe(-70, 68),
+				coxa_E=(-70, 21, 0), canela_E=(68, 0, 0), pe_E=pe(-70, 68))),
+			(26, pose(
+				peito=(8, 0, 0), cabeca=(-4, 0, 0),
+				braco_D=(-57, -17, 0), antebraco_D=(-37, 0, 0),
+				braco_E=(-57, 17, 0), antebraco_E=(-37, 0, 0),
+				coxa_D=(-63, -19, 0), canela_D=(58, 0, 0), pe_D=pe(-63, 58),
+				coxa_E=(-63, 19, 0), canela_E=(58, 0, 0), pe_E=pe(-63, 58))),
+			(40, pose(
+				peito=(6, 0, 0), cabeca=(-2, 0, 0),
+				braco_D=(-54, -16, 0), antebraco_D=(-40, 0, 0),
+				braco_E=(-54, 16, 0), antebraco_E=(-40, 0, 0),
+				coxa_D=(-66, -20, 0), canela_D=(62, 0, 0), pe_D=pe(-66, 62),
+				coxa_E=(-66, 20, 0), canela_E=(62, 0, 0), pe_E=pe(-66, 62))),
+		],
+	},
+	# Montado, andando: `ride_run`, **0,60 s nos 32**, ciclo — 18 quadros, o
+	# clipe mais curto de todo o vocabulário universal.
+	#
+	# O corpo sobe e desce no ritmo do galope, e quem faz isso é o joelho: sem
+	# `voo`, o pé continua encostado e a conferência de chão continua valendo.
+	# Um `voo` aqui exigiria declarar quanto o cavaleiro sai da sela, e esse
+	# número não existe enquanto a sela não existir.
+	"montado_correndo": {
+		"ciclo": True,
+		"chaves": [
+			(0, pose(
+				peito=(16, 0, 0), cabeca=(-10, 0, 0),
+				braco_D=(-62, -15, 0), antebraco_D=(-34, 0, 0),
+				braco_E=(-62, 15, 0), antebraco_E=(-34, 0, 0),
+				coxa_D=(-60, -21, 0), canela_D=(52, 0, 0), pe_D=pe(-60, 52),
+				coxa_E=(-60, 21, 0), canela_E=(52, 0, 0), pe_E=pe(-60, 52))),
+			# Sobe na sela.
+			(5, pose(
+				peito=(23, 0, 0), cabeca=(-14, 0, 0),
+				braco_D=(-70, -14, 0), antebraco_D=(-26, 0, 0),
+				braco_E=(-70, 14, 0), antebraco_E=(-26, 0, 0),
+				coxa_D=(-74, -19, 0), canela_D=(76, 0, 0), pe_D=pe(-74, 76),
+				coxa_E=(-74, 19, 0), canela_E=(76, 0, 0), pe_E=pe(-74, 76))),
+			(9, pose(
+				peito=(14, 0, 0), cabeca=(-9, 0, 0),
+				braco_D=(-58, -16, 0), antebraco_D=(-38, 0, 0),
+				braco_E=(-58, 16, 0), antebraco_E=(-38, 0, 0),
+				coxa_D=(-56, -22, 0), canela_D=(46, 0, 0), pe_D=pe(-56, 46),
+				coxa_E=(-56, 22, 0), canela_E=(46, 0, 0), pe_E=pe(-56, 46))),
+			(14, pose(
+				peito=(22, 0, 0), cabeca=(-13, 0, 0),
+				braco_D=(-69, -14, 0), antebraco_D=(-27, 0, 0),
+				braco_E=(-69, 14, 0), antebraco_E=(-27, 0, 0),
+				coxa_D=(-73, -19, 0), canela_D=(74, 0, 0), pe_D=pe(-73, 74),
+				coxa_E=(-73, 19, 0), canela_E=(74, 0, 0), pe_E=pe(-73, 74))),
+			(18, pose(
+				peito=(16, 0, 0), cabeca=(-10, 0, 0),
+				braco_D=(-62, -15, 0), antebraco_D=(-34, 0, 0),
+				braco_E=(-62, 15, 0), antebraco_E=(-34, 0, 0),
+				coxa_D=(-60, -21, 0), canela_D=(52, 0, 0), pe_D=pe(-60, 52),
+				coxa_E=(-60, 21, 0), canela_E=(52, 0, 0), pe_E=pe(-60, 52))),
 		],
 	},
 	# Os cinco gestos de habilidade, com os mesmos nomes que

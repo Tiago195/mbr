@@ -263,7 +263,9 @@ Atingido isso, a ideia está validada. Tudo daqui em diante é melhoria.
 *Só começa depois que a Fase 5 provou que o jogo é divertido.*
 
 - Os outros 12–17 personagens (agora barato — é configuração)
-- Modelos 3D reais (Meshy + Mixamo — ver `08-arte-e-assets.md`)
+- Modelos 3D melhores, **gerados no Blender por script** (ver
+  `08-arte-e-assets.md`). Não é mais uma fase de compra: o gerador já roda, e
+  o boneco de teste é o primeiro artefato dele
 - Máquina de animação: transições entre andar, atacar, morrer
 - Mobs neutros com IA, incluindo mobs de nível alto genuinamente perigosos
 - Crafting: coleta de ingredientes, cozimento, mineração

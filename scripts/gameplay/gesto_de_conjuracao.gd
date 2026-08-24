@@ -11,7 +11,8 @@ extends Node
 ##
 ## Num jogo, o gesto é como a informação chega. Um registro de texto serve para
 ## depurar; ninguém lê um combate assim. Enquanto não há modelo com esqueleto —
-## Fase 6, Meshy e Mixamo —, a cápsula anima **por procedimento**: é como os
+## quem não gerou `arte/personagem.glb` —, a cápsula anima **por procedimento**:
+## é como os
 ## jogos comunicavam antes de haver animação esquelética, e é 100% nosso.
 ##
 ## O que faz um gesto ser legível não é a forma: é o TEMPO em três partes —
@@ -37,6 +38,20 @@ enum Gesto {
 	ERGUER,
 	## Encolher e voltar. Conjuração com tempo — é o aviso de que algo vem.
 	PREPARO,
+
+	# **Valor novo entra no FIM, sempre.** `Gesto` é chave de um dicionário
+	# exportado, e a Godot serializa enum como INTEIRO: inserir no meio trocaria
+	# o gesto de tudo que já estivesse salvo, em silêncio. É a armadilha que o
+	# `CLAUDE.md` anota em cada enum exportado deste projeto.
+
+	## Arremesso por cima do ombro. Projétil.
+	##
+	## Era ESTOCADA, e a diferença não é cosmética: são **359 pulsos de
+	## projétil no corpus, em 223 habilidades** — a forma mais comum sem gesto
+	## próprio —, e desenhar um arremesso como estocada fazia lançar parecer
+	## esfaquear. `throw` é a conjuração universal do original justamente
+	## porque essa é a forma que todo campeão tem.
+	ARREMESSO,
 }
 
 ## Quanto o gesto inteiro dura, em segundos.
@@ -85,7 +100,16 @@ enum Gesto {
 	Gesto.SALTO: VocabularioDeAnimacao.SALTO,
 	Gesto.ERGUER: VocabularioDeAnimacao.ERGUER,
 	Gesto.PREPARO: VocabularioDeAnimacao.PREPARO,
+	Gesto.ARREMESSO: VocabularioDeAnimacao.ARREMESSO,
 }
+
+## Abaixo desta velocidade o personagem está parado, e conjura o gesto normal.
+##
+## Acima dela ele conjura **em movimento**, e aí quem desenha é `throw_f` ou
+## `throw_b` — o corpo de cima do arremesso sobre as pernas que continuam
+## correndo. É a estrutura do original: os três `throw` são universais, e os
+## clipes próprios de campeão vêm por cima deles.
+@export var velocidade_para_conjurar_andando: float = 0.15
 
 ## O corpo articulado, quando existe. Com ele, o gesto move BRAÇO e PERNA;
 ## sem ele, move a malha inteira — que foi o que travou o teste do usuário,
@@ -203,7 +227,12 @@ func _ao_conjurar(
 	# Com esqueleto, o gesto vira CLIPE. O nome sai do mesmo `_gesto` que o
 	# corpo de caixas usa, para os dois caminhos concordarem sobre o que a
 	# habilidade parece.
-	var tocou: bool = _tocar(StringName(clipes_por_gesto.get(_gesto, &"")))
+	var clipe: StringName = StringName(clipes_por_gesto.get(_gesto, &""))
+	# Conjurar ANDANDO tem clipe próprio, e é universal no original.
+	var em_movimento: StringName = _clipe_em_movimento()
+	if em_movimento != &"" and not result.started():
+		clipe = em_movimento
+	var tocou: bool = _tocar(clipe)
 	# O gesto de uma conjuração com tempo dura o tempo dela: é ele que avisa
 	# que algo vem vindo, e avisar por um terço de segundo não avisa nada.
 	#
@@ -214,6 +243,30 @@ func _ao_conjurar(
 	if result.started() or not tocou:
 		_total = maxf(saiu.cast_time if result.started() else duracao, 0.05)
 		_restante = _total
+
+## O clipe de conjurar em MOVIMENTO, ou vazio se o personagem está parado.
+##
+## Frente ou atrás sai do sinal de `velocidade · frente`: quem se afasta do
+## lado para onde olha está recuando, e é `throw_b` que desenha isso. No
+## original as duas variantes existem nos 32 campeões e duram exatamente um
+## ciclo de corrida — o corpo de cima é sobreposto às pernas, e um comprimento
+## diferente faria o passo saltar no meio do arremesso (§5 de `docs/11`).
+##
+## **A conjuração com tempo não usa isto**: quem está canalizando fica parado,
+## e o `preparo` é o aviso de que algo vem.
+func _clipe_em_movimento() -> StringName:
+	var corpo: CharacterBody3D = get_parent() as CharacterBody3D
+	if corpo == null:
+		return &""
+	var plana := Vector3(corpo.velocity.x, 0.0, corpo.velocity.z)
+	if plana.length() < velocidade_para_conjurar_andando:
+		return &""
+	var frente: Vector3 = -corpo.global_transform.basis.z
+	frente.y = 0.0
+	if plana.dot(frente) >= 0.0:
+		return VocabularioDeAnimacao.ARREMESSO_A_FRENTE
+	return VocabularioDeAnimacao.ARREMESSO_ATRAS
+
 
 ## Que gesto cabe a esta habilidade.
 ##
@@ -239,7 +292,7 @@ static func _gesto_para(ability: Ability) -> Gesto:
 			AbilityPulse.Form.TRAPEZOID:
 				return Gesto.ESTOCADA
 			AbilityPulse.Form.PROJECTILE:
-				return Gesto.ESTOCADA
+				return Gesto.ARREMESSO
 			_:
 				return Gesto.ERGUER
 	return Gesto.ERGUER
@@ -272,7 +325,10 @@ func _aplicar(t: float) -> void:
 		return
 	var frente: Vector3 = -global_frente()
 	match _gesto:
-		Gesto.ESTOCADA:
+		Gesto.ESTOCADA, Gesto.ARREMESSO:
+			# Sem esqueleto os dois avançam o corpo: é o que dá para separar
+			# num corpo inteiriço, e o corpo inteiriço é o caminho de quem não
+			# gerou `arte/personagem.glb`.
 			_malha.position = _base_posicao + frente * avanco * peso
 			_malha.scale = _base_escala * Vector3(
 				1.0 - 0.12 * peso, 1.0 + 0.10 * peso, 1.0 - 0.12 * peso
@@ -305,7 +361,7 @@ func _aplicar(t: float) -> void:
 func _aplicar_nos_membros(peso: float) -> void:
 	_boneco.repousar()
 	match _gesto:
-		Gesto.ESTOCADA:
+		Gesto.ESTOCADA, Gesto.ARREMESSO:
 			# O braço da frente sobe e desce como quem golpeia; o de trás
 			# contrabalança, que é o que dá peso ao movimento.
 			_boneco.braco_direito.rotation_degrees.x = -150.0 * peso

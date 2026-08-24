@@ -393,6 +393,96 @@ def _bundles_de_modelo():
 	return alvos
 
 
+## Que osso humanoide responde por cada regiao que o nosso boneco desenha.
+##
+## **A cabeca NAO esta aqui**, e a ausencia e medida: ela e uma malha propria
+## (`X_Head`), entao o osso `Head` da malha do CORPO nao influencia vertice
+## nenhum e a Unity guarda a caixa vazia — `m_Min` = +inf. Medindo por ali,
+## metade dos campeoes sumia calada e um `-inf` entrava na faixa publicada. Ela
+## e medida na malha dela, em `_massa`.
+REGIOES_DE_MASSA = [
+	("cabeca", None),
+	("peito", "Chest"),
+	("quadril", "Hips"),
+	("braco", "LeftUpperArm"),
+	("antebraco", "LeftLowerArm"),
+	("mao", "LeftHand"),
+	("coxa", "LeftUpperLeg"),
+	("canela", "LeftLowerLeg"),
+	("pe", "LeftFoot"),
+]
+
+
+def _massa(corpo, cabeca, avatar, altura, personagem, vazias) -> dict:
+	"""A espessura de cada regiao, como fracao da altura.
+
+	De cada caixa saem tres lados; o MAIOR e o comprimento do osso, que a
+	escada de alturas ja mede. Os dois menores sao a secao transversal, e e a
+	media deles que responde "quao grosso e isto".
+
+	**Caixa vazia nao vira medida.** Ela e anotada em `vazias` e descartada:
+	um lado negativo e o sintoma de osso sem vertice, e deixa-lo entrar produz
+	mediana sobre outra populacao que a declarada.
+	"""
+	saida = {}
+	hashes = avatar.get("hashes") or {}
+	for nossa, humano in REGIOES_DE_MASSA:
+		if humano is None:
+			# A cabeca, da malha dela. Inclui cabelo, chapeu e orelha — e por
+			# isso a faixa dela e a mais larga das nove.
+			lados = sorted(2.0 * v for v in cabeca["meia"] if v is not None)
+		else:
+			caixa = (corpo.get("por_osso") or {}).get(hashes.get(humano))
+			if caixa is None:
+				continue
+			lados = sorted(caixa["m_Max"][eixo] - caixa["m_Min"][eixo]
+			               for eixo in "xyz")
+		if len(lados) != 3 or lados[0] <= 0.0 or lados[2] > 10.0:
+			vazias.add("%s/%s" % (personagem, nossa))
+			continue
+		# **ESBELTEZ, e nao espessura absoluta.** A caixa de influencia invade o
+		# vizinho quando o skinning e suave, e o absoluto sai inflado: medido
+		# assim, duas coxas de 0,266 nao cabem num quadril de 0,334, o que e
+		# geometricamente impossivel. A inflacao empurra os TRES lados, entao a
+		# razao entre eles sobrevive — e e ela que responde a pergunta que
+		# importa, "isto e um palito ou e um toco?".
+		#
+		# O maior lado e o comprimento do osso; os dois menores sao a secao.
+		saida[nossa] = ((lados[0] + lados[1]) * 0.5) / lados[2]
+	return saida
+
+
+def _resumir_massa(bons, vazias) -> dict:
+	"""As nove regioes, cada uma `[mediana, minimo, maximo]`.
+
+	**Publica quantas caixas foram descartadas.** Cobertura que encolhe sem
+	avisar e o sintoma que este projeto mais persegue, e aqui ela tem uma forma
+	propria: um osso que deixe de influenciar vertice sai da conta sem que
+	nenhuma mediana pareca errada.
+	"""
+	saida = {"campeoes": len(bons), "descartadas": len(vazias)}
+	# **A ancora limpa.** A caixa por osso e uma REGIAO DE INFLUENCIA: com
+	# skinning suave ela invade o vizinho, e por isso superestima o diametro —
+	# duas coxas de 0,266 nao cabem num quadril de 0,334. A profundidade do
+	# CORPO INTEIRO nao tem esse problema: e uma malha so, medida de uma vez,
+	# sem osso nenhum no meio. Ela e o que fixa a ESCALA; a caixa por osso fixa
+	# a PROPORCAO entre as regioes.
+	# **Ela sai numa secao propria, e nao aqui dentro.** Profundidade do corpo
+	# nao e esbeltez de regiao: misturada, ela virava uma "regiao" a mais que o
+	# gerador nunca declararia, e a conferencia dos dois sentidos reprovava com
+	# razao. Duas medidas com sentidos diferentes nao dividem dicionario.
+	_guardar("profundidade_do_corpo", {
+		"campeoes": len(bons),
+		"faixa": _tres([2.0 * l["profundidade"] for l in bons
+		                if l.get("profundidade")]),
+	})
+	for nossa, _ in REGIOES_DE_MASSA:
+		vals = [l["massa"][nossa] for l in bons if nossa in l["massa"]]
+		if vals:
+			saida[nossa] = _tres(vals)
+	return saida
+
+
 def censo_de_proporcao(UnityPy):
 	malhas = {}
 	avatares = {}
@@ -411,6 +501,13 @@ def censo_de_proporcao(UnityPy):
 					"meia": (e.get("x"), e.get("y"), e.get("z")),
 					"verts": (d.get("m_VertexData") or {}).get("m_VertexCount"),
 					"ossos": len(d.get("m_BindPose") or []),
+					# **A MASSA.** `m_BonesAABB` guarda, por osso, a caixa dos
+					# vertices que ele influencia. E a unica medida de
+					# ESPESSURA que os bundles dao sem decodificar buffer de
+					# vertice — `m_IsReadable` e falso em todas as malhas, e
+					# `m_Vertices` volta nulo.
+					"por_osso": dict(zip(d.get("m_BoneNameHashes") or [],
+					                     d.get("m_BonesAABB") or [])),
 				}
 			elif obj.type.name == "Avatar":
 				d = obj.read_typetree()
@@ -438,14 +535,19 @@ def censo_de_proporcao(UnityPy):
 				indice = desembrulha(hum.get("m_HumanBoneIndex") or [])
 				por_hash = {h: i for i, h in enumerate(esq.get("m_ID") or [])}
 				ossos = {}
+				# O hash com que a MALHA chama cada osso humanoide. E a chave
+				# que liga `m_BonesAABB` a "isto e a coxa".
+				hashes = {}
 				for k, n in enumerate(OSSOS_HUMANOS):
 					if k < len(indice) and indice[k] >= 0:
-						alvo = por_hash.get((hs.get("m_ID") or [])[indice[k]])
+						chave = (hs.get("m_ID") or [])[indice[k]]
+						hashes[n] = chave
+						alvo = por_hash.get(chave)
 						if alvo is not None:
 							ossos[n] = pos[alvo]
 				if "Head" in ossos and "Hips" in ossos:
 					avatares[(d.get("m_Name") or "?").lower()] = {
-						"nos": len(nos), "ossos": ossos,
+						"nos": len(nos), "ossos": ossos, "hashes": hashes,
 					}
 
 	print()
@@ -454,6 +556,9 @@ def censo_de_proporcao(UnityPy):
 
 	linhas = []
 	faltaram = []
+	## Caixas de osso descartadas por estarem vazias. Um conjunto e nao um
+	## contador: o nome de quem caiu fora e o que permite investigar.
+	vazias = set()
 	for p in PERSONAGENS:
 		# **Nem todo corpo se chama `X_Body`.** Odri e Rukh nomeiam a malha do
 		# corpo so com o nome do campeao, e a versao anterior os descartava
@@ -490,6 +595,7 @@ def censo_de_proporcao(UnityPy):
 		        if "LeftHand" in oss and "RightHand" in oss else None)
 		escada = {n: (v[1] - base) / altura for n, v in oss.items()}
 		linhas.append({
+			"massa": _massa(corpo, cabeca, avatar, altura, p, vazias),
 			"pers": p, "altura": altura, "escada": escada,
 			"pescoco": pescoco / altura, "cranio": cranio / altura,
 			"quadril": quadril / altura,
@@ -498,6 +604,7 @@ def censo_de_proporcao(UnityPy):
 			"maos": (maos / altura) if maos else None,
 			"envergadura": corpo["meia"][0] * 2 / altura,
 			"nos": avatar["nos"], "verts": corpo["verts"], "base": base,
+			"profundidade": (corpo["meia"][1] / altura) if corpo["meia"][1] else None,
 		})
 
 	# **Quem cai fora tem que APARECER.** Um campeao descartado em silencio e
@@ -531,6 +638,7 @@ def censo_de_proporcao(UnityPy):
 		"cabecas": _tres([1.0 / (1.0 - l["pescoco"]) for l in bons]),
 		"altura_da_cabeca": _tres([1.0 - l["pescoco"] for l in bons]),
 	})
+	_guardar("esbeltez", _resumir_massa(bons, vazias))
 	print("  campeoes medidos: %d (fora: %s)" % (len(bons), ", ".join(sorted(FORA_DA_PROPORCAO))))
 	print("  -- a escada de alturas, como fracao da altura total --")
 	for osso in ("LeftToes", "LeftFoot", "LeftLowerLeg", "LeftUpperLeg", "Hips",
@@ -567,6 +675,15 @@ def censo_de_proporcao(UnityPy):
 	      "   humano %.2f" % (1.0 / (1.0 - HUMANO["pescoco"])))
 	print(" ", faixa("nos do esqueleto", [l["nos"] for l in bons], 0))
 	print(" ", faixa("vertices do corpo", [l["verts"] for l in bons if l["verts"]], 0))
+	print("  -- a ESBELTEZ: espessura do osso dividida pelo comprimento dele --")
+	for nossa, _ in REGIOES_DE_MASSA:
+		vals = [l["massa"][nossa] for l in bons if nossa in l["massa"]]
+		if not vals:
+			continue
+		print("    %-12s n=%-3d med %.3f  (min %.3f  max %.3f)" % (
+			nossa, len(vals), statistics.median(vals), min(vals), max(vals)))
+	if vazias:
+		print("  caixas de osso VAZIAS, descartadas: %s" % "; ".join(sorted(vazias)))
 	return bons
 
 

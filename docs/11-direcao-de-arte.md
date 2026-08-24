@@ -174,9 +174,9 @@ mede as duas coisas e as duas dão 22.
 | `throw` | 0,80 / 0,80 / 1,37 s | uma vez | arremesso parado |
 | `throw_f` | 0,73 / 0,80 / 1,50 s | uma vez | arremesso indo à frente |
 | `throw_b` | 0,73 / 0,80 / 1,13 s | uma vez | arremesso indo atrás |
-| `ride_idle` | 1,33 s | ciclo | montado, parado |
-| `ride_run` | 0,60 s | ciclo | montado, andando |
-| `ride2_idle` | 1,33 s | ciclo | segunda montaria, parado |
+| `ride_idle` | 1,33 / 1,33 / 1,33 s | ciclo | montado, parado |
+| `ride_run` | 0,60 / 0,60 / 0,60 s | ciclo | montado, andando |
+| `ride2_idle` | 1,33 / 1,33 / 1,33 s | ciclo | segunda montaria, parado |
 | `ride2_run` | 0,60 / 0,60 / 1,33 s | ciclo | segunda montaria, andando |
 
 **Sete desses 22 são verbos de MUNDO** — `collect`, `cut`, `mine`, `loot`,
@@ -186,11 +186,25 @@ separa o gênero de um MOBA, e nós não temos nenhum.
 
 ### Quanto disto o nosso boneco já tem
 
-O nosso boneco tem **8 dos 22** verbos universais, mais os cinco gestos de
-habilidade. Os nomes nossos, e a tradução de cada um para o nome do original,
-vivem em `scripts/gameplay/vocabulario_de_animacao.gd` — que é a lista que o
-JOGO usa. `tools/conferir_numeros.py` exige que ela seja exatamente a mesma
-lista do gerador e a mesma do `.glb` publicado, nos dois sentidos.
+O nosso boneco tem **20 dos 22** verbos universais, mais os cinco gestos de
+habilidade e um arremesso — 25 clipes ao todo. Os nomes nossos, e a tradução de
+cada um para o nome do original, vivem em
+`scripts/gameplay/vocabulario_de_animacao.gd` — que é a lista que o JOGO usa.
+`tools/conferir_numeros.py` exige que ela seja exatamente a mesma lista do
+gerador e a mesma do `.glb` publicado, nos dois sentidos.
+
+**Os dois que faltam para 22 são `ride2_idle` e `ride2_run`**, a segunda
+montaria, e a falta é a REGRA e não uma lacuna: eles têm a mesma forma e as
+mesmas durações medianas de `ride_idle` e `ride_run` — 1,33 s e 0,60 s —, e
+duas coisas com a mesma forma dividem o gesto. É exatamente o que o original
+faz no extremo dos seis campeões sem clipe exclusivo nenhum.
+
+E os dois clipes de montaria são autorados **no chão**, como todos os outros. A
+altura da sela é a medida que decidiria a pose de um corpo montado, e ela não
+existe enquanto a montaria não existir; quem levanta o personagem até a sela é a
+CENA, no dia em que houver uma. Isso mantém o item 5 do §10 valendo — o pé
+encosta no chão e a conferência mede — em vez de abrir uma exceção cuja folga
+seria inventada.
 
 Essa conferência existe por um buraco medido: o jogo pedia `run`, `idle`,
 `swing`, `swing2`, `comboslash`, `shieldrush`, `shieldthrow` e `shieldwall` —
