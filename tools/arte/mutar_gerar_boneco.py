@@ -193,6 +193,26 @@ def _gerar() -> int:
     return 0 if "[boneco] gravado:" in saida else 1
 
 
+def _fatia(argv) -> tuple:
+    """`(de, ate)` a partir da linha de comando. Sem argumento, tudo.
+
+    **A suite existe em fatias porque uma execucao inteira nao cabe.** Cada
+    mutacao regera o boneco, e o gerador custa 3m35s desde que a travessia da
+    casca passou a ser medida em TODOS os quadros: 24 execucoes dao ~86
+    minutos, e o executor em segundo plano matou a suite no meio disso. Uma
+    suite morta no meio **deixa o repositorio mutado** — foi o que aconteceu, e
+    so nao custou nada porque o trabalho estava commitado.
+
+    Rodar `py tools/arte/mutar_gerar_boneco.py 0 8` faz as oito primeiras.
+    Sempre UMA fatia de cada vez: a trava e o repositorio inteiro, nao a fatia.
+    """
+    if len(argv) >= 3:
+        return int(argv[1]), int(argv[2])
+    if len(argv) == 2:
+        return int(argv[1]), len(MUTACOES)
+    return 0, len(MUTACOES)
+
+
 def main() -> int:
     if os.path.exists(TRAVA):
         print("ja ha uma suite de mutacao em curso (%s)" % TRAVA)
@@ -200,8 +220,19 @@ def main() -> int:
     if not os.path.exists(BLENDER):
         print("nao achei o Blender em %s" % BLENDER)
         return 2
+    # **Os padroes sao conferidos INTEIROS, mesmo rodando uma fatia.** Um
+    # padrao orfao numa mutacao que esta fora da fatia continua sendo uma
+    # conferencia desligada, e descobri-lo tres fatias depois e tarde.
     if not _conferir_os_padroes():
         return 1
+    de, ate = _fatia(sys.argv)
+    escolhidas = MUTACOES[de:ate]
+    if not escolhidas:
+        print("a fatia [%d:%d] esta vazia — sao %d mutacoes"
+              % (de, ate, len(MUTACOES)))
+        return 1
+    if (de, ate) != (0, len(MUTACOES)):
+        print("fatia [%d:%d] de %d mutacoes" % (de, ate, len(MUTACOES)))
 
     originais = {alvo: io.open(caminho, "rb").read()
                  for alvo, caminho in ALVOS.items()}
@@ -217,7 +248,7 @@ def main() -> int:
             print("o gerador ja reprova sem mutacao nenhuma — conserte antes")
             return 1
 
-        for titulo, edicoes in MUTACOES:
+        for titulo, edicoes in escolhidas:
             pendentes = {}
             for alvo, velho, novo in edicoes:
                 fonte = pendentes.get(alvo, originais[alvo].decode("utf-8"))
@@ -248,9 +279,10 @@ def main() -> int:
 
     if escaparam:
         print("\n%d de %d ESCAPARAM: %s"
-              % (len(escaparam), len(MUTACOES), escaparam))
+              % (len(escaparam), len(escolhidas), escaparam))
         return 1
-    print("\ntodas as %d mutacoes foram pegas" % len(MUTACOES))
+    print("\ntodas as %d mutacoes desta fatia foram pegas (%d de %d no total)"
+          % (len(escolhidas), ate - de, len(MUTACOES)))
     return 0
 
 

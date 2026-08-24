@@ -444,32 +444,55 @@ def auto_intersecoes(pontos: list, triangulos: list) -> list:
 	"""
 	grade = {}
 	caixas = []
+	# Os vertices de cada triangulo, congelados uma vez. A versao anterior
+	# fazia `set(triangulos[a]) & set(triangulos[b])` DENTRO do laco de pares:
+	# dois conjuntos construidos por par, milhoes de vezes.
+	conjuntos = []
 	for indice, tri in enumerate(triangulos):
 		pts = [pontos[i] for i in tri]
 		menor = tuple(min(p[k] for p in pts) for k in range(3))
 		maior = tuple(max(p[k] for p in pts) for k in range(3))
 		caixas.append((menor, maior, pts))
+		conjuntos.append(frozenset(tri))
 		for cx in range(int(menor[0] // CELULA), int(maior[0] // CELULA) + 1):
 			for cy in range(int(menor[1] // CELULA), int(maior[1] // CELULA) + 1):
 				for cz in range(int(menor[2] // CELULA), int(maior[2] // CELULA) + 1):
 					grade.setdefault((cx, cy, cz), []).append(indice)
 
+	# **Este laco roda 78 vezes por geracao desde que a travessia passou a ser
+	# medida em todos os quadros animados, e o custo virou estrutural:** 3m35s
+	# por geracao, o que fez a suite de mutacao (24 geracoes) estourar o tempo
+	# do executor e morrer no meio — deixando o repositorio MUTADO. O que segue
+	# nao muda o resultado, so o custo; o teste de regressao sao os numeros
+	# publicados, 78 pares em repouso e 79 no quadro 5 de `andando`.
+	largura = len(triangulos)
 	vistos = set()
 	achados = []
 	for celula in grade.values():
-		for i in range(len(celula)):
-			for j in range(i + 1, len(celula)):
-				a, b = celula[i], celula[j]
-				if (a, b) in vistos:
+		quantos = len(celula)
+		for i in range(quantos):
+			a = celula[i]
+			ma, xa, pa = caixas[a]
+			ca = conjuntos[a]
+			base = a * largura
+			for j in range(i + 1, quantos):
+				b = celula[j]
+				# Chave inteira em vez de tupla: o par so precisa ser visto uma
+				# vez, e um triangulo grande cai em varias celulas.
+				chave = base + b
+				if chave in vistos:
 					continue
-				vistos.add((a, b))
-				if set(triangulos[a]) & set(triangulos[b]):
+				vistos.add(chave)
+				if not ca.isdisjoint(conjuntos[b]):
 					continue
-				ma, xa, pa = caixas[a]
-				mb, xb, pb = caixas[b]
-				if any(xa[k] < mb[k] or xb[k] < ma[k] for k in range(3)):
+				mb, xb, _pb = caixas[b]
+				# Desenrolado de proposito: `any(... for k in range(3))` cria um
+				# gerador por par, e sao milhoes de pares.
+				if (xa[0] < mb[0] or xb[0] < ma[0]
+						or xa[1] < mb[1] or xb[1] < ma[1]
+						or xa[2] < mb[2] or xb[2] < ma[2]):
 					continue
-				if _cruza(pa, pb):
+				if _cruza(pa, caixas[b][2]):
 					achados.append((a, b))
 	return achados
 

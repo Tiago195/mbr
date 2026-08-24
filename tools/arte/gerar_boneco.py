@@ -1784,6 +1784,8 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	## apagava. Descontar um osso escolhido à mão não fecha a classe; medir a
 	## articulação do próprio osso fecha.
 	giros = {osso.name: [] for osso in armature.pose.bones}
+	## `[pior contagem, quadro em que ela ocorreu]` de travessia da casca.
+	travessia = [0, 0]
 	for quadro in range(0, ultimo + 1):
 		bpy.context.scene.frame_set(quadro)
 		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
@@ -1806,6 +1808,16 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		quadril = armature.matrix_world @ armature.pose.bones["quadril"].head
 		for osso in armature.pose.bones:
 			giros[osso.name].append(osso.matrix_basis.to_quaternion())
+		# **A travessia da casca, no mesmo passe.** Ver
+		# `TETO_DA_TRAVESSIA_ANIMADA`. Ela viveu num segundo passe sobre os
+		# quadros por uma versão, e o segundo `evaluated_get` custava nove
+		# vezes o que a medição em si custa.
+		temporaria.calc_loop_triangles()
+		quantos = len(conferir_boneco.auto_intersecoes(
+			[tuple(p) for p in pontos],
+			[tuple(t.vertices) for t in temporaria.loop_triangles]))
+		if quantos > travessia[0]:
+			travessia[0], travessia[1] = quantos, quadro
 		avaliado.to_mesh_clear()
 		alturas_do_quadril.append(quadril.z)
 	bpy.context.scene.frame_set(0)
@@ -1853,7 +1865,7 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		articulacao[osso] = pior
 
 	return (amplitude, por_regiao, articulacao, lateral, chao, marcha,
-	        alturas_do_quadril)
+	        alturas_do_quadril, tuple(travessia))
 
 
 ## Quantos pares de face podem se atravessar num quadro ANIMADO.
@@ -1870,41 +1882,17 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 ## nenhuma das duas grades o continha. Uma grade esparsa aqui não mede o corpo,
 ## mede quais quadros alguém escolheu.
 ##
-## Custa 3m35s por geração, contra 40 s sem ela. É caro e vale: era o único
-## lugar onde a queixa original do usuário podia ser medida.
+## **E ela custa quase nada, agora que mede no passe certo.** A primeira
+## versão abria a malha deformada num SEGUNDO passe sobre os quadros, e a
+## geração passou de 40 s para 3m35s — o que fez a suíte de mutação
+## estourar o tempo do executor e morrer no meio, deixando o repositório
+## mutado, duas vezes. `medir_animacao` já avalia cada quadro; medir junto
+## custa os 0,28 s de `auto_intersecoes` por quadro e mais nada.
 ##
 ## O teto é o pior valor medido, sem folga, pelo mesmo argumento de
 ## `TETO_DE_AUTOINTERSECAO` — e pelo argumento que `QUIQUE_MAXIMO` enunciava e
 ## descumpria: teto arredondado para cima é espaço para piorar sem ninguém ver.
 TETO_DA_TRAVESSIA_ANIMADA = 79
-
-
-def medir_travessia(armature: bpy.types.Object, corpo: bpy.types.Object,
-                    nome: str, ultimo: int) -> tuple:
-	"""`(pior contagem, quadro em que ela ocorreu)` na malha DEFORMADA."""
-	acao = bpy.data.actions.get(nome)
-	if acao is None:
-		raise RuntimeError("a acao `%s` sumiu antes de ser medida" % nome)
-	armature.animation_data.action = acao
-	if hasattr(armature.animation_data, "action_slot") and acao.slots:
-		armature.animation_data.action_slot = acao.slots[0]
-
-	quadros = list(range(0, ultimo + 1))
-	pior, onde = 0, quadros[0]
-	for quadro in quadros:
-		bpy.context.scene.frame_set(quadro)
-		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
-		temporaria = avaliado.to_mesh()
-		temporaria.calc_loop_triangles()
-		pontos = [tuple(avaliado.matrix_world @ v.co)
-		          for v in temporaria.vertices]
-		triangulos = [tuple(t.vertices) for t in temporaria.loop_triangles]
-		quantos = len(conferir_boneco.auto_intersecoes(pontos, triangulos))
-		if quantos > pior:
-			pior, onde = quantos, quadro
-		avaliado.to_mesh_clear()
-	bpy.context.scene.frame_set(0)
-	return pior, onde
 
 
 def assentar(armature: bpy.types.Object, ultimo: int) -> list:
@@ -2037,7 +2025,7 @@ def main() -> int:
 	for nome, dados in ANIMACOES.items():
 		quadros = criar_animacao(esqueleto, nome, dados)
 		(amplitude, por_regiao, por_osso, lateral, chao, marcha,
-		 alturas_do_quadril) = medir_animacao(  # por_osso e ANGULAR, em graus
+		 alturas_do_quadril, travessia) = medir_animacao(  # em graus
 			esqueleto, corpo, nome, quadros)
 		# **A duração impressa é a MEDIDA, não a declarada.** Ela já imprimiu
 		# "1,33 s" com o arquivo saindo em 1,667 — mentindo sobre exatamente o
@@ -2074,14 +2062,16 @@ def main() -> int:
 						"mover nao se move"
 						% (nome, osso, girou, ARTICULACAO_MINIMA))
 		## **A casca se atravessa ANDANDO?** Ver `TETO_DA_TRAVESSIA_ANIMADA`.
-		travessia, quadro_ruim = medir_travessia(esqueleto, corpo, nome, quadros)
+		pior_travessia, quadro_ruim = travessia
 		print("[boneco]     travessia da casca: %d pares no pior quadro (%d), "
-		      "teto %d" % (travessia, quadro_ruim, TETO_DA_TRAVESSIA_ANIMADA))
-		if travessia > TETO_DA_TRAVESSIA_ANIMADA:
+		      "teto %d"
+		      % (pior_travessia, quadro_ruim, TETO_DA_TRAVESSIA_ANIMADA))
+		if pior_travessia > TETO_DA_TRAVESSIA_ANIMADA:
 			raise RuntimeError(
 				"em `%s` a casca se atravessa em %d pares no quadro %d, e o "
 				"teto e %d — o corpo entra em si mesmo em movimento"
-				% (nome, travessia, quadro_ruim, TETO_DA_TRAVESSIA_ANIMADA))
+				% (nome, pior_travessia, quadro_ruim,
+				   TETO_DA_TRAVESSIA_ANIMADA))
 
 		## **Os pares articulam o mesmo?** Ver `TOLERANCIA_DA_SIMETRIA`. So
 		## sobre regiao listada em `movem`: e la que o projeto declara o que
