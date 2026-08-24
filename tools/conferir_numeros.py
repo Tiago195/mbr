@@ -1987,6 +1987,38 @@ def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
             "ninguem" % (sorted(ciclos_do_gerador.items()),
                          sorted(ciclos_do_conferidor.items())))
 
+    # **E `deitado`, que era dado morto pela mesma forma que `ciclo` era.**
+    #
+    # A rodada anterior amarrou `ciclo` e deixou a linha logo abaixo dele solta.
+    # Medido pelo revisor: trocar `"deitado": True` por `False` desliga AS DUAS
+    # conferencias que aquela rodada existiu para criar — a inclinacao do
+    # tronco e o item 5 do §10 —, e ainda derrota uma mutacao que a suite
+    # credita como pega. Uma palavra apagava duas defesas.
+    #
+    # E ha o segundo sentido: `DEITADAS` e chaveado por NOME de clipe no
+    # conferidor e por FLAG no gerador. Um clipe futuro com `"deitado": True`
+    # que ninguem pusesse em `DEITADAS` nao seria conferido no artefato.
+    deitados_do_gerador = set(re.findall(
+        r'^\t"(\w+)": \{(?:(?!^\t\},).)*?"deitado": True,',
+        textos["gerador"], re.S | re.M))
+    deitados_do_conferidor = set(re.findall(
+        r'^\t"(\w+)": ', re.search(
+            r"^DEITADAS = \{(.*?)\}", textos["conferidor"], re.S | re.M
+        ).group(1), re.M)) if re.search(
+            r"^DEITADAS = \{", textos["conferidor"], re.M) else set()
+    if not deitados_do_conferidor:
+        deitados_do_conferidor = set(re.findall(
+            r'"(\w+)": [0-9.]+',
+            re.search(r"^DEITADAS = \{(.*?)\}", textos["conferidor"],
+                      re.S | re.M).group(1)))
+    c.contar()
+    if deitados_do_gerador != deitados_do_conferidor:
+        c.falhas.append(
+            "o gerador marca %s como `deitado` e o conferidor cobra %s — um "
+            "clipe fora de uma das duas listas tem a queda conferida por "
+            "ninguem" % (sorted(deitados_do_gerador),
+                         sorted(deitados_do_conferidor)))
+
     exigidos = set(re.findall(
         r'^\t"(\w+)": \(', re.search(
             r"^ANIMACOES_EXIGIDAS = \{(.*?)^\}", textos["conferidor"],

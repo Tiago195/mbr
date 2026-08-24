@@ -488,8 +488,8 @@ que ela existe para fechar.
 | `gerar_boneco.py` | `SOBRA_DA_REDUCAO` | 0.35 | idem |
 | `gerar_boneco.py` | `TENTATIVAS` | 240 | voltas do laço de convergência antes de desistir |
 | `gerar_boneco.py` | `FOLGA_DA_ALTURA` | 0.002 | quando a convergência considera a altura fechada |
-| `gerar_boneco.py` | `AMORTECIMENTO` | 0.5 | quanto da correção o laço aplica por volta; 1,0 oscila |
-| `gerar_boneco.py` | `AMORTECIMENTO_DA_ESPESSURA` | 0.5 | o mesmo, para o raio das peças |
+| `gerar_boneco.py` | `AMORTECIMENTO` | 0.5 | quanto da correção o laço aplica por volta; correção cheia **não oscila, EXPLODE** — medido, topo 144,6 m e base −142,4 |
+| `gerar_boneco.py` | `AMORTECIMENTO_DA_ESPESSURA` | 0.5 | o mesmo, para o raio das peças — e 0,9 diverge na volta 97 |
 | `gerar_boneco.py` | `FOLGA_DA_CABECA` | 0.006 | quando a largura da cabeça está fechada |
 | `gerar_boneco.py` | `FOLGA_DO_BRACO` | 0.004 | quando o alcance do braço está fechado |
 | `gerar_boneco.py` | `RAIO_DO_TUBO_DO_BRACO` | 0.145 | o cerco que separa vértice de braço de vértice de coxa; o pé fica a 1,2 m e passava no filtro anterior |
@@ -501,6 +501,7 @@ que ela existe para fechar.
 | `gerar_boneco.py` | `CADENCIA` | 30 | quadros por segundo; **medido**, 1344 dos 1350 clipes do original |
 | `gerar_boneco.py` | `AMPLITUDE_MINIMA` | 0.05 | metros que o vértice que mais anda precisa andar — é piso GLOBAL, e o piso por região é `ARTICULACAO_MINIMA` |
 | `gerar_boneco.py` | `INCLINACAO_DE_DEITADO` | 70.0 | graus da vertical que o tronco tem de atingir num clipe que declara `deitado`; **escolhido**, não derivado — 90 é deitado, 0 é de pé |
+| `conferir_boneco.py` | `ARTICULACAO_MINIMA` | 5.0 | o mesmo piso do gerador, do lado que julga o artefato — sem ele, congelar um clipe dentro do `.glb` passava |
 | `conferir_boneco.py` | `DEITADAS[morte]` | 70.0 | o mesmo piso, do lado que julga o artefato |
 | `gerar_boneco.py` | `ARTICULACAO_MINIMA` | 5.0 | graus que um osso de `movem` precisa girar; ângulo e não metro, porque metro não distingue articular de ser carregado |
 | `gerar_boneco.py` | `FOLGA_DO_CHAO` | 0.015 | quando um pé conta como tocando o chão |

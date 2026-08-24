@@ -169,11 +169,18 @@ COMPRIMENTO_DO_PE = 0.137 * ALTURA
 ## T, mas o que o jogador vê é o `parado`, que parte daqui. 28° troca os 78
 ## pares por 10 e mantém a silhueta de alguém em pé.
 ##
-## **Os 13 que sobram em movimento não são da axila.** Medidos pelo revisor,
-## 13 deles estão em z~0,5, do lado esquerdo: é a mão recuada entrando na
-## nádega, e ela APARECE na tela — ao contrário dos da axila, que ficam dentro
-## da malha. É defeito visual conhecido e não fechado; ver a lista do que
-## exige olho humano no `CLAUDE.md`.
+## **Os 13 que sobram em movimento não são da axila, e não são da mão.**
+## Medidos com a ferramenta dizendo de quem são, os treze são `coxa_E` ×
+## `canela_E` — o JOELHO, a z 0,53, quando a panturrilha dobra dentro da coxa
+## na passagem. A mão está 35 cm acima.
+##
+## Este comentário já afirmou duas coisas erradas sobre o mesmo defeito: que
+## ele era "sempre no mesmo lugar, sempre em repouso", e depois que era "a mão
+## recuada entrando na nádega". As duas foram escritas sem medir, e a segunda
+## no mesmo commit em que eu escrevia que o teto conta pares e nunca lugar.
+## Hoje o gerador imprime os donos a cada execução — a afirmação saiu do
+## comentário e virou saída de ferramenta, que é a única correção que não
+## envelhece.
 ABERTURA_DO_BRACO = 28.0
 
 
@@ -720,10 +727,20 @@ def _alcance_do_braco(corpo: bpy.types.Object) -> float:
 
 ## Até que distância do eixo do braço um vértice ainda conta como braço.
 ##
-## **Medido, e a margem é estreita — está declarado aqui porque é.** A mão é a
-## peça mais grossa da corrente e chega a 0,118 do eixo. A coxa, que é o
-## vizinho mais próximo, passa a 0,172. São 5,4 cm de separação entre os dois
-## grupos, e o corte fica no meio.
+## **O que este parágrafo dizia, e nenhum dos três números reproduzia.** Ele
+## afirmava que a mão chega a 0,118 do eixo, que a coxa é o vizinho mais
+## próximo a 0,172, e que "o corte fica no meio" dos 5,4 cm entre elas.
+## Medido no `.glb` publicado: a mão chega a **0,0656** — os 0,118 eram o raio
+## DECLARADO do nó na gaiola (0,0875 × 1,35), e a subdivisão encolhe; o braço
+## inteiro não passa de **0,1087**; e um cilindro de 0,145 em torno do eixo
+## contém **145 vértices que não são braço** — 60 da cabeça, 56 do peito, 29 do
+## quadril, de 652 no total.
+##
+## Ou seja: **não é o raio que exclui o tronco, é a janela LONGITUDINAL** — o
+## filtro exige `0,3 ≤ ao_longo ≤ 0,7`, e é ela que joga fora cabeça e peito,
+## que ficam fora desse trecho. O raio sozinho não separa nada, e a margem
+## gravada era ficção. Achado do revisor adversarial, e o número continua
+## funcionando pelo motivo errado do que estava escrito.
 ##
 ## Com 0,20 a coxa entrava: a medida do braço travava em 0,6598 e não se mexia
 ## em quarenta voltas, porque o máximo vinha da perna e não da mão. Número
@@ -1943,6 +1960,8 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	giros = {osso.name: [] for osso in armature.pose.bones}
 	## `[pior contagem, quadro em que ela ocorreu]` de travessia da casca.
 	travessia = [0, 0]
+	## E `{"osso, osso": quantos}` no pior quadro. Ver o comentario abaixo.
+	de_quem = {}
 	## O ponto mais alto do corpo no ULTIMO quadro. Ver `deitado`.
 	altura_no_fim = [0.0]
 	## E a FOLGA ate o chao de cada regiao, no mesmo quadro. Ver `deitado`.
@@ -2007,11 +2026,29 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 				folga = ponto.z - chao_do_quadro
 				alto_no_fim[regiao] = min(alto_no_fim.get(regiao, 9.9), folga)
 		temporaria.calc_loop_triangles()
-		quantos = len(conferir_boneco.auto_intersecoes(
-			[tuple(p) for p in pontos],
-			[tuple(t.vertices) for t in temporaria.loop_triangles]))
-		if quantos > travessia[0]:
-			travessia[0], travessia[1] = quantos, quadro
+		triangulos = [tuple(t.vertices) for t in temporaria.loop_triangles]
+		cruzados = conferir_boneco.auto_intersecoes(
+			[tuple(p) for p in pontos], triangulos)
+		if len(cruzados) > travessia[0]:
+			travessia[0], travessia[1] = len(cruzados), quadro
+			# **E DE QUEM eles sao.**
+			#
+			# O teto sempre contou pares e nunca lugar, e o custo disso foi
+			# medido tres vezes: por duas versoes um comentario afirmou que o
+			# defeito era "sempre no mesmo lugar, sempre em repouso" (falso nos
+			# dois termos), e a correcao trocou isso por "a mao recuada entra
+			# na nadega" — tambem falso. Medidos, os 13 pares de `andando` sao
+			# `coxa_E` x `canela_E`, o joelho, a z 0,53. A mao esta 35 cm
+			# acima.
+			#
+			# Enquanto a ferramenta contava e o comentario nomeava, o nome
+			# errava. Agora ela nomeia, e nenhum comentario precisa afirmar.
+			de_quem.clear()
+			for a, b in cruzados:
+				partes = {dono[i] for i in triangulos[a]}
+				partes |= {dono[i] for i in triangulos[b]}
+				chave = ", ".join(sorted(x for x in partes if x))
+				de_quem[chave] = de_quem.get(chave, 0) + 1
 		avaliado.to_mesh_clear()
 		alturas_do_quadril.append(quadril.z)
 	bpy.context.scene.frame_set(0)
@@ -2059,7 +2096,8 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		articulacao[osso] = pior
 
 	return (amplitude, por_regiao, articulacao, lateral, chao, marcha,
-	        alturas_do_quadril, tuple(travessia), altura_no_fim[0], alto_no_fim)
+	        alturas_do_quadril, tuple(travessia), altura_no_fim[0], alto_no_fim,
+	        dict(de_quem))
 
 
 ## Quantos pares de face podem se atravessar num quadro ANIMADO.
@@ -2248,7 +2286,7 @@ def main() -> int:
 		quadros = criar_animacao(esqueleto, nome, dados)
 		(amplitude, por_regiao, por_osso, lateral, chao, marcha,
 		 alturas_do_quadril, travessia, altura_no_fim,
-		 alto_no_fim) = medir_animacao(
+		 alto_no_fim, de_quem) = medir_animacao(
 			esqueleto, corpo, nome, quadros)
 		# **A duração impressa é a MEDIDA, não a declarada.** Ela já imprimiu
 		# "1,33 s" com o arquivo saindo em 1,667 — mentindo sobre exatamente o
@@ -2289,6 +2327,8 @@ def main() -> int:
 		print("[boneco]     travessia da casca: %d pares no pior quadro (%d), "
 		      "teto %d"
 		      % (pior_travessia, quadro_ruim, TETO_DA_TRAVESSIA_ANIMADA))
+		for quem in sorted(de_quem, key=lambda k: -de_quem[k]):
+			print("[boneco]       %3d entre %s" % (de_quem[quem], quem))
 		if pior_travessia > TETO_DA_TRAVESSIA_ANIMADA:
 			raise RuntimeError(
 				"em `%s` a casca se atravessa em %d pares no quadro %d, e o "
@@ -2357,10 +2397,14 @@ def main() -> int:
 					% nome)
 			inclinacao = math.degrees(math.acos(
 				min(1.0, abs(eixo.z) / eixo.length)))
+			# A folga do tronco e IMPRESSA e nao comparada, de proposito: ela
+			# e o resto da regua de altura que a inclinacao substituiu, e serve
+			# para quem le a saida entender a pose. Numero que parece
+			# conferencia e nao e ja foi achado aqui, entao fica dito.
 			no_tronco = min(alto_no_fim.get("peito", 9.9),
 			                alto_no_fim.get("quadril", 9.9))
 			print("[boneco]     tronco no ultimo quadro: %.1f graus da vertical "
-			      "(piso %.0f), a %.3f m do chao"
+			      "(piso %.0f); a folga dele ate o chao e %.3f m, informativa"
 			      % (inclinacao, INCLINACAO_DE_DEITADO, no_tronco))
 			if inclinacao < INCLINACAO_DE_DEITADO:
 				raise RuntimeError(
@@ -2379,7 +2423,8 @@ def main() -> int:
 			#
 			# O resultado era que o unico item do §10 que o documento manda
 			# medir em vez de olhar ficava sem ninguem no clipe novo. Um corpo
-			# caido com o pe no ar nao esta caido; aqui ele fica a 0,008 m.
+			# caido com o pe no ar nao esta caido; aqui ele fica a 0,010 m, com
+			# folga de 0,015 — 5 mm de margem, nao 7 como esta frase ja disse.
 			no_pe = alto_no_fim.get("pe")
 			if no_pe is None:
 				raise RuntimeError(
@@ -2464,6 +2509,7 @@ def main() -> int:
 					% (nome, quique, 100.0 * quique / ALTURA,
 					   QUIQUE_MAXIMO * 100))
 
+		recuos = {}
 		if dados.get("passada"):
 			for pe in sorted(chao):
 				recuo, avanco = _passada(chao[pe], marcha[pe])
@@ -2497,13 +2543,30 @@ def main() -> int:
 				# medido DENTRO do clipe é 0,000. A conferência mede a grandeza
 				# certa do problema errado, e isso fica dito aqui em vez de
 				# descoberto depois.
-				print("[boneco]       -> clipe autorado para %.3f m/s"
-				      % (recuo / (quadros / cadencia)))
+				recuos[pe] = recuo
 				if recuo < PASSADA_MINIMA:
 					raise RuntimeError(
 						"em `%s` o `%s` recua so %.3f m apoiado (minimo %.3f) — "
 						"sem recuo nao ha passada, o corpo anda no lugar"
 						% (nome, pe, recuo, PASSADA_MINIMA))
+			# **A velocidade que o clipe implica, e ela vale para o CICLO.**
+			#
+			# A versao anterior dividia o recuo de UM pe pela duracao do ciclo
+			# INTEIRO, e publicava metade do valor: 0,406 m/s onde o chao passa
+			# 1,020 m (0,514 + 0,506) em 1,267 s, ou seja **0,805**. O erro foi
+			# republicado no `CLAUDE.md`, com uma aritmetica que nem ao proprio
+			# numero levava — "0,514 m em 19 quadros a 30/s dá 0,406" da 0,81.
+			#
+			# Num ciclo de caminhada os DOIS pes empurram o chao, um de cada
+			# vez; o corpo avanca a soma dos dois recuos por volta. Achado do
+			# revisor adversarial.
+			if len(recuos) == 2:
+				velocidade = sum(recuos.values()) / (quadros / cadencia)
+				print("[boneco]     -> o ciclo implica %.3f m/s "
+				      "(%.3f + %.3f m em %.3f s)"
+				      % (velocidade, recuos["pe_D"], recuos["pe_E"],
+				         quadros / cadencia))
+
 			# **As duas pernas fazem a mesma coisa, defasadas.** `movem` usa o
 			# maximo por regiao e os dois lados caem no mesmo numero: medido,
 			# congelar a perna esquerda inteira publicava como caminhada.

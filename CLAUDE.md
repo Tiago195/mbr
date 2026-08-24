@@ -561,10 +561,15 @@ foram achados por um revisor adversarial abrindo o `.glb` e olhando, que é a
   deixaria *"a viseira em farrapo e a borda do tronco picotada"*. A versão **não**
   voxelizada tem as duas coisas, então aquela comparação media diferença de
   grau, não de espécie;
-- **a mão recuada entra na nádega** no quadro 5 do `andando`. São os 13 pares
-  de autointerseção que sobram depois de abrir o braço, e eles são de um sítio
-  diferente do da axila: os da axila ficam dentro da malha e não aparecem;
-  estes aparecem.
+- **o joelho esquerdo se atravessa** no quadro 5 do `andando` — a panturrilha
+  entra na coxa na passagem. São os 13 pares que sobram depois de abrir o
+  braço, e são de um sítio diferente do da axila.
+
+Este segundo item **já foi escrito errado duas vezes**: primeiro como "sempre
+no mesmo lugar, sempre em repouso", depois como "a mão recuada entra na
+nádega". Medido, a mão está 35 cm acima do sítio real. Enquanto a ferramenta
+contava pares e o comentário nomeava o lugar, o nome errava — hoje o gerador
+imprime os donos a cada execução, e não há afirmação a envelhecer.
 
 Nenhum dos dois é medido por ferramenta nenhuma. A autointerseção tem CONTAGEM
 com teto e nunca LUGAR — e foi por confiar na contagem que o comentário dela

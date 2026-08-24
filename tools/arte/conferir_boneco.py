@@ -369,6 +369,76 @@ def pose_no_fim(g: dict, b: bytes, animacao: str) -> dict:
 	        for i in range(len(g.get("nodes", [])))}
 
 
+## Quantos GRAUS cada osso listado aqui tem de varrer, por clipe. Espelha
+## `movem` + `ARTICULACAO_MINIMA` do gerador, do lado que julga o ARTEFATO.
+##
+## **Existe porque o conferidor nao distinguia clipe animado de estatua.**
+## Medido pelo revisor adversarial: congelando `parado` e `andando` dentro do
+## `.glb` — toda amostra de rotacao virando a primeira, 30 canais — o arquivo
+## passava. Dois dos tres clipes viravam pose parada e nada acusava.
+##
+## A justificativa gravada para deixar isto so no gerador era que *"amplitude e
+## pe no chao precisam avaliar a pose deformada, e quem faz isso e o gerador"*.
+## Vale para aquelas duas; **nao vale para esta**, que e angulo de rotacao local
+## e sai do amostrador. E o mesmo argumento com que `deitado` foi movido para o
+## artefato uma rodada antes, aplicado a conferencia irma e nao seguido.
+ARTICULACAO_EXIGIDA = {
+	"parado": ("braco_D", "braco_E", "antebraco_D", "antebraco_E", "cabeca"),
+	"andando": ("coxa_D", "coxa_E", "canela_D", "canela_E", "pe_D", "pe_E",
+	            "braco_D", "braco_E", "antebraco_D", "antebraco_E"),
+	"morte": ("coxa_D", "coxa_E", "canela_D", "canela_E", "pe_D", "pe_E",
+	          "braco_D", "braco_E", "antebraco_D", "antebraco_E"),
+}
+## O mesmo piso do gerador, e ele esta declarado no §9.
+ARTICULACAO_MINIMA = 5.0
+
+
+def _conjugado(q):
+	return (-q[0], -q[1], -q[2], q[3])
+
+
+def articulacao_no_glb(g: dict, b: bytes, animacao: str) -> dict:
+	"""`{osso: graus}` que a DIRECAO de cada osso varre ao longo do clipe.
+
+	O mesmo termo do gerador, pelo mesmo caminho: a rotacao local menos a de
+	repouso, aplicada ao eixo do proprio osso. Rolar em torno do comprimento
+	nao conta, que e o que distingue dobrar de torcer.
+	"""
+	alvo = None
+	for anim in g.get("animations", []):
+		if anim.get("name") == animacao:
+			alvo = anim
+			break
+	if alvo is None:
+		return {}
+	nomes = [no.get("name", "?") for no in g.get("nodes", [])]
+	saida = {}
+	for canal in alvo.get("channels", []):
+		if canal.get("target", {}).get("path") != "rotation":
+			continue
+		indice = canal["target"].get("node")
+		if indice is None:
+			continue
+		valores = ler_saida(g, b, alvo["samplers"][canal["sampler"]]["output"])
+		if len(valores) < 2:
+			continue
+		repouso = tuple(g["nodes"][indice].get("rotation")
+		                or (0.0, 0.0, 0.0, 1.0))
+		inverso = _conjugado(repouso)
+		direcoes = []
+		for q in valores:
+			delta = _quat_vezes_quat(inverso, tuple(q))
+			direcoes.append(_quat_vezes_vetor(delta, (0.0, 1.0, 0.0)))
+		pior = 0.0
+		for i in range(len(direcoes)):
+			for j in range(i + 1, len(direcoes)):
+				produto = sum(direcoes[i][k] * direcoes[j][k] for k in range(3))
+				pior = max(pior, math.degrees(
+					math.acos(max(-1.0, min(1.0, produto)))))
+		saida[nomes[indice]] = pior
+	return saida
+
+
 def escala_das_raizes(g: dict) -> float:
 	"""A escala acumulada MAIS LONGE de 1 em toda a arvore.
 
@@ -548,10 +618,12 @@ def _aresta_fura(p, q, tri) -> bool:
 ## publicada nao a tem. Ela tem. Ver o comentario de `VOXELIZAR` em
 ## `gerar_boneco.py` e a lista do que exige olho humano no `CLAUDE.md`.
 ##
-## E o teto conta PARES, nunca LUGAR. Os 13 que sobram em `andando` estao no
-## quadril, nao na axila, e esses aparecem na tela. Contagem nao distingue os
-## dois sitios, e por duas versoes este comentario afirmou que o defeito era
-## "sempre no mesmo lugar, sempre em repouso" — falso nos dois termos.
+## E o teto conta PARES, nunca LUGAR — este numero aqui, que e o de repouso.
+## Quem diz o LUGAR e o gerador, que imprime os donos de cada par a cada
+## execucao. A distincao custou tres afirmacoes falsas seguidas neste
+## comentario: "sempre no mesmo lugar, sempre em repouso", depois "no quadril",
+## depois "a mao na nadega". Medido, os 13 de `andando` sao `coxa_E` x
+## `canela_E`, o joelho.
 TETO_DE_AUTOINTERSECAO = 10
 
 ## Lado da celula da grade espacial, em metros. So triangulos que caem na mesma
@@ -821,6 +893,30 @@ def conferir(caminho: str) -> list:
 		# `DEITADAS`. Isto le o `.glb`; a conferencia irma, dentro do gerador,
 		# mede a malha DEFORMADA e e mais fina. As duas existem porque uma
 		# delas nao roda na maquina de quem so tem o arquivo.
+		# **O clipe ANIMA, ou e uma estatua com nome de animacao?**
+		exigidos = ARTICULACAO_EXIGIDA.get(nome)
+		if exigidos is None:
+			falhas.append(
+				"a animacao `%s` nao esta em `ARTICULACAO_EXIGIDA` — nada "
+				"confere que ela se mexe" % nome)
+		else:
+			medidos = articulacao_no_glb(g, b, nome)
+			if not medidos:
+				falhas.append(
+					"nao consegui ler a articulacao de `%s` — a conferencia "
+					"dela ficou orfa" % nome)
+			for osso in exigidos:
+				if osso not in medidos:
+					falhas.append(
+						"a animacao `%s` nao tem canal de rotacao para `%s`"
+						% (nome, osso))
+				elif medidos[osso] < ARTICULACAO_MINIMA:
+					falhas.append(
+						"na animacao `%s` o osso `%s` varre %.2f graus e o "
+						"piso e %.1f — o clipe existe, mas a parte que ele "
+						"deveria mover nao se move"
+						% (nome, osso, medidos[osso], ARTICULACAO_MINIMA))
+
 		piso = DEITADAS.get(nome)
 		if piso is not None:
 			no_fim = pose_no_fim(g, b, nome)
