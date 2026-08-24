@@ -1366,7 +1366,7 @@ def _ciclo_de_pernas(pernas: list, bracos: list, tronco: list) -> list:
 		# perna esquerda, e por isso ele lê a tabela defasada.
 		braco_D, antebraco_D = em(bracos, instante)
 		braco_E, antebraco_E = em(bracos, instante + 0.5)
-		peito, cabeca = em(tronco, instante)
+		peito, cabeca, bascula = em(tronco, instante)
 		chaves.append((instante, pose(
 			coxa_D=(coxa_D, 0, 0), canela_D=(canela_D, 0, 0),
 			pe_D=(pe_D, 0, 0),
@@ -1374,7 +1374,13 @@ def _ciclo_de_pernas(pernas: list, bracos: list, tronco: list) -> list:
 			pe_E=(pe_E, 0, 0),
 			braco_D=(braco_D, -4, 0), antebraco_D=(antebraco_D, 0, 0),
 			braco_E=(braco_E, 4, 0), antebraco_E=(antebraco_E, 0, 0),
-			peito=(peito, 0, 0), cabeca=(cabeca, 0, 0))))
+			peito=(peito, 0, 0), cabeca=(cabeca, 0, 0),
+			# **A báscula do quadril.** `Y` tomba para o lado, e é ela que o
+			# projeto já chamava de o que mais lê como caminhada:
+			# `gesto_de_caminhada.gd` manda `bamboleio: 7.0` justamente porque
+			# sem transferência lateral de peso o corpo parece deslizar sobre
+			# trilhos. O clipe que veio substituí-lo tinha zero.
+			quadril=(0, bascula, 0))))
 	return chaves
 
 
@@ -1495,26 +1501,60 @@ ANIMACOES = {
 			# Dedo para cima tira a ponta do caminho sem mexer na altura do
 			# corpo, que é o que uma pessoa faz ao passar o pé.
 			[
-				(0.000, -24, 2, 0),     # contato: à frente, esticada
-				(0.125, -16, 10, -6),   # recebe o peso
-				(0.250, -2, 2, 0),      # passagem: vertical, sustentando
-				(0.375, 10, 4, 6),      # empurra
-				(0.500, 20, 10, 14),    # desprende: calcanhar sai primeiro
-				(0.625, 6, 70, -24),    # levanta: joelho no máximo, dedo acima
-				(0.750, -12, 66, -24),  # passa por cima, ainda dobrado
-				(0.875, -26, 48, -16),  # estende, mas SEM tocar
+				# **Calcanhar primeiro.** Dedo para cima no contato alonga o
+				# alcance da perna sem esticar o joelho, e é o que impede o
+				# quadril de afundar quando o pé toca. Sem isso o quique era
+				# 7% da altura contra 2,6% de uma pessoa.
+				# **A passada encurtou de 24 para 17 graus, e o motivo é o
+				# mergulho.** Medido quadro a quadro, o quique não era
+				# ondulação: era uma queda brusca de 0,888 para 0,770 no
+				# instante da troca de apoio, quando as DUAS pernas estão
+				# anguladas e portanto as duas ficam curtas. Quanto maior o
+				# ângulo, mais fundo o corpo cai ali. É geometria, não estilo.
+				(0.000, -17, 2, -10),   # contato: calcanhar, perna esticada
+				(0.125, -11, 10, -2),   # recebe o peso: pé assenta
+				# **O joelho de apoio dobra na passagem**, e isso não é
+				# enfeite: reto, o corpo sobe ao máximo justo quando a perna
+				# fica vertical, e o quique do quadril media 0,121 m — 7% da
+				# altura, contra 4 a 5 cm de uma pessoa, 2,5 vezes demais. É o
+				# joelho que absorve, e sem ele o corpo cai e escala.
+				(0.250, -2, 6, 0),      # passagem: vertical, sustentando
+				(0.375, 8, 6, 6),       # empurra
+				(0.500, 15, 6, 14),     # desprende: calcanhar sai primeiro
+				(0.625, 4, 74, -24),    # levanta: joelho no máximo, dedo acima
+				(0.750, -10, 68, -24),  # passa por cima, ainda dobrado
+				(0.875, -19, 44, -16),  # estende, mas SEM tocar
 			],
 			# (instante, braço, antebraço) do braço DIREITO. Ele acompanha a
 			# perna do lado OPOSTO — é o que impede o corpo de girar sobre o
-			# próprio eixo, e o que separa uma caminhada de um boneco de corda.
+			# próprio eixo.
+			#
+			# **O cotovelo era morto: ia de -12 a -14, dois graus.** Medido na
+			# tela, os braços ficavam colados no tronco e as mãos presas na
+			# altura do quadril, e a justificativa gravada creditava à contrafase
+			# a função de separar a caminhada de um boneco de corda — função dada
+			# a um movimento que não acontecia. Um braço humano balança 25 a 30
+			# graus no ombro e dobra o cotovelo visivelmente na volta.
 			[
-				(0.000, 16, -12), (0.250, 3, -14),
-				(0.500, -16, -12), (0.750, -3, -14),
+				(0.000, 26, -14),   # atrás, esticando
+				(0.125, 20, -26),
+				(0.250, 4, -38),    # passa junto ao corpo, dobrado
+				(0.375, -12, -44),
+				(0.500, -26, -40),  # à frente, no alto
+				(0.625, -18, -30),
+				(0.750, -2, -18),
+				(0.875, 14, -12),
 			],
-			# E o tronco, que sobe e desce duas vezes por ciclo.
+			# E o tronco: inclinação, cabeça, e a BÁSCULA lateral do quadril.
+			#
+			# A báscula acompanha o apoio — o quadril cai para o lado da perna
+			# que balança, que é o que uma pessoa faz para o pé passar. Duas
+			# vezes por ciclo, defasada meio ciclo da perna.
 			[
-				(0.000, 3, -2), (0.250, 4, -3),
-				(0.500, 3, -2), (0.750, 4, -3),
+				(0.000, 3, -2, 0),
+				(0.250, 4, -3, 5),
+				(0.500, 3, -2, 0),
+				(0.750, 4, -3, -5),
 			],
 		),
 	},
@@ -1585,6 +1625,23 @@ DESEQUILIBRIO = 0.12
 ## que as duas pernas fazem a mesma coisa.
 APOIO_SIMPLES_MINIMO = 0.20
 
+## Quanto o quadril pode subir e descer, em fração da altura.
+##
+## **Isto é teto de REGRESSÃO, e não o alvo.** O alvo é 2,3 a 2,9% — os 4 a 5 cm
+## de uma pessoa de 1,75 m. Estamos em 5,6%, e a distância é conhecida.
+##
+## O que ela custa está medido: o quique não é ondulação, é um mergulho brusco
+## no instante da troca de apoio, quando as DUAS pernas estão anguladas e as
+## duas ficam curtas ao mesmo tempo. Medido quadro a quadro, o quadril ia de
+## 0,888 a 0,770 em dois quadros. Encurtar a passada de 24 para 17 graus levou
+## 7,1% a 5,6%; fechar o resto exige o que uma perna rígida não tem — tornozelo
+## que rola do calcanhar à ponta, e bacia que gira no plano transversal.
+##
+## Seis por cento reprova a regressão de 7,1% e admite o estado de hoje, do
+## mesmo jeito que `TETO_DE_AUTOINTERSECAO` admite a axila: defeito conhecido,
+## limitado e impresso é diferente de defeito esquecido.
+QUIQUE_MAXIMO = 0.06
+
 
 def _passada(alturas: list, posicoes: list) -> tuple:
 	"""`(recuo, arrasto para a frente)` do pé enquanto ele está no chão.
@@ -1642,6 +1699,8 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 				peso, melhor = atribuicao.weight, grupos.get(atribuicao.group)
 		dono.append(melhor)
 
+	## A altura do quadril, quadro a quadro, para o quique ter teto.
+	alturas_do_quadril = []
 	menor = maior = None
 	# **O chão é medido POR PÉ, e não no corpo inteiro.**
 	#
@@ -1674,6 +1733,8 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 					menor[indice][eixo] = min(menor[indice][eixo], ponto[eixo])
 					maior[indice][eixo] = max(maior[indice][eixo], ponto[eixo])
 		avaliado.to_mesh_clear()
+		alturas_do_quadril.append(
+			(armature.matrix_world @ armature.pose.bones["quadril"].head).z)
 	bpy.context.scene.frame_set(0)
 
 	# **A amplitude POR REGIÃO, e não só o máximo do corpo.**
@@ -1691,7 +1752,7 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		por_regiao[regiao] = max(
 			por_regiao.get(regiao, 0.0), (maior[indice] - menor[indice]).length)
 	amplitude = max((maior[i] - menor[i]).length for i in range(len(menor)))
-	return amplitude, por_regiao, chao, marcha
+	return amplitude, por_regiao, chao, marcha, alturas_do_quadril
 
 
 def assentar(armature: bpy.types.Object, ultimo: int) -> list:
@@ -1823,7 +1884,7 @@ def main() -> int:
 	pintar(corpo, indices, ajuste_base, ajuste_do_braco, fatores)
 	for nome, dados in ANIMACOES.items():
 		quadros = criar_animacao(esqueleto, nome, dados)
-		amplitude, por_regiao, chao, marcha = medir_animacao(
+		amplitude, por_regiao, chao, marcha, alturas_do_quadril = medir_animacao(
 			esqueleto, corpo, nome, quadros)
 		# **A duração impressa é a MEDIDA, não a declarada.** Ela já imprimiu
 		# "1,33 s" com o arquivo saindo em 1,667 — mentindo sobre exatamente o
@@ -1867,6 +1928,21 @@ def main() -> int:
 				raise RuntimeError(
 					"em `%s` o `%s` sai %.4f m do chao e a folga e %.3f"
 					% (nome, pe, max(alturas), FOLGA_DO_CHAO))
+		if dados.get("assentar"):
+			quique = max(alturas_do_quadril) - min(alturas_do_quadril)
+			print("[boneco]     quique do quadril: %.4f m (%.1f%% da altura)"
+			      % (quique, 100.0 * quique / ALTURA))
+			# **O quique tem TETO, e ele não tinha.** `quadril anda 0,1310 m`
+			# era impresso e comparado só com o piso de amplitude, que não tem
+			# teto. Medido, o corpo subia e descia 7% da altura contra 4 a 5 cm
+			# de uma pessoa — 2,5 vezes demais, e em dente de serra.
+			if quique > QUIQUE_MAXIMO * ALTURA:
+				raise RuntimeError(
+					"em `%s` o quadril sobe e desce %.4f m, %.1f%% da altura "
+					"(maximo %.1f%%) — o corpo cai e escala em vez de andar"
+					% (nome, quique, 100.0 * quique / ALTURA,
+					   QUIQUE_MAXIMO * 100))
+
 		if dados.get("passada"):
 			for pe in sorted(chao):
 				recuo, avanco = _passada(chao[pe], marcha[pe])
