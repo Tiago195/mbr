@@ -112,6 +112,29 @@ FOLGA_DA_DURACAO = 0.05
 ## Quanto duas quaternioes podem diferir e ainda contar como a mesma pose.
 FOLGA_DO_CICLO = 0.002
 
+## A altura de cada junta, como fracao da altura total. Medida em 27 campeoes;
+## §1 de `docs/11-direcao-de-arte.md`. Repetida aqui de proposito: conferencia
+## que importa a constante do arquivo conferido compara o numero consigo mesmo.
+PROPORCAO_EXIGIDA = {
+	"pe_D": 0.093,      # tornozelo
+	"canela_D": 0.283,  # joelho
+	"coxa_D": 0.485,    # quadril
+	"peito": 0.656,
+	"cabeca": 0.763,    # base do pescoco
+	"braco_D": 0.725,   # ombro
+}
+
+## `rotulo: (osso, osso, fracao da altura)`.
+VAOS_EXIGIDOS = {
+	"ombros": ("braco_D", "braco_E", 0.175),
+	"quadris": ("coxa_D", "coxa_E", 0.129),
+}
+
+## A folga vem da faixa medida, pela regra do §9: meia faixa, arredondada para
+## cima em passos de 0,005. A mais larga das seis e a do quadril (0,417 a
+## 0,512), que da 0,050.
+FOLGA_DA_PROPORCAO = 0.05
+
 ## Os quinze ossos que o corpo tem que ter, e que a camada de jogo nomeia.
 OSSOS_EXIGIDOS = [
 	"quadril", "peito", "cabeca",
@@ -597,6 +620,37 @@ def conferir(caminho: str) -> list:
 	faltando = [o for o in OSSOS_EXIGIDOS if o not in nos]
 	if faltando:
 		falhas.append("faltam ossos no `.glb`: %s" % ", ".join(faltando))
+
+	# ------------------------------------------------------- a proporcao
+	#
+	# **Isto nao existia, e a falta foi provada por mutacao.** Encurtar a
+	# envergadura de 0,895 para 0,760 no gerador saia publicado: o laco de
+	# convergencia simplesmente construia um corpo consistente com o numero
+	# errado, e nenhuma conferencia do ARTEFATO olhava proporcao. O conferidor
+	# do outro boneco olha; este nao olhava, e ele e o que julga o `.glb`.
+	#
+	# As alturas sao fracao da altura total, com o pe em zero. A cabeca de cada
+	# osso e a junta: `pe_D` e o tornozelo, `canela_D` o joelho, `coxa_D` o
+	# quadril, `braco_D` o ombro.
+	for osso, esperado in sorted(PROPORCAO_EXIGIDA.items()):
+		if osso not in nos:
+			falhas.append("falta o osso `%s` para medir a proporcao" % osso)
+			continue
+		fracao = nos[osso][1] / altura
+		if abs(fracao - esperado) > FOLGA_DA_PROPORCAO:
+			falhas.append(
+				"`%s` esta em %.3f da altura e a direcao de arte mede %.3f "
+				"(folga %.3f)" % (osso, fracao, esperado, FOLGA_DA_PROPORCAO))
+	for rotulo, (a, b_, esperado) in sorted(VAOS_EXIGIDOS.items()):
+		if a not in nos or b_ not in nos:
+			falhas.append("faltam ossos para medir o vao `%s`" % rotulo)
+			continue
+		vao = abs(nos[a][0] - nos[b_][0]) / altura
+		if abs(vao - esperado) > FOLGA_DA_PROPORCAO:
+			falhas.append(
+				"o vao `%s` esta em %.3f da altura e a direcao de arte mede "
+				"%.3f (folga %.3f)"
+				% (rotulo, vao, esperado, FOLGA_DA_PROPORCAO))
 
 	# ------------------------------------------------------- a espessura
 	#

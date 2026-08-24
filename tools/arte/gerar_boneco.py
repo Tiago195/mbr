@@ -1343,6 +1343,13 @@ def _ciclo_de_pernas(pernas: list, bracos: list, tronco: list) -> list:
 			raise RuntimeError(
 				"a tabela nao esta em ordem de instante: %s"
 				% [p[0] for p in tabela])
+		# **E instante fora de `[0, 1)` reprova.** Ele não era recusado, e
+		# virava quadro-chave além do ciclo; foi pego por acaso, por outra
+		# conferência. Acaso não é defesa.
+		if quando[0] < 0.0 or quando[-1] >= 1.0:
+			raise RuntimeError(
+				"a tabela tem instante fora de [0, 1): %s — o ciclo e uma "
+				"volta, e 1,0 e o mesmo ponto que 0,0" % quando)
 		# A volta fecha: depois do último instante vem o primeiro, mais um
 		# ciclo. Sem isto, tudo entre 0,875 e 1,0 ficaria sem entrada.
 		primeiro = pontos[0]
@@ -1452,7 +1459,13 @@ ANIMACOES = {
 		# caminhada, porque o que a move é o quique do corpo e não uma ação
 		# própria. Exigir 0,05 dela seria exigir que o boneco balançasse a
 		# cabeça ao andar para satisfazer uma régua.
-		"movem": ["coxa", "canela", "pe"],
+		# **O braço entra aqui, e a ausência dele custou uma reprovação.** Com
+		# `movem` listando só a perna, congelar os dois braços publicava com
+		# rc=0 — e a tabela de braço morta que a revisão anterior reprovou
+		# voltava sem uma linha no console.
+		"movem": ["coxa", "canela", "pe", "mao", "antebraco"],
+		# E a báscula, no eixo dela. Medida: 0,033 m de lado no peito.
+		"balanca": {"peito": 0.020},
 		# **Um pé de cada vez sai do chão, e é isso que separa andar de pular.**
 		# `parado` exige os dois plantados; aqui a exigência é que sempre haja
 		# ao menos UM no chão. Um clipe em que os dois saem ao mesmo tempo é um
@@ -1573,6 +1586,16 @@ ANIMACOES = {
 ## Se a animação lê bem ou não, quem responde é o olho: é o item que não se
 ## automatiza, e está declarado como tal.
 AMPLITUDE_MINIMA = 0.05
+## Quanto os dois lados de um osso par podem articular diferente, em fracao do
+## maior. Medido no boneco publicado, os pares batem em 0,2% — `pe_D` 0,8526
+## contra `pe_E` 0,8525. A folga e enorme de proposito: o que este teto pega
+## nao e desequilibrio fino (isso e `DESEQUILIBRIO`, que mede passada e altura
+## do passo), e um lado MORTO. Medido, congelar so o braco direito publicava:
+## a regiao `mao` guarda o maximo dos dois lados, e o esquerdo vivo sustentava
+## o numero sozinho. Uma animacao que queira ser assimetrica declara
+## `assimetricos` e diz quais regioes — que e o que faz esta defesa falhar
+## FECHADA em vez de aberta.
+TOLERANCIA_DA_SIMETRIA = 0.15
 
 ## Quanto o pé pode sair do chão numa animação que não é de pulo.
 FOLGA_DO_CHAO = 0.015
@@ -1637,10 +1660,14 @@ APOIO_SIMPLES_MINIMO = 0.20
 ## 7,1% a 5,6%; fechar o resto exige o que uma perna rígida não tem — tornozelo
 ## que rola do calcanhar à ponta, e bacia que gira no plano transversal.
 ##
-## Seis por cento reprova a regressão de 7,1% e admite o estado de hoje, do
-## mesmo jeito que `TETO_DE_AUTOINTERSECAO` admite a axila: defeito conhecido,
-## limitado e impresso é diferente de defeito esquecido.
-QUIQUE_MAXIMO = 0.06
+## O teto é o valor MEDIDO, sem folga — 5,6%. Já foi 6,0%, e isso não era o
+## "mesmo tratamento de `TETO_DE_AUTOINTERSECAO`" que o comentário prometia:
+## aquele é o valor exato, 78 contra 78, folga zero. Teto arredondado para cima
+## é espaço para piorar sem ninguém ver.
+##
+## Ele continua reprovando a regressão que motivou a correção — a tabela de
+## pernas anterior mede 7,3%.
+QUIQUE_MAXIMO = 0.056
 
 
 def _passada(alturas: list, posicoes: list) -> tuple:
@@ -1713,6 +1740,9 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	chao = {"pe_D": [], "pe_E": []}
 	## Onde cada pé está em Y, quadro a quadro. A frente é -Y.
 	marcha = {"pe_D": [], "pe_E": []}
+	## E o mesmo par min/max, mas com o QUADRIL descontado a cada quadro. Ver
+	## o comentário de `por_osso_relativo`, mais abaixo.
+	menor_rel = maior_rel = None
 	for quadro in range(0, ultimo + 1):
 		bpy.context.scene.frame_set(quadro)
 		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
@@ -1732,9 +1762,20 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 				for eixo in range(3):
 					menor[indice][eixo] = min(menor[indice][eixo], ponto[eixo])
 					maior[indice][eixo] = max(maior[indice][eixo], ponto[eixo])
+		quadril = armature.matrix_world @ armature.pose.bones["quadril"].head
+		relativos = [p - quadril for p in pontos]
+		if menor_rel is None:
+			menor_rel = [p.copy() for p in relativos]
+			maior_rel = [p.copy() for p in relativos]
+		else:
+			for indice, ponto in enumerate(relativos):
+				for eixo in range(3):
+					menor_rel[indice][eixo] = min(menor_rel[indice][eixo],
+					                              ponto[eixo])
+					maior_rel[indice][eixo] = max(maior_rel[indice][eixo],
+					                              ponto[eixo])
 		avaliado.to_mesh_clear()
-		alturas_do_quadril.append(
-			(armature.matrix_world @ armature.pose.bones["quadril"].head).z)
+		alturas_do_quadril.append(quadril.z)
 	bpy.context.scene.frame_set(0)
 
 	# **A amplitude POR REGIÃO, e não só o máximo do corpo.**
@@ -1745,14 +1786,39 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	# 0,123 m. O piso global pega "nada se mexeu"; é cego a "só a ponta se
 	# mexeu", que é o defeito de uma respiração que morreu.
 	por_regiao = {}
+	## A amplitude de cada OSSO, para os dois lados serem comparados.
+	por_osso = {}
+	## **E por osso COM O QUADRIL DESCONTADO.** Este é o que tem dentes.
+	##
+	## Um osso parado no ombro continua se deslocando no mundo, porque o tronco
+	## o carrega: medido, com o braço direito inteiro congelado a mão ainda
+	## andava 0,14 m — três vezes o piso — só de ser levada pelo quique e pela
+	## báscula. O deslocamento absoluto não distingue ARTICULAR de SER
+	## CARREGADO, e é articular que `movem` promete.
+	por_osso_relativo = {}
+	## E a excursão LATERAL, separada. Ela é a báscula do quadril, e sem ela o
+	## corpo desliza sobre trilhos — mas ela some dentro da amplitude total, que
+	## é dominada pelo avanço das pernas.
+	lateral = {}
 	for indice, nome in enumerate(dono):
 		if nome is None:
 			continue
 		regiao = _regiao_do_osso(nome)
-		por_regiao[regiao] = max(
-			por_regiao.get(regiao, 0.0), (maior[indice] - menor[indice]).length)
+		anda = (maior[indice] - menor[indice]).length
+		por_regiao[regiao] = max(por_regiao.get(regiao, 0.0), anda)
+		# **E por OSSO também**, que é o que distingue os dois lados. A região
+		# junta `braco_D` e `braco_E` no máximo dos dois: medido, congelar o
+		# braço direito inteiro publicava, porque o esquerdo sozinho sustentava
+		# o número. É a mesma cegueira que a manqueira explorava na perna.
+		por_osso[nome] = max(por_osso.get(nome, 0.0), anda)
+		por_osso_relativo[nome] = max(
+			por_osso_relativo.get(nome, 0.0),
+			(maior_rel[indice] - menor_rel[indice]).length)
+		lateral[regiao] = max(lateral.get(regiao, 0.0),
+		                      maior[indice].x - menor[indice].x)
 	amplitude = max((maior[i] - menor[i]).length for i in range(len(menor)))
-	return amplitude, por_regiao, chao, marcha, alturas_do_quadril
+	return (amplitude, por_regiao, por_osso_relativo, lateral, chao, marcha,
+	        alturas_do_quadril)
 
 
 def assentar(armature: bpy.types.Object, ultimo: int) -> list:
@@ -1884,7 +1950,8 @@ def main() -> int:
 	pintar(corpo, indices, ajuste_base, ajuste_do_braco, fatores)
 	for nome, dados in ANIMACOES.items():
 		quadros = criar_animacao(esqueleto, nome, dados)
-		amplitude, por_regiao, chao, marcha, alturas_do_quadril = medir_animacao(
+		(amplitude, por_regiao, por_osso, lateral, chao, marcha,
+		 alturas_do_quadril) = medir_animacao(  # por_osso e RELATIVO ao quadril
 			esqueleto, corpo, nome, quadros)
 		# **A duração impressa é a MEDIDA, não a declarada.** Ela já imprimiu
 		# "1,33 s" com o arquivo saindo em 1,667 — mentindo sobre exatamente o
@@ -1897,14 +1964,68 @@ def main() -> int:
 		         cadencia, amplitude))
 		for regiao in sorted(por_regiao):
 			print("[boneco]     %-10s anda %.4f m" % (regiao, por_regiao[regiao]))
+		for osso in sorted(por_osso):
+			print("[boneco]       %-12s articula %.4f m" % (osso, por_osso[osso]))
 
 		for regiao in dados.get("movem", ()):
-			andou = por_regiao.get(regiao, 0.0)
-			if andou < AMPLITUDE_MINIMA:
+			# **Os DOIS lados, um a um.** Olhando só o máximo da região, um
+			# lado congelado passa escondido atrás do outro — medido, o braço
+			# direito inteiro parado publicava com rc=0.
+			lados = [osso for osso in por_osso
+			         if _regiao_do_osso(osso) == regiao]
+			if not lados:
 				raise RuntimeError(
-					"em `%s` a regiao `%s` anda %.4f m e o piso e %.3f — a "
-					"animacao existe, mas a parte que ela deveria mover nao "
-					"se move" % (nome, regiao, andou, AMPLITUDE_MINIMA))
+					"em `%s` a regiao `%s` nao tem osso nenhum na malha — a "
+					"conferencia dela ficou orfa" % (nome, regiao))
+			for osso in sorted(lados):
+				# Relativo ao quadril: articulacao, nao carona.
+				andou = por_osso[osso]
+				if andou < AMPLITUDE_MINIMA:
+					raise RuntimeError(
+						"em `%s` o osso `%s` anda %.4f m e o piso e %.3f — a "
+						"animacao existe, mas a parte que ela deveria mover "
+						"nao se move" % (nome, osso, andou, AMPLITUDE_MINIMA))
+		## **Os pares articulam o mesmo?** Ver `TOLERANCIA_DA_SIMETRIA`.
+		poupados = set(dados.get("assimetricos", ()))
+		for osso in sorted(por_osso):
+			if not osso.endswith("_D"):
+				continue
+			regiao = _regiao_do_osso(osso)
+			if regiao in poupados:
+				continue
+			irmao = regiao + "_E"
+			if irmao not in por_osso:
+				raise RuntimeError(
+					"em `%s` o osso `%s` nao tem irmao `%s` — a conferencia "
+					"de simetria dele ficou orfa" % (nome, osso, irmao))
+			direito, esquerdo = por_osso[osso], por_osso[irmao]
+			maior_lado = max(direito, esquerdo)
+			if maior_lado <= 0.0:
+				continue
+			desvio = abs(direito - esquerdo) / maior_lado
+			if desvio > TOLERANCIA_DA_SIMETRIA:
+				raise RuntimeError(
+					"em `%s` a regiao `%s` articula %.4f m de um lado e %.4f "
+					"do outro (%.0f%% de diferenca, teto %.0f%%) — um dos "
+					"lados nao esta se mexendo"
+					% (nome, regiao, direito, esquerdo, desvio * 100,
+					   TOLERANCIA_DA_SIMETRIA * 100))
+
+		for regiao, minimo in dados.get("balanca", {}).items():
+			andou = lateral.get(regiao, 0.0)
+			print("[boneco]     %-10s balanca %.4f m de lado (minimo %.4f)"
+			      % (regiao, andou, minimo))
+			# **A báscula lateral tem piso, e não tinha nenhum.** Medido pelo
+			# revisor, zerá-la publicava com rc=0 — e o próprio projeto escreve
+			# que o balanço lateral é o que mais lê como caminhada. Ela some
+			# dentro da amplitude total, que é dominada pelo avanço da perna;
+			# por isso é medida em separado, no eixo dela.
+			if andou < minimo:
+				raise RuntimeError(
+					"em `%s` a regiao `%s` balanca %.4f m de lado e o minimo e "
+					"%.4f — sem transferencia de peso o corpo desliza sobre "
+					"trilhos" % (nome, regiao, andou, minimo))
+
 		if amplitude < AMPLITUDE_MINIMA:
 			raise RuntimeError(
 				"a animacao `%s` desloca %.3f m e o piso e %.3f — abaixo disso "
@@ -1920,6 +2041,13 @@ def main() -> int:
 			# põe em falso — então o único clipe com perna em movimento era o
 			# único sem teto de penetração. Medido, a sola atravessava o piso
 			# 2,07 cm o ciclo inteiro, e nada acusava.
+			#
+			# **Com `assentar` ligado ele dá zero por identidade**, porque o
+			# assentamento ancora o mínimo do corpo em zero. Aqui ele é guarda
+			# de regressão DO assentamento — se ele parar de assentar, ou
+			# assentar pelo ponto errado, isto acusa — e não medida
+			# independente de penetração. Vale para os clipes que não assentam,
+			# onde ele mede de verdade.
 			if enterrou > FOLGA_DO_CHAO:
 				raise RuntimeError(
 					"em `%s` o `%s` enterra %.4f m no chao e a folga e %.3f"
@@ -1956,18 +2084,26 @@ def main() -> int:
 						"em `%s` o `%s` arrasta %.3f m para a frente com a sola "
 						"no chao (maximo %.3f) — isso e deslizamento"
 						% (nome, pe, avanco, DESLIZE_PARA_A_FRENTE))
-				# **A velocidade que este clipe implica, publicada.**
+				# **A velocidade que este clipe implica, publicada — e o
+				# buraco que ela expõe.**
 				#
-				# Nada no repositório liga a passada à velocidade em que o
-				# personagem anda: `player.gd` move a 5,0 e
-				# `gesto_de_caminhada.gd` documenta 3,3 m/s. A um recuo de
-				# 0,69 m por ciclo de 1,27 s, o clipe foi autorado para meio
-				# metro por segundo — e a diferença é deslizamento puro, seis
-				# vezes a passada a cada passo.
+				# Este comentário já disse *"quem tem que escalar a cadência
+				# pela velocidade é a camada de jogo"*. Isso era promessa, não
+				# fato, e foi medido: **`speed_scale` não existe em lugar
+				# nenhum do repositório**, e `Boneco.tocar` chama
+				# `AnimationPlayer.play(nome)` sem argumento de velocidade.
 				#
-				# Não há como o clipe resolver isso sozinho: quem tem que
-				# escalar a cadência pela velocidade é a camada de jogo. O que
-				# se pode fazer aqui é não deixar o número escondido.
+				# Pior: a ÚNICA linha que escala cadência por velocidade é
+				# `_fase += delta * cadencia * TAU * (rapidez / 3.3)`, em
+				# `gesto_de_caminhada.gd` — e ela fica DEPOIS do atalho que
+				# devolve quando existe animador. Ou seja, o ramo que escala é
+				# exatamente o que este clipe desliga.
+				#
+				# Autorado para 0,40 m/s com o corpo transladando a 3,3–5,0, o
+				# deslizamento no mundo é de 8 a 12 vezes — enquanto o arrasto
+				# medido DENTRO do clipe é 0,000. A conferência mede a grandeza
+				# certa do problema errado, e isso fica dito aqui em vez de
+				# descoberto depois.
 				print("[boneco]       -> clipe autorado para %.3f m/s"
 				      % (recuo / (quadros / cadencia)))
 				if recuo < PASSADA_MINIMA:
