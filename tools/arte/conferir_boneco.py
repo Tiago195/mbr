@@ -96,26 +96,27 @@ ANIMACOES_EXIGIDAS = {
 	"morte": (1.82, False),
 }
 
-## Clipes que tem de terminar com o corpo no chao, e a fracao da altura acima
-## da qual o tronco nao pode parar.
+## Clipes que tem de terminar DEITADOS, e quantos graus da vertical o tronco
+## tem de estar. 90 e deitado, 0 e de pe.
 ##
 ## **Isto vivia so dentro do Blender, e o revisor adversarial provou o custo.**
-## Ele copiou o `.glb`, sobrescreveu o ultimo quaternion dos nove canais de
-## rotacao de `morte` com a identidade — cadaver de pe, pose de repouso — e
-## rodou `conferir_boneco`: aprovado, sem uma falha. O ramo de clipe "uma vez"
-## e `if not ciclo: continue`, entao NENHUM valor de rotacao dele era lido.
+## Ele copiou o `.glb`, sobrescreveu o ultimo quaternion dos canais de rotacao
+## de `morte` com a identidade — cadaver de pe — e rodou `conferir_boneco`:
+## aprovado. O ramo de clipe "uma vez" e `if not ciclo: continue`, entao NENHUM
+## valor de rotacao dele era lido. Isso contradizia a decisao 24 em tantas
+## palavras: *"o artefato e conferivel sem a engine e sem o Blender"*.
 ##
-## Isso contradizia a decisao 24 em tantas palavras: *"o artefato e conferivel
-## sem a engine e sem o Blender"*. Era o mesmo vao que a rodada anterior fechou
-## para `ABERTURA_DO_BRACO`, reaberto no eixo da animacao.
+## **E a grandeza mudou de altura para ANGULO**, depois de a versao de altura
+## ser reprovada duas vezes. A ultima delas se dizia derivada de "meia
+## espessura do corpo" e nao era: 0,433 e a caixa da malha inteira, com o pe
+## apontado e a nuca; a espessura do tronco e 0,2125. E altura nunca poderia
+## servir, porque o meio-eixo da cabeca (0,195) e o dobro do do peito (0,097) —
+## num chibi deitado o tronco FICA a uma cabeca do chao.
 ##
-## **E o teto e DERIVADO.** Um tronco deitado repousa a meia espessura do corpo
-## do chao: 0,433 / 2 = 0,217 m, que sobre 1,75 da 0,124 da altura. O teto e o
-## DOBRO disso, 0,25 — uma folga de duas vezes sobre a pose deitada, e ainda
-## assim menos de metade dos 0,656 em que o `peito` fica de pe (§1 de
-## `docs/11`). Medido, o clipe publicado fica em 0,133, e a pose ressuscitada
-## que o revisor injetou no `.glb` da 0,289.
-DEITADAS = {"morte": 0.25}
+## O numero e ESCOLHIDO, e esta declarado na tabela do §9. Medido: o clipe da
+## 86,5 graus; interpolando os quaternions finais rumo a identidade, 42,5 graus
+## reprova e 31,4 tambem.
+DEITADAS = {"morte": 70.0}
 
 ## O nome do mesmo verbo no original, para a duracao poder ser conferida contra
 ## o instantaneo do censo em vez de so contra o gerador.
@@ -820,24 +821,31 @@ def conferir(caminho: str) -> list:
 		# `DEITADAS`. Isto le o `.glb`; a conferencia irma, dentro do gerador,
 		# mede a malha DEFORMADA e e mais fina. As duas existem porque uma
 		# delas nao roda na maquina de quem so tem o arquivo.
-		teto = DEITADAS.get(nome)
-		if teto is not None:
+		piso = DEITADAS.get(nome)
+		if piso is not None:
 			no_fim = pose_no_fim(g, b, nome)
-			if not no_fim:
+			faltam = [o for o in ("quadril", "cabeca") if o not in no_fim]
+			if not no_fim or faltam:
 				falhas.append(
-					"nao consegui ler a pose final de `%s` — a conferencia de "
-					"que o corpo termina no chao ficou orfa" % nome)
-			elif "peito" not in no_fim:
-				falhas.append(
-					"o `.glb` nao tem o osso `peito` na pose final de `%s`"
-					% nome)
+					"nao consegui ler a pose final de `%s` (faltam %s) — a "
+					"conferencia de que o corpo deita ficou orfa"
+					% (nome, ", ".join(faltam) or "a animacao"))
 			else:
-				fracao = no_fim["peito"][1] / ALTURA
-				if fracao > teto:
+				eixo = [no_fim["cabeca"][k] - no_fim["quadril"][k]
+				        for k in range(3)]
+				comprimento = _norma(eixo)
+				if comprimento <= 1e-6:
 					falhas.append(
-						"a animacao `%s` termina com o peito em %.3f da altura "
-						"e o teto e %.2f — o corpo nao caiu (em pe ele fica em "
-						"0,656)" % (nome, fracao, teto))
+						"o tronco de `%s` nao tem comprimento no ultimo quadro"
+						% nome)
+				else:
+					inclinacao = math.degrees(math.acos(
+						min(1.0, abs(eixo[1]) / comprimento)))
+					if inclinacao < piso:
+						falhas.append(
+							"a animacao `%s` termina com o tronco a %.1f graus "
+							"da vertical e o piso e %.0f — o corpo nao deitou"
+							% (nome, inclinacao, piso))
 
 	# --------------------------------------------------------- o esqueleto
 	nos = mundo_dos_nos(g)

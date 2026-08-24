@@ -1517,7 +1517,14 @@ ANIMACOES = {
 		# solavanco ela anda, mas do meio para o fim ela e carregada pelo
 		# tronco, e exigir articulacao propria dela ali seria pedir que o
 		# cadaver mexesse a cabeca para satisfazer uma regua.
-		"movem": ["coxa", "canela", "braco"],
+		# **`antebraco` e `pe` entraram, e a ausencia deles era um achado.**
+		# Medido, cotovelo, pulso e tornozelo articulavam 0,00 grau durante
+		# 1,83 s de morte: os bracos eram bastoes rigidos do ombro a ponta. O
+		# criterio ja estava escrito no `parado` — *"um respiro em que o
+		# cotovelo nao acompanha le como manequim"* — e o `morte` o violava em
+		# tres articulacoes, com a lista que decide o que e conferido sem
+		# nenhuma delas.
+		"movem": ["coxa", "canela", "pe", "braco", "antebraco"],
 		# Nada de pe plantado: o corpo termina no chao. E nada de passada nem
 		# de "sempre um pe no chao" — as duas descrevem locomocao.
 		"pes_plantados": False,
@@ -1547,27 +1554,45 @@ ANIMACOES = {
 			# As costas batem no chao.
 			#
 			# **As pernas ESTICAM aqui, e isso e medido, nao estilo.** Joelho
-			# dobrado poe o calcanhar no chao e faz alavanca: com 8/12 graus o
-			# tronco para a 0,212 m do piso; com 4/6 ele para a 0,137. O corpo
-			# deitado apoia no tronco, nao nos pes.
+			# dobrado poe o calcanhar no chao e faz alavanca. Medido variando
+			# so as duas chaves de perna desta pose: com `coxa 8 / canela 12` o
+			# tronco para a 0,212 m do piso, e com `4 / 6` ele para a 0,137.
+			# O corpo deitado apoia no tronco, nao nos pes.
+			#
+			# (O comentario anterior citava "8/12" e "4/6" como se fossem os
+			# valores ESCRITOS aqui, e eles nunca foram: as chaves sao 6/10 e
+			# 9/14. Eram os pontos da varredura que produziu a escolha, e
+			# confundi-los com o clipe foi achado do revisor adversarial.)
 			(0.700, pose(quadril=(-76, 0, 0), peito=(-2, 0, 0),
 			             cabeca=(-6, 0, 0),
-			             coxa_D=(6, -4, 0), canela_D=(10, 0, 0),
-			             coxa_E=(9, 5, 0), canela_E=(14, 0, 0),
-			             braco_D=(0, -20, 0), braco_E=(0, 16, 0))),
-			# Um ultimo espasmo, pequeno — e ele e o que separa um corpo de um
-			# manequim caindo.
+			             coxa_D=(6, -4, 0), canela_D=(10, 0, 0), pe_D=(-14, 0, 0),
+			             coxa_E=(9, 5, 0), canela_E=(14, 0, 0), pe_E=(-18, 0, 0),
+			             braco_D=(0, -20, 0), antebraco_D=(-24, 0, 0),
+			             braco_E=(0, 16, 0), antebraco_E=(-18, 0, 0))),
+			# **O ultimo espasmo, e ele REVERTE.**
+			#
+			# A versao anterior chamava esta chave de espasmo e era monotonica:
+			# todos os ossos seguiam na mesma direcao, 1 grau de quadril, que
+			# pelo criterio do proprio `parado` e sub-pixel. Nao era espasmo,
+			# era a cauda do easing desacelerando — e o comentario afirmava o
+			# contrario. Achado do revisor adversarial.
+			#
+			# Agora o joelho volta a flexionar, o cotovelo repuxa e o tornozelo
+			# estica, e todos os tres ANDAM PARA TRAS em relacao a chave
+			# anterior. E o que separa um corpo de um manequim tombando.
 			(0.880, pose(quadril=(-84, 0, 0), peito=(-3, 0, 0),
 			             cabeca=(-7, 0, 0),
-			             coxa_D=(4, -4, 0), canela_D=(7, 0, 0),
-			             coxa_E=(6, 5, 0), canela_E=(10, 0, 0),
-			             braco_D=(0, -19, 0), braco_E=(0, 15, 0))),
-			# Imovel.
+			             coxa_D=(13, -4, 0), canela_D=(24, 0, 0), pe_D=(-30, 0, 0),
+			             coxa_E=(16, 5, 0), canela_E=(30, 0, 0), pe_E=(-34, 0, 0),
+			             braco_D=(0, -19, 0), antebraco_D=(-46, 0, 0),
+			             braco_E=(0, 15, 0), antebraco_E=(-38, 0, 0))),
+			# Imovel. O espasmo relaxa e o corpo assenta.
 			(1.000, pose(quadril=(-85, 0, 0), peito=(-4, 0, 0),
 			             cabeca=(-8, 0, 0),
-			             coxa_D=(3, -4, 0), canela_D=(5, 0, 0),
-			             coxa_E=(5, 5, 0), canela_E=(8, 0, 0),
-			             braco_D=(0, -18, 0), braco_E=(0, 14, 0))),
+			             coxa_D=(3, -4, 0), canela_D=(5, 0, 0), pe_D=(-8, 0, 0),
+			             coxa_E=(5, 5, 0), canela_E=(8, 0, 0), pe_E=(-11, 0, 0),
+			             braco_D=(0, -18, 0), antebraco_D=(-10, 0, 0),
+			             braco_E=(0, 14, 0), antebraco_E=(-8, 0, 0))),
 		],
 	},
 	"andando": {
@@ -1735,6 +1760,13 @@ AMPLITUDE_MINIMA = 0.05
 ## esse valor e um no-op literal."* Conferencia que nao pode reprovar e pior
 ## que nenhuma, porque LE como cobertura.
 ARTICULACAO_MINIMA = 5.0
+## Quantos graus da vertical o tronco tem de estar no ultimo quadro de um clipe
+## que declara `deitado`. **E ESCOLHIDO, nao derivado** — e dizer isso e o
+## conserto, porque a versao anterior se apresentava como derivacao e nao era.
+## 90 e deitado, 0 e de pe; 70 recusa qualquer coisa mais perto da diagonal que
+## da horizontal. Medido: o clipe da 86,5 graus, e a pose ressuscitada que o
+## revisor injetou no `.glb` da 42,5.
+INCLINACAO_DE_DEITADO = 70.0
 
 ## Quanto o pé pode sair do chão numa animação que não é de pulo.
 FOLGA_DO_CHAO = 0.015
@@ -2267,40 +2299,64 @@ def main() -> int:
 			for regiao in sorted(alto_no_fim, key=lambda r: alto_no_fim[r]):
 				print("[boneco]       %-10s a %.3f m do chao"
 				      % (regiao, alto_no_fim[regiao]))
-			# **O que se exige e o TRONCO ENCOSTANDO no chao.**
+			# **O que se exige e a INCLINACAO do tronco, e nao a altura dele.**
 			#
-			# Nao o corpo inteiro: um braco estirado num cadaver e certo, e
-			# dobra-lo contra o tronco custa 497 pares de auto-intersecao
-			# contra 10 estendido, porque o boneco nao tem articulacao de
-			# ombro. E nao o TOPO do tronco: topo passa igual se o corpo
-			# levitar na horizontal, que foi exatamente o que a versao
-			# anterior publicou.
+			# Isto ja foi altura duas vezes, e as duas erraram por motivos
+			# diferentes. A primeira media o TOPO do corpo, e topo nao
+			# distingue "caiu" de "levita na horizontal". A segunda media a
+			# FOLGA do tronco ate o chao contra "meia espessura do corpo" — e
+			# ali havia dois erros empilhados, os dois achados pelo revisor
+			# adversarial:
 			#
-			# **E o teto e DERIVADO, nao escolhido.** Um tronco deitado esta a
-			# menos de meia espessura do corpo do chao — o resto e a curvatura
-			# da propria casca. A espessura e medida na malha em repouso, entao
-			# o teto acompanha o boneco em vez de ser um numero que eu acertei
-			# ate passar. Medido: espessura 0,433, teto 0,217, e o clipe fica
-			# em 0,137.
+			#   - `profundidade` e a caixa da malha INTEIRA (0,433), com o pe
+			#     apontado para a frente e a nuca. A espessura do tronco e
+			#     0,2125. O comentario chamava um de outro.
+			#   - e o teto so passava por causa do fator 2: sem ele, 0,124
+			#     reprovaria o proprio clipe publicado, que fica em 0,137.
+			#     Isso nao e margem de seguranca, e o numero que faz o
+			#     artefato passar.
 			#
-			# **Falha FECHADA.** `alto_no_fim.get(regiao, 0.0)` devolvia zero
-			# para regiao ausente e zero passa em qualquer teto: bastava um
-			# osso mudar de nome para a conferencia aprovar calada.
-			faltando = [r for r in ("peito", "quadril") if r not in alto_no_fim]
+			# **E a altura nunca poderia ser a regua, por proporcao.** Medido
+			# no `.glb`: o meio-eixo da cabeca e 0,195 e o do peito 0,097 — o
+			# cranio tem o dobro da espessura do torso. Num boneco chibi
+			# deitado de costas, o tronco FICA a uma cabeca do chao, porque e a
+			# cabeca que o sustenta. Exigir o peito no piso seria exigir que o
+			# §1 de `docs/11` fosse falso.
+			#
+			# Inclinacao nao tem esse problema: ela e a mesma para qualquer
+			# proporcao, e e o que a palavra "deitado" quer dizer. Medido, o
+			# clipe da 86,5 graus; a pose ressuscitada que o revisor injetou no
+			# `.glb` da 42,5 e reprova.
+			#
+			# **Falha FECHADA:** osso ausente reprova em vez de virar zero.
+			faltando = [o for o in ("quadril", "cabeca")
+			            if o not in esqueleto.pose.bones]
 			if faltando:
 				raise RuntimeError(
-					"em `%s` nenhum vertice e governado por %s — a conferencia "
-					"de `deitado` ficou orfa" % (nome, ", ".join(faltando)))
-			teto_final = profundidade * 0.5
-			no_tronco = min(alto_no_fim["peito"], alto_no_fim["quadril"])
-			print("[boneco]     folga do tronco ate o chao: %.3f m "
-			      "(teto %.3f, meia espessura do corpo)"
-			      % (no_tronco, teto_final))
-			if no_tronco > teto_final:
+					"em `%s` faltam os ossos %s — a conferencia de `deitado` "
+					"ficou orfa" % (nome, ", ".join(faltando)))
+			bpy.context.scene.frame_set(quadros)
+			eixo = ((esqueleto.matrix_world
+			         @ esqueleto.pose.bones["cabeca"].head)
+			        - (esqueleto.matrix_world
+			           @ esqueleto.pose.bones["quadril"].head))
+			bpy.context.scene.frame_set(0)
+			if eixo.length <= 1e-6:
 				raise RuntimeError(
-					"em `%s` o tronco para a %.3f m do chao e o teto e %.3f — "
-					"o corpo nao caiu, ficou suspenso pelos membros"
-					% (nome, no_tronco, teto_final))
+					"em `%s` o tronco nao tem comprimento no ultimo quadro"
+					% nome)
+			inclinacao = math.degrees(math.acos(
+				min(1.0, abs(eixo.z) / eixo.length)))
+			no_tronco = min(alto_no_fim.get("peito", 9.9),
+			                alto_no_fim.get("quadril", 9.9))
+			print("[boneco]     tronco no ultimo quadro: %.1f graus da vertical "
+			      "(piso %.0f), a %.3f m do chao"
+			      % (inclinacao, INCLINACAO_DE_DEITADO, no_tronco))
+			if inclinacao < INCLINACAO_DE_DEITADO:
+				raise RuntimeError(
+					"em `%s` o tronco termina a %.1f graus da vertical e o "
+					"piso e %.0f — o corpo nao deitou"
+					% (nome, inclinacao, INCLINACAO_DE_DEITADO))
 
 		for regiao, minimo in dados.get("balanca", {}).items():
 			andou = lateral.get(regiao, 0.0)

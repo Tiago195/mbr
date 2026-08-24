@@ -1782,7 +1782,8 @@ def _conferir_os_numeros_livres(c: "Conferencia") -> None:
     doc = ler("docs/11-direcao-de-arte.md")
     declaradas = {}
     for arquivo, nome, valor in re.findall(
-            r"^\| `([\w.]+)` \| `([A-Z_]+)` \| ([-\d.]+) \|", doc, re.M):
+            r"^\| `([\w.]+)` \| `([A-Z_0-9]+(?:\[\w+\])?)` \| ([-\d.]+) \|",
+            doc, re.M):
         declaradas[(arquivo, nome)] = valor
 
     c.contar()
@@ -1801,9 +1802,23 @@ def _conferir_os_numeros_livres(c: "Conferencia") -> None:
             return
         with open(caminho, encoding="utf-8") as f:
             fonte = f.read()
+        # **O padrao anterior falhava ABERTO**, e o revisor adversarial
+        # atravessou quatro formas de uma vez: comentario na mesma linha,
+        # notacao exponencial (`99e-2`), ponto inicial (`.5`) e digito no nome
+        # (`TERCEIRO_TETO2`). A afirmacao do §9 — "uma constante nova nasce
+        # vermelha ate ser explicada aqui" — era falsa como escrita.
         for nome, valor in re.findall(
-                r"^([A-Z_]+) = (-?[0-9]+\.?[0-9]*)$", fonte, re.M):
+                r"^([A-Z_][A-Z_0-9]*) = "
+                r"(-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)\s*(?:#.*)?$",
+                fonte, re.M):
             reais[(arquivo, nome)] = valor
+        # E o dicionario de UMA entrada, que e como `DEITADAS` guarda o piso
+        # que decide se o `morte` publica — o unico numero livre da pipeline
+        # que a varredura anterior nao via, e justamente o central da rodada.
+        for nome, chave, valor in re.findall(
+                r"^([A-Z_][A-Z_0-9]*) = \{\"(\w+)\": "
+                r"(-?(?:\d+\.?\d*|\.\d+))\}\s*(?:#.*)?$", fonte, re.M):
+            reais[(arquivo, "%s[%s]" % (nome, chave))] = valor
 
     for chave in sorted(reais):
         c.contar()
@@ -1946,6 +1961,31 @@ def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
                 "`gerar_boneco.py` produz o clipe `%s` e o vocabulário do "
                 "jogo não conhece esse nome — `Boneco.tocar` devolveria "
                 "`false` calado, que é o defeito do commit 85e8d8f" % nome)
+
+    # **E o TIPO de cada clipe, que era dado morto.** `ANIMACOES` declara
+    # `"ciclo": True/False` e ninguem lia: quem decide se o fechamento e
+    # conferido e `ANIMACOES_EXIGIDAS[nome][1]`, no outro arquivo. Medido pelo
+    # revisor adversarial, trocar `True` por `False` ali desligava a
+    # conferencia de fechamento do `parado` sem uma palavra — e a mutacao que
+    # existe para isso muta o GERADOR e depende justamente desse flag.
+    ciclos_do_gerador = dict(re.findall(
+        r'^\t"(\w+)": \{\n\t\t"ciclo": (True|False),',
+        textos["gerador"], re.M))
+    ciclos_do_conferidor = dict(re.findall(
+        r'^\t"(\w+)": \([0-9.]+, (True|False)\),',
+        re.search(r"^ANIMACOES_EXIGIDAS = \{(.*?)^\}",
+                  textos["conferidor"], re.S | re.M).group(1), re.M))
+    c.contar()
+    if not ciclos_do_gerador or not ciclos_do_conferidor:
+        c.falhas.append(
+            "nao consegui ler o tipo (ciclo ou uma vez) dos clipes — a "
+            "conferencia dele ficou orfa")
+    elif ciclos_do_gerador != ciclos_do_conferidor:
+        c.falhas.append(
+            "o gerador declara %s e o conferidor cobra %s — um clipe que e "
+            "ciclo num arquivo e nao no outro tem o fechamento conferido por "
+            "ninguem" % (sorted(ciclos_do_gerador.items()),
+                         sorted(ciclos_do_conferidor.items())))
 
     exigidos = set(re.findall(
         r'^\t"(\w+)": \(', re.search(

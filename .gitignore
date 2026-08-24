@@ -23,6 +23,7 @@ __pycache__/
 # Folhas de contato do personagem: 5 MB de PNG que `renderizar_previa.py`
 # refaz em vinte segundos. São para OLHAR, não para guardar.
 arte/previa/
+arte/previa-*/
 
 # Backup automático do Blender.
 *.blend1

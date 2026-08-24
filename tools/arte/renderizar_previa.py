@@ -335,14 +335,39 @@ def folha_de_pose(armature, malha, destino: str) -> str:
 	return _render("pose", destino, armature, malha, copias, 3)
 
 
+def _alvo(raiz: str) -> tuple:
+	"""`(caminho do .glb, pasta de saida)`, do argumento ou o padrao.
+
+	**Esta ferramenta apontava para `personagem.glb` por caminho fixo**, e
+	`docs/08` a descreve como *"a unica que responde a pergunta que nenhuma
+	medicao responde"* — o item 7 do §10, a silhueta. Quando o boneco novo
+	nasceu, a unica ferramenta de OLHAR do projeto nao alcancava o artefato que
+	mais precisava ser olhado. Achado do revisor adversarial, e e a licao 9 com
+	o alvo trocado.
+
+	Uso: `blender --background --python tools/arte/renderizar_previa.py --
+	arte/boneco.glb`
+	"""
+	pedido = None
+	if "--" in sys.argv:
+		resto = sys.argv[sys.argv.index("--") + 1:]
+		if resto:
+			pedido = resto[0]
+	if pedido is None:
+		return (os.path.join(raiz, "arte", "personagem.glb"),
+		        os.path.join(raiz, "arte", "previa"))
+	inteiro = pedido if os.path.isabs(pedido) else os.path.join(raiz, pedido)
+	nome = os.path.splitext(os.path.basename(inteiro))[0]
+	return inteiro, os.path.join(raiz, "arte", "previa-" + nome)
+
+
 def main() -> int:
 	raiz = caminho_raiz()
-	glb = os.path.join(raiz, "arte", "personagem.glb")
+	glb, destino = _alvo(raiz)
 	if not os.path.exists(glb):
-		print("[previa] falta %s — rode gerar_personagem.py antes" % glb)
+		print("[previa] falta %s — gere o boneco antes" % glb)
 		return 1
 
-	destino = os.path.join(raiz, "arte", "previa")
 	os.makedirs(destino, exist_ok=True)
 
 	armature, malha = importar(glb)

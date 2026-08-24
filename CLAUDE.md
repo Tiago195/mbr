@@ -521,7 +521,7 @@ existir, e sem ela sai com 2 — que é diferente de reprovar.
 `arte/personagem.glb`, que é o que o jogo carrega hoje: cápsulas e caixas, com
 os 25 clipes do vocabulário universal. `gerar_boneco.py` faz `arte/boneco.glb`,
 o boneco novo — malha contínua por Skin Modifier, na proporção medida, com
-`parado`, `andando` e `morrer`. **Ele ainda não tem consumidor**: nada na camada de jogo
+`parado`, `andando` e `morte`. **Ele ainda não tem consumidor**: nada na camada de jogo
 o carrega, e ligá-lo é trabalho que não foi feito.
 
 `gerar_boneco.py` abre a malha DEFORMADA em **cada quadro de cada animação** —

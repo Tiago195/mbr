@@ -463,12 +463,24 @@ verde.
 constante sem linha reprova, linha sem constante reprova, e valor diferente
 reprova. Uma constante nova nasce vermelha até ser explicada aqui.
 
+**Duas honestidades sobre esta tabela**, as duas achadas por revisão
+adversarial. A primeira: ela lista o que a máquina consegue ENXERGAR, que são
+constantes de módulo com valor numérico — mais o caso especial de um dicionário
+de uma entrada. Números escritos inline no meio de uma expressão (`X_OMBRO *
+0.34`, `/ 1.065`, `profundidade * 0.5`) não estão aqui e não são conferidos por
+nada; são forma, não limiar, mas a distinção é minha e não é medida.
+
+A segunda: nem tudo nesta tabela é livre. `ALTURA` sai da mediana medida dos 27
+campeões, e está listado porque a varredura o alcança. Uma tabela que se
+chamasse só "os livres" e incluísse um derivado seria a mesma classe de defeito
+que ela existe para fechar.
+
 | Arquivo | Constante | Valor | O que ela decide |
 |---|---|---|---|
-| `gerar_boneco.py` | `ALTURA` | 1.75 | a altura alvo do boneco, em metros |
+| `gerar_boneco.py` | `ALTURA` | 1.75 | a altura alvo, em metros — **este sai de faixa medida** (mediana 1,764 dos 27 campeões) e está aqui só porque é literal decimal; ver a nota abaixo da tabela |
 | `gerar_boneco.py` | `FRACAO_ATE_O_COTOVELO` | 0.47 | onde o cotovelo cai ao longo do braço; **não sai do original**, que mede ombro, cotovelo e mão na mesma altura na pose T |
 | `gerar_boneco.py` | `ABERTURA_DO_BRACO` | 28.0 | graus de pose A; 20 era o mínimo que separa braço e coxa, e 28 leva a autointerseção de 78 pares a 10 |
-| `gerar_boneco.py` | `FRACAO_DO_PEITO` | 0.72 | onde o peito cai entre quadril e pescoço |
+| `gerar_boneco.py` | `FRACAO_DO_PEITO` | 0.72 | o RAIO do nó do peito, em fração do meio-vão dos ombros — não onde ele cai, que é medido e vale 0,656 |
 | `gerar_boneco.py` | `ESTREITAMENTO_DO_PULSO` | 0.45 | o pulso é mais fino que o antebraço |
 | `gerar_boneco.py` | `ENGROSSAMENTO_DA_MAO` | 1.35 | e a mão é mais grossa que o pulso — o §1 mede mão grande |
 | `gerar_boneco.py` | `SUBDIVISOES` | 2 | passes de subdivisão sobre o casco do Skin Modifier |
@@ -482,12 +494,14 @@ reprova. Uma constante nova nasce vermelha até ser explicada aqui.
 | `gerar_boneco.py` | `FOLGA_DO_BRACO` | 0.004 | quando o alcance do braço está fechado |
 | `gerar_boneco.py` | `RAIO_DO_TUBO_DO_BRACO` | 0.145 | o cerco que separa vértice de braço de vértice de coxa; o pé fica a 1,2 m e passava no filtro anterior |
 | `gerar_boneco.py` | `AMOSTRA_MINIMA` | 12 | vértices mínimos para uma medida não ser decidida pelo acaso |
-| `gerar_boneco.py` | `PASSOS_PARA_DENTRO` | 12 | passes do encolhimento que separa roupa de pele |
+| `gerar_boneco.py` | `PASSOS_PARA_DENTRO` | 12 | passos ao puxar uma CAUDA de osso para dentro do corpo, em `_cauda_dentro` |
 | `gerar_boneco.py` | `PASSADAS_DE_ALISAMENTO` | 2 | passes de suavização da fronteira de pintura |
-| `gerar_boneco.py` | `FUNDO_DO_ROSTO` | 0.55 | onde o rosto começa, em fração da cabeça |
-| `gerar_boneco.py` | `ALTURA_DO_ROSTO` | 0.25 | e quanto dela ele ocupa |
+| `gerar_boneco.py` | `FUNDO_DO_ROSTO` | 0.55 | quanto da FRENTE da cabeça vira rosto, em fração do raio dela |
+| `gerar_boneco.py` | `ALTURA_DO_ROSTO` | 0.25 | e a partir de que ALTURA da cabeça, para o rosto não descer no queixo |
 | `gerar_boneco.py` | `CADENCIA` | 30 | quadros por segundo; **medido**, 1344 dos 1350 clipes do original |
-| `gerar_boneco.py` | `AMPLITUDE_MINIMA` | 0.05 | metros que uma região precisa andar para o clipe contar como animação |
+| `gerar_boneco.py` | `AMPLITUDE_MINIMA` | 0.05 | metros que o vértice que mais anda precisa andar — é piso GLOBAL, e o piso por região é `ARTICULACAO_MINIMA` |
+| `gerar_boneco.py` | `INCLINACAO_DE_DEITADO` | 70.0 | graus da vertical que o tronco tem de atingir num clipe que declara `deitado`; **escolhido**, não derivado — 90 é deitado, 0 é de pé |
+| `conferir_boneco.py` | `DEITADAS[morte]` | 70.0 | o mesmo piso, do lado que julga o artefato |
 | `gerar_boneco.py` | `ARTICULACAO_MINIMA` | 5.0 | graus que um osso de `movem` precisa girar; ângulo e não metro, porque metro não distingue articular de ser carregado |
 | `gerar_boneco.py` | `FOLGA_DO_CHAO` | 0.015 | quando um pé conta como tocando o chão |
 | `gerar_boneco.py` | `AMOSTRAS_DA_SOLA` | 12 | vértices da sola usados para detectar um perdido |
