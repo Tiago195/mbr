@@ -32,6 +32,11 @@ ALVOS = {
     ## E um dos consumidores, para provar que nome escrito a mao reprova.
     "caminhada": os.path.join(
         RAIZ, "scripts", "gameplay", "gesto_de_caminhada.gd"),
+    ## A camada que TOCA os clipes de reacao. Sem ela nos alvos, "o clipe
+    ## existe" e tudo que o projeto sabia — e existir nao e ser tocado.
+    "reacao": os.path.join(RAIZ, "scripts", "gameplay", "gesto_de_reacao.gd"),
+    ## E quem poe os ciclos em ciclo ao carregar.
+    "boneco": os.path.join(RAIZ, "scripts", "gameplay", "boneco.gd"),
 }
 ## **Todo artefato rastreado que o gerador escreve.** Restaurar so o `.glb`
 ## deixava o `.blend` da ultima mutacao no disco, e ele foi commitado assim —
@@ -185,6 +190,33 @@ MUTACOES = [
     ("o documento diz que a corrida nao e ciclo", [
         ("doc", "| 0,67 / 0,80 / 1,13 s | ciclo |",
          "| 0,67 / 0,80 / 1,13 s | uma vez |")], False),
+    # --- a INTEGRACAO: o clipe existe e o jogo o toca? ---
+    #
+    # As duas de baixo passam pela sonda de ritmo, que e a unica ferramenta que
+    # abre o jogo. Sem elas, "levou_dano existe no `.glb`" era tudo que o
+    # projeto sabia sobre a reacao — e o buraco entre existir e ser tocado e
+    # exatamente onde estavam os oito nomes do Royal Crown.
+    ("o corpo deixa de reagir ao dano", [
+        ("reacao", "\t_combatente.damaged.connect(_ao_levar_dano)",
+         "\tpass")], False),
+    ("o corpo nao desenha o atordoamento", [
+        ("reacao", "\t\t_tocar(VocabularioDeAnimacao.ATORDOADO)",
+         "\t\tpass")], False),
+    # **Entrar sem sair.** O corpo entra no atordoamento e nunca larga a pose,
+    # e a conferencia de ENTRADA aprova isso — foi o par que faltou.
+    ("o corpo entra no atordoamento e nao sai", [
+        ("reacao", "\tvar preso: bool = _combatente.unit.status.has_any(PARALISADO)",
+         "\tvar preso: bool = _atordoado or _combatente.unit.status.has_any(PARALISADO)")],
+     False),
+    ("o corpo nao cai ao morrer", [
+        ("reacao", "\t\t_boneco.tocar(VocabularioDeAnimacao.MORTE, true)",
+         "\t\tpass")], False),
+    ("o morto volta a andar", [
+        ("reacao", "\treturn _morto or _atordoado or _restante > 0.0",
+         "\treturn _atordoado or _restante > 0.0")], False),
+    ("os ciclos deixam de ser postos em ciclo ao carregar", [
+        ("boneco", "\t\t_animador.get_animation(nome).loop_mode = Animation.LOOP_LINEAR",
+         "\t\tpass")], False),
     # --- os dois numeros novos do documento ---
     ("a contagem de tolerancias do §9 fica errada", [
         ("doc", "6 números não saem de faixa nenhuma",

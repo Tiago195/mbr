@@ -531,6 +531,147 @@ ANIMACOES = {
 				peito=(15, 0, 0), cabeca=(-8, 0, 0))),
 		],
 	},
+	# ------------------------------------------------------------ reações
+	#
+	# Levou dano: `beaten` no original, **1,00 s exatos nos 32 campeões** — a
+	# única duração universal que não varia nada.
+	#
+	# **É a animação que NÃO tem antecipação, e é de propósito.** O item 4 da
+	# lista do §10 pede recuo antes do golpe, porque sem ele o golpe lê como
+	# teleporte. Numa reação a regra se inverte: o susto é a informação, e
+	# antecipar faria o personagem parecer que sabia que ia apanhar. O tempo
+	# aqui é o contrário do de um golpe — instantâneo na entrada, lento na
+	# saída.
+	"levou_dano": {
+		"ciclo": False,
+		"chaves": [
+			(0, pose()),
+			# Quatro quadros até o impacto: 0,13 s, que é o mais rápido que o
+			# olho ainda separa de "trocou de pose".
+			#
+			# **Os braços vão para TRÁS**, e a primeira versão os mandou para a
+			# frente. Num osso que aponta para baixo o +X leva a ponta para
+			# trás — está escrito no cabeçalho das animações e mesmo assim eu
+			# escrevi -38, o que na tela virou o personagem ESTENDENDO as duas
+			# mãos como quem alcança alguma coisa. Medição nenhuma pega isso: a
+			# duração, o chão e a amplitude estavam todos certos.
+			(4, pose(
+				quadril=(0, 0, -7), peito=(-24, 0, 0), cabeca=(-16, 0, 0),
+				braco_D=(30, -40, 0), antebraco_D=(-35, 0, 0),
+				braco_E=(30, 40, 0), antebraco_E=(-35, 0, 0),
+				coxa_D=(14, 0, 0), canela_D=(18, 0, 0), pe_D=pe(14, 18),
+				coxa_E=(-10, 0, 0), canela_E=(26, 0, 0), pe_E=pe(-10, 26))),
+			(11, pose(
+				quadril=(0, 0, -3), peito=(-11, 0, 0), cabeca=(-6, 0, 0),
+				braco_D=(12, -22, 0), antebraco_D=(-28, 0, 0),
+				braco_E=(12, 22, 0), antebraco_E=(-28, 0, 0),
+				coxa_D=(8, 0, 0), canela_D=(10, 0, 0), pe_D=pe(8, 10),
+				coxa_E=(-6, 0, 0), canela_E=(14, 0, 0), pe_E=pe(-6, 14))),
+			# Passa do repouso para a frente antes de voltar: sem esse
+			# contragolpe o corpo desinfla em vez de se recompor.
+			(20, pose(
+				peito=(7, 0, 0), cabeca=(5, 0, 0),
+				braco_D=(-8, -9, 0), braco_E=(-8, 9, 0),
+				coxa_D=(4, 0, 0), canela_D=(7, 0, 0), pe_D=pe(4, 7),
+				coxa_E=(-3, 0, 0), canela_E=(7, 0, 0), pe_E=pe(-3, 7))),
+			(30, pose()),
+		],
+	},
+	# Atordoado: `stun`, 0,50 / 0,50 / 1,00 s no original, e CICLO — o
+	# atordoamento dura o que a habilidade mandar, então o clipe tem que poder
+	# rodar de novo sem emenda visível.
+	#
+	# A cabeça rola em círculo e é ela que carrega a leitura: com 23,7% da
+	# altura, é a peça cujo movimento o olho pega de longe. Os joelhos ficam
+	# moles e os braços soltos — o corpo continua de pé mas parou de se
+	# sustentar, que é a diferença entre "atordoado" e "parado".
+	"atordoado": {
+		"ciclo": True,
+		"chaves": [
+			(0, pose(
+				quadril=(0, 5, 0), peito=(9, -5, 0), cabeca=(16, 0, 0),
+				braco_D=(2, -9, 0), antebraco_D=(-14, 0, 0),
+				braco_E=(2, 9, 0), antebraco_E=(-14, 0, 0),
+				coxa_D=(-7, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-7, 14),
+				coxa_E=(-7, 0, 0), canela_E=(14, 0, 0), pe_E=pe(-7, 14))),
+			(5, pose(
+				quadril=(0, 0, 0), peito=(9, -2, 0), cabeca=(3, 17, 0),
+				braco_D=(2, -13, 0), antebraco_D=(-18, 0, 0),
+				braco_E=(2, 5, 0), antebraco_E=(-10, 0, 0),
+				coxa_D=(-9, 0, 0), canela_D=(17, 0, 0), pe_D=pe(-9, 17),
+				coxa_E=(-5, 0, 0), canela_E=(11, 0, 0), pe_E=pe(-5, 11))),
+			(10, pose(
+				quadril=(0, -5, 0), peito=(9, 5, 0), cabeca=(-7, 0, 0),
+				braco_D=(2, -9, 0), antebraco_D=(-14, 0, 0),
+				braco_E=(2, 9, 0), antebraco_E=(-14, 0, 0),
+				coxa_D=(-7, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-7, 14),
+				coxa_E=(-7, 0, 0), canela_E=(14, 0, 0), pe_E=pe(-7, 14))),
+			(15, pose(
+				quadril=(0, 0, 0), peito=(9, 2, 0), cabeca=(3, -17, 0),
+				braco_D=(2, -5, 0), antebraco_D=(-10, 0, 0),
+				braco_E=(2, 13, 0), antebraco_E=(-18, 0, 0),
+				coxa_D=(-5, 0, 0), canela_D=(11, 0, 0), pe_D=pe(-5, 11),
+				coxa_E=(-9, 0, 0), canela_E=(17, 0, 0), pe_E=pe(-9, 17))),
+			# O último quadro REPETE o primeiro — item 3 da lista do §10, e o
+			# conferidor mede.
+			(20, pose(
+				quadril=(0, 5, 0), peito=(9, -5, 0), cabeca=(16, 0, 0),
+				braco_D=(2, -9, 0), antebraco_D=(-14, 0, 0),
+				braco_E=(2, 9, 0), antebraco_E=(-14, 0, 0),
+				coxa_D=(-7, 0, 0), canela_D=(14, 0, 0), pe_D=pe(-7, 14),
+				coxa_E=(-7, 0, 0), canela_E=(14, 0, 0), pe_E=pe(-7, 14))),
+		],
+	},
+	# Morte: `death`, 1,13 / 1,82 / 3,33 s no original — a MAIOR variação de
+	# todo o vocabulário universal, três vezes entre o mais curto e o mais
+	# longo. Faz sentido: é o único clipe que ninguém precisa poder interromper,
+	# então cada campeão gastou o que quis. 2,00 s é o quinto comprimento mais
+	# escolhido do original e cai no meio da faixa.
+	#
+	# **Ela termina DEITADA, e é a única do vocabulário que termina.** O corpo
+	# gira no osso raiz: -90 graus em X põem o tronco apontando para trás e as
+	# pernas para a frente, que é um corpo de costas no chão. `assentar` faz o
+	# resto — ele mede o ponto mais baixo da malha já deformada, então não
+	# importa que agora o ponto mais baixo seja o ombro em vez do pé.
+	"morte": {
+		"ciclo": False,
+		"chaves": [
+			(0, pose()),
+			# O golpe: dobra para a frente, joelhos cedem.
+			(8, pose(
+				peito=(20, 0, 0), cabeca=(14, 0, 0),
+				braco_D=(-16, -12, 0), antebraco_D=(-30, 0, 0),
+				braco_E=(-16, 12, 0), antebraco_E=(-30, 0, 0),
+				coxa_D=(-18, 0, 0), canela_D=(34, 0, 0), pe_D=pe(-18, 34),
+				coxa_E=(-18, 0, 0), canela_E=(34, 0, 0), pe_E=pe(-18, 34))),
+			# As pernas param de sustentar e o corpo começa a cair para trás.
+			(20, pose(
+				quadril=(-30, 0, 0), peito=(16, 0, 0), cabeca=(16, 0, 0),
+				braco_D=(24, -22, 0), antebraco_D=(-16, 0, 0),
+				braco_E=(24, 22, 0), antebraco_E=(-16, 0, 0),
+				coxa_D=(-40, 0, 0), canela_D=(74, 0, 0), pe_D=pe(-40, 74),
+				coxa_E=(-36, 0, 0), canela_E=(70, 0, 0), pe_E=pe(-36, 70))),
+			# Chega ao chão. Os braços abrem — é a leitura de longe: um corpo
+			# deitado com os braços colados no tronco vira um tronco.
+			(34, pose(
+				quadril=(-86, 0, 0), peito=(8, 0, 0), cabeca=(12, 0, 0),
+				braco_D=(18, -58, 0), antebraco_D=(-10, 0, 0),
+				braco_E=(18, 58, 0), antebraco_E=(-10, 0, 0),
+				coxa_D=(14, 0, 0), canela_D=(26, 0, 0), pe_D=pe(14, 26),
+				coxa_E=(10, 0, 0), canela_E=(20, 0, 0), pe_E=pe(10, 20))),
+			# O quique do peso batendo, e depois nada.
+			(43, pose(
+				quadril=(-93, 0, 0), peito=(4, 0, 0), cabeca=(8, 0, 0),
+				braco_D=(10, -66, 0), braco_E=(10, 66, 0),
+				coxa_D=(8, 0, 0), canela_D=(14, 0, 0), pe_D=pe(8, 14),
+				coxa_E=(5, 0, 0), canela_E=(10, 0, 0), pe_E=pe(5, 10))),
+			(60, pose(
+				quadril=(-90, 0, 0), peito=(5, 0, 0), cabeca=(9, 0, 0),
+				braco_D=(12, -62, 0), braco_E=(12, 62, 0),
+				coxa_D=(9, 0, 0), canela_D=(16, 0, 0), pe_D=pe(9, 16),
+				coxa_E=(6, 0, 0), canela_E=(12, 0, 0), pe_E=pe(6, 12))),
+		],
+	},
 	# Os cinco gestos de habilidade, com os mesmos nomes que
 	# `GestoDeConjuracao.Gesto` já escolhe pela forma do pulso. Todos têm
 	# ANTECIPAÇÃO no começo — sem ela o golpe parece teleporte.

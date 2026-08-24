@@ -53,6 +53,9 @@ MOVIMENTO_MINIMO = 0.03
 ## outras ferramentas verdes.
 NOMES_EXIGIDOS = [
 	"parado", "andando", "correndo",
+	"levou_dano",
+	"atordoado",
+	"morte",
 	"estocada", "giro", "salto", "erguer", "preparo",
 ]
 ## Quais rodam em CICLO — a coluna "Tipo" do §3 de `docs/11`, medida nos 32
@@ -62,7 +65,7 @@ NOMES_EXIGIDOS = [
 ## primeiro** (item 3 da lista do §10). Sem isso o corpo salta ao emendar a
 ## volta, e o salto e tanto mais visivel quanto mais curto o clipe — na corrida
 ## ele acontece tres vezes por segundo.
-EM_CICLO = {"parado", "andando", "correndo"}
+EM_CICLO = {"parado", "andando", "correndo", "atordoado"}
 ## Quanto o ultimo quadro de um ciclo pode se afastar do primeiro, em metros —
 ## medido no vertice que mais se afasta. Publicado em `docs/11` §9.
 FECHAMENTO_DO_CICLO = 0.005
@@ -149,6 +152,9 @@ DURACAO_ESPERADA = {
 	"parado": (1.27, 5.33),      # `idle`  medido nos 32
 	"andando": (1.07, 1.60),     # `walk`  medido nos 32
 	"correndo": (0.67, 1.13),    # `run`   medido nos 32
+	"levou_dano": (1.00, 1.00),  # `beaten` medido nos 32 — ponto, nao faixa
+	"atordoado": (0.50, 1.00),  # `stun`  medido nos 32
+	"morte": (1.13, 3.33),  # `death` medido nos 32
 	"estocada": (0.83, 1.40),
 	"giro": (0.83, 1.40),
 	"salto": (0.83, 1.40),

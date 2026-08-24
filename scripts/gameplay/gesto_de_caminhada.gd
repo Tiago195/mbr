@@ -60,6 +60,7 @@ var _corpo: CharacterBody3D
 var _boneco: Boneco
 var _combatente: Combatant
 var _gesto: GestoDeConjuracao
+var _reacao: GestoDeReacao
 var _fase: float = 0.0
 var _base_y: float = 0.0
 
@@ -68,6 +69,7 @@ func _ready() -> void:
 	_boneco = _achar(Boneco) as Boneco
 	_combatente = _achar(Combatant) as Combatant
 	_gesto = _achar(GestoDeConjuracao) as GestoDeConjuracao
+	_reacao = _achar(GestoDeReacao) as GestoDeReacao
 	if _corpo == null or _boneco == null:
 		push_warning("GestoDeCaminhada sem corpo em '%s'." % get_parent().name)
 	else:
@@ -76,9 +78,12 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _corpo == null or _boneco == null:
 		return
-	# **Conjurar tem prioridade.** Sobrepor caminhada e golpe faz o braço
-	# tremer no meio do gesto, e o golpe é a informação mais importante das
-	# duas — é ele que o jogador está tentando ler.
+	# **Reagir e conjurar têm prioridade, nessa ordem.** Sobrepor caminhada e
+	# golpe faz o braço tremer no meio do gesto, e o golpe é a informação mais
+	# importante das duas — é ele que o jogador está tentando ler. A reação vem
+	# antes das duas: quem apanhou não está andando.
+	if _reacao != null and _reacao.esta_reagindo():
+		return
 	if _gesto != null and _gesto.esta_gesticulando():
 		# **E devolve o corpo ao lugar antes de sair.** Sem isto a caminhada
 		# larga o corpo inclinado e o gesto de conjuração desenha por cima de

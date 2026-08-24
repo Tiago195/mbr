@@ -15,6 +15,7 @@
 [ext_resource type="Script" uid="uid://c5nnk8mpu1p2p" path="res://scripts/gameplay/gesto_de_conjuracao.gd" id="13_gesto"]
 [ext_resource type="Script" uid="uid://buofawe5vgx5e" path="res://scripts/gameplay/boneco.gd" id="14_boneco"]
 [ext_resource type="Script" uid="uid://de6my37kijpt1" path="res://scripts/gameplay/gesto_de_caminhada.gd" id="15_andar"]
+[ext_resource type="Script" path="res://scripts/gameplay/gesto_de_reacao.gd" id="16_reacao"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(20, 20)
@@ -139,6 +140,9 @@ script = ExtResource("13_gesto")
 
 [node name="GestoDeCaminhada" type="Node" parent="Player" unique_id=1440197786]
 script = ExtResource("15_andar")
+
+[node name="GestoDeReacao" type="Node" parent="Player"]
+script = ExtResource("16_reacao")
 
 [node name="DummyNear" parent="." unique_id=1928094544 instance=ExtResource("4_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1, -2)

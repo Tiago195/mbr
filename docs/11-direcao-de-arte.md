@@ -186,7 +186,7 @@ separa o gênero de um MOBA, e nós não temos nenhum.
 
 ### Quanto disto o nosso boneco já tem
 
-O nosso boneco tem **3 dos 22** verbos universais, mais os cinco gestos de
+O nosso boneco tem **6 dos 22** verbos universais, mais os cinco gestos de
 habilidade. Os nomes nossos, e a tradução de cada um para o nome do original,
 vivem em `scripts/gameplay/vocabulario_de_animacao.gd` — que é a lista que o
 JOGO usa. `tools/conferir_numeros.py` exige que ela seja exatamente a mesma
@@ -444,6 +444,10 @@ trocá-lo por 0,5 abria todas as tolerâncias de uma vez.
    1,40 s, e comece por 1,00 s.
 3. **Ciclo ou uma vez?** Se é ciclo, o último quadro repete o primeiro.
 4. **Tem antecipação?** Sem recuo antes do golpe, o gesto lê como teleporte.
+   **A exceção é a reação:** quem leva dano não antecipa nada — o susto é a
+   informação, e antecipar faria o personagem parecer que sabia que ia
+   apanhar. Numa reação o tempo se inverte: instantâneo na entrada, lento na
+   saída.
 5. **O pé encosta no chão?** A conferência mede, com tolerância de 1,5 cm;
    não confie no olho.
 6. **Tem variante direcional?** Se tiver, ela dura o mesmo que o gesto.

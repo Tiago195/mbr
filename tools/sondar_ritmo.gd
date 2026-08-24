@@ -250,7 +250,176 @@ func _sondar() -> Array[String]:
 	# tecla de verdade ele não roda, e um erro nele passaria em silêncio.
 	falhas.append_array(await _conferir_gesto(jogador, meu))
 
+	# ------------------------------------------- o vocabulário de animação
+	falhas.append_array(await _conferir_vocabulario(jogador, meu))
+
 	return falhas
+
+## Cada clipe que o jogo pede EXISTE, e o evento que o dispara o toca.
+##
+## **É a única ferramenta que roda esta junta.** O gerador prova que o clipe foi
+## escrito, o conferidor do Blender prova que ele mede certo, e
+## `conferir_numeros.py` prova que as listas concordam — mas nenhum dos três
+## abre o jogo. Foi nesse vão que a camada de jogo passou a pedir oito clipes do
+## Royal Crown que nunca existiram aqui, com tudo verde.
+func _conferir_vocabulario(
+		jogador: CharacterBody3D, meu: Combatant
+) -> Array[String]:
+	var falhas: Array[String] = []
+	var boneco: Boneco = null
+	for filho: Node in jogador.get_children():
+		if filho is Boneco:
+			boneco = filho as Boneco
+	if boneco == null:
+		return ["a cena não tem Boneco"] as Array[String]
+	var animador: AnimationPlayer = boneco.animador()
+	if animador == null:
+		# Sem esqueleto não há vocabulário para conferir, e isso é um estado
+		# legítimo: é o corpo de caixas de quem não gerou `personagem.glb`.
+		# **Mas ele aparece**, senão "não conferi" vira "conferi e passou".
+		print("  vocabulário: o corpo da cena não tem esqueleto; nada a conferir")
+		return falhas
+
+	# Toda constante que o jogo pode pedir tem que existir no arquivo. Varrido
+	# de `VocabularioDeAnimacao.TODOS`, e não de uma lista escrita aqui: nome
+	# novo já nasce conferido.
+	var faltando: Array[String] = []
+	for nome: StringName in VocabularioDeAnimacao.TODOS:
+		if not animador.has_animation(nome):
+			faltando.append(String(nome))
+	if not faltando.is_empty():
+		falhas.append(
+			"o jogo pede %s e o corpo carregado não tem" % str(faltando)
+		)
+		return falhas
+
+	# E o que é CICLO tem que estar em ciclo. Sem isto o personagem dá um passo
+	# e congela — o glTF não guarda essa informação e o importador traz tudo
+	# como "uma vez".
+	for nome: StringName in VocabularioDeAnimacao.CICLOS:
+		var clipe: Animation = animador.get_animation(nome)
+		if clipe != null and clipe.loop_mode == Animation.LOOP_NONE:
+			falhas.append(
+				"`%s` é ciclo e foi carregado como 'uma vez'" % nome
+			)
+
+	print("  vocabulário: %d clipes, %d em ciclo, todos presentes"
+		% [VocabularioDeAnimacao.TODOS.size(),
+		   VocabularioDeAnimacao.CICLOS.size()])
+
+	# --------------------------------------------- e o EVENTO toca o clipe
+	#
+	# Presença não basta: o clipe pode estar no arquivo e nada no jogo pedi-lo.
+	# Aqui o evento é disparado de verdade e o que se olha é o que está tocando
+	# no quadro seguinte.
+	jogador.set("_target", null)
+	jogador.set("target_position", jogador.global_position)
+	jogador.velocity = Vector3.ZERO
+	for _passo: int in 4:
+		await physics_frame
+		await process_frame
+	var parado: StringName = animador.current_animation
+	if parado != VocabularioDeAnimacao.PARADO:
+		falhas.append(
+			"parado, o corpo está tocando `%s` em vez de `%s`"
+				% [parado, VocabularioDeAnimacao.PARADO]
+		)
+
+	# Levar dano: o corpo tem que reagir.
+	meu.unit.health.current = meu.unit.health.maximum()
+	var golpe := DamageResult.new()
+	meu.damaged.emit(golpe)
+	await process_frame
+	var reagindo: StringName = animador.current_animation
+	if reagindo != VocabularioDeAnimacao.LEVOU_DANO:
+		falhas.append(
+			"levar dano deixou o corpo tocando `%s` em vez de `%s`"
+				% [reagindo, VocabularioDeAnimacao.LEVOU_DANO]
+		)
+
+	# E a reação TERMINA: um corpo que fica preso na reação é pior que um que
+	# não reage, porque ele deixa de andar.
+	var espera: float = boneco.duracao_de(VocabularioDeAnimacao.LEVOU_DANO)
+	var quadros: int = int(ceil(espera / 0.016)) + 10
+	for _passo: int in quadros:
+		await physics_frame
+		await process_frame
+	if animador.current_animation != VocabularioDeAnimacao.PARADO:
+		falhas.append(
+			"depois da reação o corpo ficou em `%s` em vez de voltar a `%s`"
+				% [animador.current_animation, VocabularioDeAnimacao.PARADO]
+		)
+
+	# Atordoado: ESTADO, e não evento. O corpo tem que entrar e SAIR dele.
+	meu.unit.status.apply(StatusSet.Kind.STUN, 5.0)
+	await process_frame
+	var preso: StringName = animador.current_animation
+	if preso != VocabularioDeAnimacao.ATORDOADO:
+		falhas.append(
+			"atordoado, o corpo está tocando `%s` em vez de `%s`"
+				% [preso, VocabularioDeAnimacao.ATORDOADO]
+		)
+	# **E sair é a metade que some.** Um corpo que entra no atordoamento e não
+	# sai fica preso de pé para sempre, e a conferência de entrada aprova isso.
+	meu.unit.status.clear_all()
+	for _passo: int in 6:
+		await physics_frame
+		await process_frame
+	if animador.current_animation != VocabularioDeAnimacao.PARADO:
+		falhas.append(
+			"passado o atordoamento o corpo ficou em `%s` em vez de `%s`"
+				% [animador.current_animation, VocabularioDeAnimacao.PARADO]
+		)
+
+	# Morrer é a ÚLTIMA coisa que a sonda faz com este corpo, porque ele não
+	# volta. O clipe termina deitado e nenhuma camada desenha por cima.
+	var alto_de_pe: float = _mais_alto(boneco, jogador)
+	meu.died.emit()
+	await process_frame
+	var morto: StringName = animador.current_animation
+	if morto != VocabularioDeAnimacao.MORTE:
+		falhas.append(
+			"morrer deixou o corpo tocando `%s` em vez de `%s`"
+				% [morto, VocabularioDeAnimacao.MORTE]
+		)
+	# **E FICA — conferido no CORPO, não em `current_animation`.**
+	#
+	# Um clipe de uma vez termina e o `AnimationPlayer` limpa
+	# `current_animation`: ele vira string vazia, e comparar com `morte`
+	# reprovaria um corpo que está deitado do jeito certo. O que interessa não
+	# é qual clipe está tocando — é se o personagem continua no chão. Foi essa
+	# troca de "o que o motor registra" por "o que aparece na tela" que a
+	# primeira versão desta conferência errou.
+	# E a ordem de mandar andar importa: sem uma ordem de movimento, o corpo
+	# ficaria parado por não ter para onde ir, e a conferência aprovaria um
+	# morto que a caminhada teria levantado.
+	jogador.set("target_position", jogador.global_position + Vector3(0, 0, -4))
+	var quadros_da_morte: int = int(ceil(
+		boneco.duracao_de(VocabularioDeAnimacao.MORTE) / 0.016)) + 20
+	for _passo: int in quadros_da_morte:
+		await physics_frame
+		await process_frame
+	var alto_morto: float = _mais_alto(boneco, jogador)
+	if alto_morto > alto_de_pe - 0.5:
+		falhas.append(
+			("depois de morto o corpo voltou a %.2f m de altura (de pé eram "
+			+ "%.2f); morte não levanta") % [alto_morto, alto_de_pe]
+		)
+	print(("  vocabulário: dano -> `%s`; atordoado -> `%s`; solto -> `%s`; "
+		+ "morto: corpo a %.2f m (de pé %.2f)")
+		% [reagindo, preso, parado, alto_morto, alto_de_pe])
+	return falhas
+
+
+## O ponto mais alto do corpo, relativo aos pés do personagem.
+##
+## `Boneco.pontos()` devolve ponto no MUNDO e serve aos três corpos possíveis —
+## caixas, malha inteiriça e esqueleto — sem enumerar propriedade nenhuma.
+func _mais_alto(boneco: Boneco, jogador: Node3D) -> float:
+	var alto: float = -INF
+	for ponto: Vector3 in boneco.pontos():
+		alto = maxf(alto, ponto.y)
+	return alto - (jogador.global_position.y - 1.0)
 
 ## O corpo se mexe enquanto ANDA.
 func _conferir_caminhada(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:

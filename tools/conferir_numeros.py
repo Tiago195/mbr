@@ -490,11 +490,55 @@ def _afirmacoes_que_dependem_da_engine() -> int:
     presente.
     """
     pares = sum(len(documentos) for _r, _s, _p, documentos in LIMITES_DA_SONDA)
-    # +2: a conferência das contagens de teste do `CLAUDE.md`, que vive no ramo
-    # da suíte, e a autoconferência deste próprio custo, que só roda quando a
-    # engine está presente. Ela conta por si mesma pelo mesmo motivo que a do
-    # bloco do XML conta: some junto com o bloco.
-    return len(SONDAS) + pares + 2
+    # +3: a conferência das contagens de teste do `CLAUDE.md`, que vive no ramo
+    # da suíte; a autoconferência deste próprio custo, que só roda quando a
+    # engine está presente (ela conta por si mesma pelo mesmo motivo que a do
+    # bloco do XML conta: some junto com o bloco); e a conferência de que o
+    # `.glb` importado é o `.glb` do disco, que só faz sentido quando há sonda
+    # para enganar.
+    return len(SONDAS) + pares + 3
+
+
+def _conferir_a_importacao(c: "Conferencia") -> None:
+    """As sondas veem o `.glb` IMPORTADO, e ele pode ser mais velho que o real.
+
+    **A Godot não reimporta em `--headless --script`.** Ela serve o que está em
+    `.godot/imported/`, e esse cache só é refeito ao abrir o editor. Ou seja:
+    regerar o boneco e rodar a sonda em seguida testa o boneco ANTERIOR, com
+    tudo verde — a forma mais pura da lição 5 do `CLAUDE.md`, verde por não ter
+    mudado nada.
+
+    Isto apareceu de verdade nesta sessão, e só apareceu porque o clipe novo
+    mudou de NOME: a sonda acusou "o jogo pede `atordoado` e o corpo não tem".
+    Se a mudança tivesse sido só de POSE, nada teria acusado.
+
+    A conferência é exata e não depende de relógio: o próprio `.md5` que a
+    Godot grava ao lado do artefato importado guarda o md5 da FONTE.
+
+    Cache ausente não é falha — é o estado de um clone novo, e nesse caso a
+    engine importa na primeira execução.
+    """
+    import hashlib
+
+    c.contar()
+    glb = RAIZ / "arte/personagem.glb"
+    if not glb.exists():
+        c.falhas.append("`arte/personagem.glb` não existe")
+        return
+    de_verdade = hashlib.md5(glb.read_bytes()).hexdigest()
+    marcas = sorted((RAIZ / ".godot/imported").glob("personagem.glb-*.md5"))
+    if not marcas:
+        return
+    for marca in marcas:
+        achado = re.search(r'source_md5="([0-9a-f]+)"',
+                           marca.read_text(encoding="utf-8"))
+        if achado is not None and achado.group(1) == de_verdade:
+            return
+    c.falhas.append(
+        "a Godot tem `arte/personagem.glb` importado de uma versão ANTERIOR — "
+        "as sondas de cena estão julgando o boneco velho. Rode "
+        "`godot --headless --editor --quit --path .`"
+    )
 
 
 def _rodar_sonda(godot: str, script: str, marca: str) -> dict:
@@ -3044,6 +3088,9 @@ def main() -> int:
         )
     else:
         with c.dependendo_da_engine():
+            # **Antes de rodar as sondas**, e não depois: elas vão ler o cache,
+            # e dizer "passou" sobre o artefato errado é pior que não rodar.
+            _conferir_a_importacao(c)
             saida_por_sonda: dict = {}
             for nome, script, marca in SONDAS:
                 c.contar()

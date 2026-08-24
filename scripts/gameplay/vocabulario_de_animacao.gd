@@ -43,6 +43,28 @@ const ANDANDO: StringName = &"andando"
 ## `run` — correndo, que é como um campeão se desloca por padrão.
 const CORRENDO: StringName = &"correndo"
 
+# ---------------------------------------------------------------- reações
+
+## `beaten` — levou dano. Dura **1,00 s nos 32 campeões**, sem variação
+## nenhuma: é a única duração universal do original que é um ponto e não uma
+## faixa.
+const LEVOU_DANO: StringName = &"levou_dano"
+
+## `stun` — atordoado. Ciclo, porque o atordoamento dura o que a habilidade
+## mandar: o clipe roda quantas vezes for preciso.
+##
+## Serve também para `AIRBORNE`, que faz tudo que `STUN` faz. Dividir é a
+## regra do §3 de `docs/11`: duas coisas com a mesma FORMA dividem o gesto, e
+## é assim que 6 dos 32 campeões do original não têm clipe exclusivo nenhum.
+const ATORDOADO: StringName = &"atordoado"
+
+## `death` — morreu. Termina DEITADO e fica: é o único clipe do vocabulário
+## que não volta ao repouso, e é de propósito.
+##
+## A faixa dele é a mais larga do original — 1,13 a 3,33 s —, o que é
+## coerente com ser o único que ninguém precisa poder interromper.
+const MORTE: StringName = &"morte"
+
 # ------------------------------------------------------- gestos de habilidade
 
 ## Os cinco gestos que `GestoDeConjuracao` escolhe pela FORMA do primeiro pulso
@@ -69,6 +91,9 @@ const NO_ORIGINAL: Dictionary = {
 	PARADO: &"idle",
 	ANDANDO: &"walk",
 	CORRENDO: &"run",
+	LEVOU_DANO: &"beaten",
+	ATORDOADO: &"stun",
+	MORTE: &"death",
 }
 
 ## Os gestos de habilidade — os que `GestoDeConjuracao` escolhe pela forma.
@@ -81,7 +106,10 @@ const GESTOS: Array[StringName] = [
 ## de cima, e que ela seja a mesma que o gerador produz e que o `.glb` tem.
 const TODOS: Array[StringName] = [
 	PARADO, ANDANDO, CORRENDO,
+	LEVOU_DANO,
+	ATORDOADO,
 	ESTOCADA, GIRO, SALTO, ERGUER, PREPARO,
+	MORTE,
 ]
 
 ## Os que rodam em CICLO. Todo o resto toca uma vez e para.
@@ -96,4 +124,5 @@ const TODOS: Array[StringName] = [
 ## sozinho não é golpe.
 const CICLOS: Array[StringName] = [
 	PARADO, ANDANDO, CORRENDO,
+	ATORDOADO,
 ]
