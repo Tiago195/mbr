@@ -383,12 +383,40 @@ def pose_no_fim(g: dict, b: bytes, animacao: str) -> dict:
 ## e sai do amostrador. E o mesmo argumento com que `deitado` foi movido para o
 ## artefato uma rodada antes, aplicado a conferencia irma e nao seguido.
 ARTICULACAO_EXIGIDA = {
-	"parado": ("braco_D", "braco_E", "antebraco_D", "antebraco_E", "cabeca"),
-	"andando": ("coxa_D", "coxa_E", "canela_D", "canela_E", "pe_D", "pe_E",
-	            "braco_D", "braco_E", "antebraco_D", "antebraco_E"),
-	"morte": ("coxa_D", "coxa_E", "canela_D", "canela_E", "pe_D", "pe_E",
-	          "braco_D", "braco_E", "antebraco_D", "antebraco_E"),
+	"parado": {
+		"antebraco_D": 3.7, "antebraco_E": 3.7, "braco_D": 4.4,
+		"braco_E": 4.4, "cabeca": 3.6,
+	},
+	"andando": {
+		"antebraco_D": 16.9, "antebraco_E": 16.9, "braco_D": 27.3,
+		"braco_E": 27.3, "canela_D": 43.2, "canela_E": 43.2,
+		"coxa_D": 20.4, "coxa_E": 20.4, "pe_D": 22.8,
+		"pe_E": 22.8,
+	},
+	"morte": {
+		"antebraco_D": 24.2, "antebraco_E": 20.0, "braco_D": 20.4,
+		"braco_E": 18.0, "canela_D": 37.2, "canela_E": 40.8,
+		"coxa_D": 22.9, "coxa_E": 25.3, "pe_D": 18.0,
+		"pe_E": 20.4,
+	},
 }
+
+## Quanto do medido cada piso guarda. **O piso absoluto de 5 graus nao
+## mordia**: medido pelo revisor adversarial interpolando toda a excursao
+## dos dez ossos de membro do `morte` rumo ao repouso, **20% da excursao
+## publicava** — uma morte com o joelho dobrando 8 graus em vez de 42 e o
+## cotovelo 5 em vez de 25. Piso absoluto pega estatua e nao pega
+## encolhimento uniforme, porque tudo encolhe junto e nenhum osso cruza
+## um limiar fixo.
+##
+## Piso de REGRESSAO pega: cada osso guarda 60% do que ele faz hoje. Os
+## numeros da tabela acima NAO sao escritos a mao — saem de
+## `articulacao_no_glb` sobre o artefato, e `conferir_numeros.py` confere
+## que cada um continua entre 40% e 100% do medido. Um piso que suba
+## acima do clipe reprova na hora; um que desca abaixo de 40% reprova
+## por deixar de guardar.
+FRACAO_DO_PISO = 0.6
+
 ## O mesmo piso do gerador, e ele esta declarado no §9.
 ARTICULACAO_MINIMA = 5.0
 
@@ -905,17 +933,20 @@ def conferir(caminho: str) -> list:
 				falhas.append(
 					"nao consegui ler a articulacao de `%s` — a conferencia "
 					"dela ficou orfa" % nome)
-			for osso in exigidos:
+			for osso, piso_do_osso in sorted(exigidos.items()):
+				# O piso e o maior entre o absoluto (contra estatua) e o de
+				# regressao (contra encolhimento uniforme). Ver `FRACAO_DO_PISO`.
+				piso_real = max(ARTICULACAO_MINIMA, piso_do_osso)
 				if osso not in medidos:
 					falhas.append(
 						"a animacao `%s` nao tem canal de rotacao para `%s`"
 						% (nome, osso))
-				elif medidos[osso] < ARTICULACAO_MINIMA:
+				elif medidos[osso] < piso_real:
 					falhas.append(
 						"na animacao `%s` o osso `%s` varre %.2f graus e o "
 						"piso e %.1f — o clipe existe, mas a parte que ele "
-						"deveria mover nao se move"
-						% (nome, osso, medidos[osso], ARTICULACAO_MINIMA))
+						"deveria mover se move menos do que ja se moveu"
+						% (nome, osso, medidos[osso], piso_real))
 
 		piso = DEITADAS.get(nome)
 		if piso is not None:

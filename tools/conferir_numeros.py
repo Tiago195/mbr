@@ -1906,6 +1906,22 @@ def _conferir_os_quadros_do_boneco(c: "Conferencia") -> None:
                  r"`%s` (\d+)[,)]" % nome, quadros[nome])
 
 
+def articulacao_do_artefato(clipe: str) -> dict:
+    """`{osso: graus}` do `.glb` commitado, para o piso de regressao ser
+    conferido contra o que o clipe realmente faz."""
+    antes = list(sys.path)
+    sys.path.insert(0, os.path.join(RAIZ, "tools", "arte"))
+    try:
+        import conferir_boneco
+        g, b = conferir_boneco.ler_glb(
+            os.path.join(RAIZ, "arte", "boneco.glb"))
+        return conferir_boneco.articulacao_no_glb(g, b, clipe)
+    except Exception:  # noqa: BLE001 — quem chama trata vazio como falha
+        return {}
+    finally:
+        sys.path[:] = antes
+
+
 def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
     """Todo clipe de `gerar_boneco.py` tem nome que o JOGO sabe pedir?
 
@@ -2063,8 +2079,10 @@ def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
             "amarracao dela com `movem` ficou orfa")
     else:
         for nome, lista in re.findall(
-                r'"(\w+)": \((.*?)\),\n', trecho.group(1), re.S):
-            exigida[nome] = set(re.findall(r'"(\w+)"', lista))
+                r'"(\w+)": \{(.*?)\},\n', trecho.group(1), re.S):
+            exigida[nome] = dict(
+                (o, float(v))
+                for o, v in re.findall(r'"(\w+)": ([0-9.]+),', lista))
         c.contar()
         if set(exigida) != set(movem_do_gerador):
             c.falhas.append(
@@ -2080,12 +2098,34 @@ def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
                              if o == regiao or o[:-2] == regiao}
                     esperado |= pares or {regiao}
                 c.contar()
-                if exigida[nome] != esperado:
+                if set(exigida[nome]) != esperado:
                     c.falhas.append(
                         "em `%s` o gerador manda mover %s e o conferidor cobra "
                         "%s — a lista que encolhe no conferidor deixa de "
                         "conferir o que o gerador promete"
                         % (nome, sorted(esperado), sorted(exigida[nome])))
+                else:
+                    # **E cada piso continua guardando o que promete.** Ele
+                    # e 60% do medido; se subir acima do clipe o gerador
+                    # reprova na hora, mas se DESCER ele deixa de pegar
+                    # encolhimento sem ninguem notar — que e o defeito que
+                    # ele existe para fechar. Entre 40% e 100% do medido,
+                    # os dois lados fecham.
+                    medidos = articulacao_do_artefato(nome)
+                    for osso in sorted(exigida[nome]):
+                        c.contar()
+                        real = medidos.get(osso)
+                        if real is None:
+                            c.falhas.append(
+                                "o `.glb` nao tem `%s` em `%s` — o piso "
+                                "de regressao dele ficou orfao"
+                                % (osso, nome))
+                        elif not (0.4 * real <= exigida[nome][osso] <= real):
+                            c.falhas.append(
+                                "o piso de `%s` em `%s` e %.1f e o clipe "
+                                "faz %.2f — ele tem de ficar entre 40%% e "
+                                "100%% do medido, senao deixa de guardar"
+                                % (osso, nome, exigida[nome][osso], real))
 
     exigidos = set(re.findall(
         r'^\t"(\w+)": \(', re.search(

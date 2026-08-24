@@ -501,6 +501,7 @@ que ela existe para fechar.
 | `gerar_boneco.py` | `CADENCIA` | 30 | quadros por segundo; **medido**, 1344 dos 1350 clipes do original |
 | `gerar_boneco.py` | `AMPLITUDE_MINIMA` | 0.05 | metros que o vértice que mais anda precisa andar — é piso GLOBAL, e o piso por região é `ARTICULACAO_MINIMA` |
 | `gerar_boneco.py` | `INCLINACAO_DE_DEITADO` | 70.0 | graus da vertical que o tronco tem de atingir num clipe que declara `deitado`; **escolhido**, não derivado — 90 é deitado, 0 é de pé |
+| `conferir_boneco.py` | `FRACAO_DO_PISO` | 0.6 | quanto do medido cada piso de regressão por osso guarda; o absoluto não pegava encolhimento uniforme |
 | `conferir_boneco.py` | `ARTICULACAO_MINIMA` | 5.0 | o mesmo piso do gerador, do lado que julga o artefato — sem ele, congelar um clipe dentro do `.glb` passava |
 | `conferir_boneco.py` | `DEITADAS[morte]` | 70.0 | o mesmo piso, do lado que julga o artefato |
 | `gerar_boneco.py` | `ARTICULACAO_MINIMA` | 5.0 | graus que um osso de `movem` precisa girar; ângulo e não metro, porque metro não distingue articular de ser carregado |
