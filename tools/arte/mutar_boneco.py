@@ -65,14 +65,29 @@ MUTACOES = [
 QUEBRA = "\n"
 
 
+## A mesma trava de `tools/mutar_direcao.py`: as duas mexem nos mesmos arquivos,
+## e sobrepo-las corrompe as duas. Enquanto ela existe, o repositorio esta
+## MUTADO, e qualquer medida tirada sobre ele parece uma medida sem ser.
+TRAVA = os.path.join(RAIZ, ".mutacao-em-curso")
+
+
 def roda(script):
     r = subprocess.run([BLENDER, "--background", "--python", script],
                        capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", cwd=RAIZ)
+                       errors="replace", cwd=RAIZ,
+                       # A suite avisa que e ela: a trava e para
+                       # gente e revisor, nao para quem a segura.
+                       env={**os.environ, "MUTACAO_EM_CURSO": "1"})
     return r.returncode, (r.stdout or "")
 
 
 def main():
+    if os.path.exists(TRAVA):
+        print("ja existe uma rodada de mutacao em curso (%s)." % TRAVA)
+        print("se nao existe, apague o arquivo — rodada morta o deixa para tras.")
+        return 1
+    io.open(TRAVA, "w", encoding="utf-8").write(
+        "mutar_boneco.py esta mexendo nos arquivos deste repositorio" + QUEBRA)
     # **Binario, e nao texto.** Restaurar com `open(..., "w")` converte todo
     # LF em CRLF no Windows, e rodar a suite deixava os fontes rastreados
     # sujos por inteiro — 425 linhas trocadas num arquivo que nao mudou.
@@ -114,6 +129,11 @@ def main():
     finally:
         for caminho, bruto in fontes.items():
             io.open(caminho, "wb").write(bruto)
+            # **Confere que restaurou.** Restaurar convertendo LF em CRLF nao
+            # produz hunk nenhum no `git diff`, entao o metodo natural de
+            # verificar nao podia ter visto — e nao viu.
+            if io.open(caminho, "rb").read() != bruto:
+                print("ATENCAO: nao consegui restaurar %s" % caminho)
         # **Restaurar o FONTE nao basta: o artefato ficou mutado.** O `.glb` no
         # disco e o da ultima mutacao, e ele nao volta sozinho. Foi assim que um
         # boneco com `parado` de 1,00 s chegou a ser commitado, reprovando a
@@ -123,6 +143,7 @@ def main():
         if codigo != 0:
             print("ATENCAO: o boneco NAO voltou ao normal")
             escaparam.append("o artefato nao foi restaurado")
+        os.remove(TRAVA)
 
     if escaparam:
         print(QUEBRA + "%d de %d escaparam: %s"

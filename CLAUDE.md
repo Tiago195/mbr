@@ -296,7 +296,7 @@ Três achados que valem além da arte:
 `tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
 — e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
 reprova quando documento e código discordam, mediana E faixa.
-**46 mutações, 46 pegas** — 16 no boneco e 30 na concordância.
+**49 mutações, 49 pegas** — 16 no boneco e 33 na concordância.
 
 **E isto foi REPROVADO DUAS VEZES por um validador adversarial**, com 17 e 12
 achados. A segunda rodada achou o pior de todos, e era de processo: **o `.glb`
@@ -440,13 +440,16 @@ não da Godot:
 py tools/arte/censo_do_original.py
 ```
 
-A primeira gera o boneco **e roda a conferência dele** — e só publica o `.glb`
-e o `.blend` se ele passar. O `.blend` **não é rastreado**: exportá-lo duas
-vezes do mesmo código dá dois arquivos diferentes, então ele não se confere por
+A primeira gera o boneco **e roda a conferência dele**, e só publica os dois
+artefatos se ele passar. A segunda mede o original e regrava
+`data/direcao-de-arte.json`; ela só funciona onde a instalação da Steam
+existir, e sem ela sai com 2 — que é diferente de reprovar.
+
+O `.blend` **não é rastreado**, e a razão é medida: exportá-lo duas vezes do
+mesmo código dá dois arquivos diferentes, então ele não se confere por
 reprodução e rastreá-lo sujava a árvore a cada geração. Ele nasce local em dez
-segundos; o `.glb`, que é o que o jogo consome, é determinístico e conferido; a segunda mede o original e regrava
-`data/direcao-de-arte.json`, e só funciona onde a instalação da Steam existir
-(sem ela sai com 2, que é diferente de reprovar).
+segundos. O `.glb`, que é o que o jogo consome, é determinístico, rastreado e
+conferido.
 
 As defesas têm suítes de mutação próprias, e elas estão no repositório:
 
@@ -455,7 +458,7 @@ py tools/arte/mutar_boneco.py
 py tools/mutar_direcao.py
 ```
 
-**46 mutações, 46 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
+**49 mutações, 49 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
 artefatos inclusive** — restaurar só o código-fonte já deixou um `.glb`
 commitado vindo de uma mutação, e restaurar só o `.glb` deixou o `.blend`.
 **Rodar uma de cada vez:** as duas mutam os mesmos arquivos, e sobrepô-las
@@ -475,7 +478,7 @@ Estado ao fim desta sessão: **478 testes, 1304 asserções**, stderr 0 bytes,
 sonda verde (127 espaços tentados, 126 conferidos, 9667 assinaturas,
 44 espaços zerando a cadência do ataque e 83 mantendo; os cinco são PISO
 conferido por `conferir_numeros.py`, que lê a saída da própria sonda),
-**321 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
+**330 afirmações numéricas** (é PISO, não igualdade: a ferramenta reprova
 se cair abaixo, e não obriga a mexer no documento quando cresce).
 
 #### O que ainda exige olho humano, e por que não dá para automatizar

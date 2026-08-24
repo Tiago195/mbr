@@ -525,6 +525,11 @@ def censo_de_proporcao(UnityPy):
 		"vao_dos_quadris": _tres([l["quadris"] for l in bons if l["quadris"]]),
 		"vao_das_maos": _tres([l["maos"] for l in bons if l["maos"]]),
 		"envergadura": _tres([l["envergadura"] for l in bons]),
+		# As duas derivadas que o §1 publica. Elas saem do pescoco, mas o
+		# documento as imprime como medida propria, e medida publicada sem
+		# ancora se confere sozinha.
+		"cabecas": _tres([1.0 / (1.0 - l["pescoco"]) for l in bons]),
+		"altura_da_cabeca": _tres([1.0 - l["pescoco"] for l in bons]),
 	})
 	print("  campeoes medidos: %d (fora: %s)" % (len(bons), ", ".join(sorted(FORA_DA_PROPORCAO))))
 	print("  -- a escada de alturas, como fracao da altura total --")

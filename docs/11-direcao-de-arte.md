@@ -395,7 +395,7 @@ que tem os 15 ossos, as 8 animações e as seis alturas de osso do gerador.
 E as defesas têm suas próprias suítes de mutação, no repositório:
 `tools/arte/mutar_boneco.py` quebra o gerador e a regra da folga, e
 `tools/mutar_direcao.py` quebra a concordância entre documento, código,
-instantâneo e artefato. **46 mutações, 46 pegas.**
+instantâneo e artefato. **49 mutações, 49 pegas.**
 
 Cinco números não saem de faixa nenhuma e por isso são declarados aqui, para
 poderem ser conferidos: a altura vale com folga de **4 cm**, o pé encosta no

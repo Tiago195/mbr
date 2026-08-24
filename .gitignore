@@ -34,3 +34,4 @@ arte/previa/
 # dez segundos, com `tools/arte/gerar_personagem.py` — e o `.glb`, que é o que
 # o jogo consome, ESSE é determinístico, rastreado e conferido.
 arte/fonte/*.blend
+.mutacao-em-curso

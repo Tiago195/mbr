@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
 import struct
 import subprocess
@@ -921,6 +922,16 @@ ANCORA_DO_NOVE = {
     ("quadril", True): "vao_dos_quadris",
 }
 
+## `rótulo da tabela de larguras do §1 → chave do instantâneo`.
+ANCORA_DAS_LARGURAS = {
+    "separação dos ombros / altura": "vao_dos_ombros",
+    "separação dos quadris / altura": "vao_dos_quadris",
+    "vão das mãos / altura": "vao_das_maos",
+    "envergadura / altura": "envergadura",
+    "cabeças de altura¹": "cabecas",
+    "altura da cabeça / altura": "altura_da_cabeca",
+}
+
 ## `rótulo da tabela de alturas do §1 → chave do instantâneo`. Toda linha tem
 ## que ter uma: três delas — dedos do pé, lombar e base do crânio — só se
 ## conferiam contra si mesmas, e `| dedos do pé | 0,500 |` passava.
@@ -1197,6 +1208,13 @@ def _conferir_o_blend(c: "Conferencia", gerador: str) -> None:
         return
     ausentes = []
     for chave in ("tornozelo", "joelho", "quadril", "peito", "pescoco", "ombro"):
+        # `.get` e não colchete: uma chave que sumiu de `PROPORCAO` levantava
+        # `KeyError` e matava a função no meio. É a mesma espécie do
+        # `doc.index()` que já foi trocado por `find()` com reprova — corrigir
+        # uma ocorrência e deixar a da função vizinha é meia correção.
+        if chave not in proporcao:
+            ausentes.append("%s (não está em PROPORCAO)" % chave)
+            continue
         altura_do_osso = proporcao[chave] * 1.75
         if struct.pack("<f", altura_do_osso) not in bruto:
             ausentes.append("%s (%.5f)" % (chave, altura_do_osso))
@@ -1308,6 +1326,30 @@ EXTENSOES_BINARIAS = (
 ## liberava 0x0B e 0x0C, que são exatamente o `\v` e o `\f` que um caminho do
 ## Windows produz por acidente (`...\videos\...`, `...\fonts\...`).
 BYTES_PERMITIDOS = (9, 10, 13)
+
+
+def _conferir_que_a_arvore_nao_esta_mutada(c: "Conferencia") -> None:
+    """As suítes de mutação deixam uma trava enquanto mexem nos arquivos.
+
+    **Medida tirada sobre uma árvore mutada é pior que medida nenhuma: ela
+    parece uma medida.** Já aconteceu — uma execução desta ferramenta saiu
+    vermelha por causa de uma mutação em curso, e o vermelho podia ter sido
+    lido como defeito real. A trava também some se a suíte for morta no meio,
+    e nesse caso ela é o aviso de que o repositório ficou sujo.
+    """
+    c.contar()
+    # A própria suíte roda esta ferramenta com a trava na mão — e aí a trava
+    # não pode reprovar, senão TODA mutação seria "pega" por ela em vez de pela
+    # conferência que se quer testar. Uma suíte assim aprova a si mesma.
+    if os.environ.get("MUTACAO_EM_CURSO"):
+        return
+    if (RAIZ / ".mutacao-em-curso").exists():
+        c.falhas.append(
+            "há uma rodada de mutação em curso (`.mutacao-em-curso` existe): "
+            "os arquivos estão MUTADOS e nenhuma medida tirada agora vale. Se "
+            "nenhuma suíte está rodando, a anterior morreu no meio e deixou a "
+            "árvore suja — restaure antes de acreditar em qualquer número."
+        )
 
 
 def _conferir_bytes_de_controle(c: "Conferencia") -> None:
@@ -1443,6 +1485,58 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
                                         faixas[medida][0], faixas[medida][1],
                                         faixas[medida][2])
             )
+
+    # **A tabela das LARGURAS, pela mesma regra.** A das alturas ganhou âncora e
+    # a regra "linha sem âncora reprova"; esta ficou com as quatro linhas que
+    # por acaso estão em `DIRECAO_LINHAS` e duas sem âncora nenhuma — `cabeças
+    # de altura 9,99` passava. Fechar a classe numa tabela e não na vizinha é
+    # meia correção.
+    corte = doc.find("E as larguras:")
+    fim_larguras = doc.find("### Vão das mãos")
+    c.contar()
+    if corte < 0 or fim_larguras <= corte:
+        c.falhas.append(
+            "docs/11 §1: não achei o trecho da tabela de larguras — a "
+            "conferência dela ficou órfã"
+        )
+    else:
+        larguras = re.findall(
+            r"^\| ([^|]+?) \| \*{0,2}(-?[0-9],[0-9]+)\*{0,2} \| "
+            r"(-?[0-9],[0-9]+) – (-?[0-9],[0-9]+) \|",
+            doc[corte:fim_larguras], re.M,
+        )
+        c.contar()
+        if len(larguras) < 6:
+            c.falhas.append(
+                "docs/11 §1: achei só %d linhas na tabela de larguras — ela "
+                "mudou de forma" % len(larguras)
+            )
+        for rotulo, mediana, menor, maior in larguras:
+            c.contar()
+            chave = ANCORA_DAS_LARGURAS.get(rotulo.strip())
+            if chave is None:
+                c.falhas.append(
+                    "docs/11 §1: a linha de largura `%s` não tem âncora no "
+                    "instantâneo — sem ela a linha só se confere contra si "
+                    "mesma" % rotulo.strip()
+                )
+                continue
+            do_censo = (medidas or {}).get(chave)
+            if do_censo is None:
+                if medidas:
+                    c.falhas.append(
+                        "o instantâneo não tem `%s` — a linha `%s` perdeu a "
+                        "âncora" % (chave, rotulo.strip())
+                    )
+                continue
+            if (abs(_decimal(mediana) - do_censo[0]) > 5e-3
+                    or abs(_decimal(menor) - do_censo[1]) > 5e-3
+                    or abs(_decimal(maior) - do_censo[2]) > 5e-3):
+                c.falhas.append(
+                    "docs/11 §1: `%s` publica %s (%s a %s) e o instantâneo mede "
+                    "%.3f (%.3f a %.3f)" % (rotulo.strip(), mediana, menor,
+                                            maior, *do_censo)
+                )
 
     # A altura, que o §2 manda e o gerador e o conferidor obedecem.
     c.afirma("docs/11 altura do personagem", doc,
@@ -2845,6 +2939,7 @@ def main() -> int:
     # afirmações" que eram 15.
     _conferir_direcao_de_arte(c)
     _conferir_o_artefato(c)
+    _conferir_que_a_arvore_nao_esta_mutada(c)
     _conferir_bytes_de_controle(c)
 
     c.contar()

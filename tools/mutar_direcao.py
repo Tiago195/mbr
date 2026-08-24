@@ -96,6 +96,15 @@ MUTACOES = [
     # --- o INSTANTANEO: a terceira fonte tambem precisa de prova ---
     ("o instantaneo mede outra coisa que o documento", [
         ("instantaneo", "   0.763,", "   0.790,")], False),
+    # --- a tabela de LARGURAS, que ficou sem ancora uma rodada inteira ---
+    ("cabecas de altura fica se conferindo sozinha", [
+        ("doc", "| cabeças de altura¹ | 4,22 | 3,43 – 4,88 |",
+         "| cabeças de altura¹ | 9,99 | 3,43 – 4,88 |")], False),
+    ("a altura da cabeca fica se conferindo sozinha", [
+        ("doc", "| altura da cabeça / altura | 0,237 | 0,205 – 0,292 |",
+         "| altura da cabeça / altura | 0,900 | 0,205 – 0,292 |")], False),
+    ("uma linha de largura perde a ancora", [
+        ("doc", "| vão das mãos / altura |", "| vao das maos (renomeada) |")], False),
     # --- as ancoras das duas tabelas ---
     ("a fracao do §9 deixa de ser a do gerador", [
         ("doc", "| tornozelo 0,163 | 0,093 × altura |",
@@ -133,15 +142,59 @@ MUTACOES = [
         ("gerador", "	return resultado.returncode", "	return 0")], True),
 ]
 
+def _restaurar(artefatos, ausentes):
+    """Devolve cada artefato ao byte, e apaga o que nao existia antes.
+
+    **E confere que conseguiu.** Uma suite que restaura errado deixa o
+    repositorio sujo em silencio, e ja deixou: uma delas restaurava texto
+    convertendo LF em CRLF, o que nao produz hunk nenhum no `git diff` — ou
+    seja, o metodo com que eu conferia nao podia ter visto.
+    """
+    for caminho, bruto in artefatos.items():
+        io.open(caminho, "wb").write(bruto)
+        if io.open(caminho, "rb").read() != bruto:
+            print("ATENCAO: nao consegui restaurar %s" % caminho)
+    for caminho in ausentes:
+        if os.path.exists(caminho):
+            os.remove(caminho)
+
+
 def roda_conferidor():
     return subprocess.run([sys.executable, "tools/conferir_numeros.py"],
                           capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", cwd=RAIZ)
+                          errors="replace", cwd=RAIZ,
+                       # A suite avisa que e ela: a trava e para
+                       # gente e revisor, nao para quem a segura.
+                       env={**os.environ, "MUTACAO_EM_CURSO": "1"})
+
+
+## Enquanto este arquivo existe, o repositorio esta MUTADO. Ele serve para duas
+## coisas: impedir duas suites ao mesmo tempo — elas mexem nos mesmos arquivos e
+## sobrepo-las corrompe as duas — e fazer `conferir_numeros.py` reprovar
+## qualquer medicao tirada no meio de uma rodada. Uma medida feita sobre uma
+## arvore mutada e pior que medida nenhuma: ela parece uma medida.
+TRAVA = os.path.join(RAIZ, ".mutacao-em-curso")
 
 
 def main():
+    if os.path.exists(TRAVA):
+        print("ja existe uma rodada de mutacao em curso (%s)." % TRAVA)
+        print("se nao existe, apague o arquivo — uma rodada morta o deixa para tras.")
+        return 1
+    io.open(TRAVA, "w", encoding="utf-8").write(
+        "mutar_direcao.py esta mexendo nos arquivos deste repositorio\n")
     originais = {k: io.open(v, "rb").read() for k, v in ALVOS.items()}
-    artefatos = {caminho: io.open(caminho, "rb").read() for caminho in ARTEFATOS}
+    # **Artefato ausente e o estado PADRAO de um clone novo.** O `.blend` nao e
+    # rastreado por decisao medida (ele nao e reprodutivel), entao exigir que
+    # ele exista fazia a suite morrer com `FileNotFoundError` antes da primeira
+    # mutacao — e quem clonasse o repositorio e rodasse o comando publicado no
+    # `CLAUDE.md` via um traceback no lugar de 30 de 30.
+    artefatos = {caminho: io.open(caminho, "rb").read()
+                 for caminho in ARTEFATOS if os.path.exists(caminho)}
+    ausentes = [caminho for caminho in ARTEFATOS if caminho not in artefatos]
+    if ausentes:
+        print("artefatos ausentes (serao apagados no fim se aparecerem): %s"
+              % ", ".join(os.path.basename(c) for c in ausentes))
     escaparam = []
     try:
         for titulo, edicoes, regerar in MUTACOES:
@@ -179,8 +232,7 @@ def main():
             for k, v in ALVOS.items():
                 io.open(v, "wb").write(originais[k])
             if regerar:
-                for caminho, bruto in artefatos.items():
-                    io.open(caminho, "wb").write(bruto)
+                _restaurar(artefatos, ausentes)
 
             if r.returncode == 0:
                 print("ESCAPOU  %s" % titulo)
@@ -193,8 +245,10 @@ def main():
     finally:
         for k, v in ALVOS.items():
             io.open(v, "wb").write(originais[k])
-        for caminho, bruto in artefatos.items():
-            io.open(caminho, "wb").write(bruto)
+            if io.open(v, "rb").read() != originais[k]:
+                print("ATENCAO: nao consegui restaurar %s" % v)
+        _restaurar(artefatos, ausentes)
+        os.remove(TRAVA)
 
     if escaparam:
         print("\n%d de %d escaparam: %s" % (len(escaparam), len(MUTACOES), escaparam))
