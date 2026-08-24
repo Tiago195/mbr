@@ -66,7 +66,12 @@ OSSO_DA_REGIAO = {
 	"braco": "braco_D", "antebraco": "antebraco_D", "mao": "mao_D",
 	"coxa": "coxa_D", "canela": "canela_D", "pe": "pe_D",
 }
-CERCO_DA_PECA = 1.2
+## Quantos vertices uma regiao precisa ter para a medida dela valer.
+##
+## Nao e zelo: com o cerco geometrico da versao anterior, a "mao" chegou a ser
+## decidida por UM vertice e a conferencia aprovou. Medida decidida por punhado
+## de pontos mede o acaso, nao a peca.
+AMOSTRA_MINIMA = 12
 
 ## Os quinze ossos que o corpo tem que ter, e que a camada de jogo nomeia.
 OSSOS_EXIGIDOS = [
@@ -114,24 +119,116 @@ def ler_indices(g: dict, b: bytes, indice: int) -> list:
 	        for i in range(acesso["count"])]
 
 
+def _quat_vezes_quat(a, b):
+	ax, ay, az, aw = a
+	bx, by, bz, bw = b
+	return (aw * bx + ax * bw + ay * bz - az * by,
+	        aw * by - ax * bz + ay * bw + az * bx,
+	        aw * bz + ax * by - ay * bx + az * bw,
+	        aw * bw - ax * bx - ay * by - az * bz)
+
+
+def _quat_vezes_vetor(q, v):
+	x, y, z, w = q
+	# v' = v + 2w(q x v) + 2(q x (q x v))
+	tx = 2.0 * (y * v[2] - z * v[1])
+	ty = 2.0 * (z * v[0] - x * v[2])
+	tz = 2.0 * (x * v[1] - y * v[0])
+	return (v[0] + w * tx + (y * tz - z * ty),
+	        v[1] + w * ty + (z * tx - x * tz),
+	        v[2] + w * tz + (x * ty - y * tx))
+
+
 def mundo_dos_nos(g: dict) -> dict:
-	"""A posicao de cada no, ja composta pela cadeia de pais."""
+	"""A posicao de MUNDO de cada no, compondo translacao, rotacao e escala.
+
+	**A primeira versao somava so `translation`, e o erro foi medido: 12 dos 15
+	ossos saiam do lugar, ate 1,76 m num corpo de 1,75 — o pe era colocado
+	acima da cabeca.** Com isso, os seis segmentos que a esbeltez mede viravam
+	raios verticais atravessando tronco e cabeca, e a "mao" era decidida por UM
+	vertice. Trocar `braco_D` por `coxa_D` no arquivo passava sem reprovar.
+
+	Os nos de osso do glTF exportado pelo Blender TEM rotacao — o `braco_D` sai
+	com um quaternio de meia volta —, e ignora-la e ler dado local como se fosse
+	mundo. E o mesmo defeito que o gerador ja tinha aprendido em espaco do
+	Blender, repetido aqui em espaco glTF.
+	"""
 	pai = {}
 	for indice, no in enumerate(g.get("nodes", [])):
 		for filho in no.get("children", []) or []:
 			pai[filho] = indice
 
-	def posicao(indice):
-		x, y, z = 0.0, 0.0, 0.0
-		atual = indice
-		while atual is not None:
-			t = g["nodes"][atual].get("translation") or [0.0, 0.0, 0.0]
-			x, y, z = x + t[0], y + t[1], z + t[2]
-			atual = pai.get(atual)
-		return (x, y, z)
+	cache = {}
 
-	return {g["nodes"][i].get("name", "?"): posicao(i)
+	def transformacao(indice):
+		"""`(posicao, rotacao, escala)` do no, no mundo."""
+		if indice in cache:
+			return cache[indice]
+		no = g["nodes"][indice]
+		t = tuple(no.get("translation") or (0.0, 0.0, 0.0))
+		r = tuple(no.get("rotation") or (0.0, 0.0, 0.0, 1.0))
+		e = tuple(no.get("scale") or (1.0, 1.0, 1.0))
+		acima = pai.get(indice)
+		if acima is None:
+			cache[indice] = (t, r, e)
+			return cache[indice]
+		pt, pr, pe = transformacao(acima)
+		local = tuple(t[k] * pe[k] for k in range(3))
+		girado = _quat_vezes_vetor(pr, local)
+		cache[indice] = (tuple(pt[k] + girado[k] for k in range(3)),
+		                 _quat_vezes_quat(pr, r),
+		                 tuple(pe[k] * e[k] for k in range(3)))
+		return cache[indice]
+
+	return {g["nodes"][i].get("name", "?"): transformacao(i)[0]
 	        for i in range(len(g.get("nodes", [])))}
+
+
+def escala_das_raizes(g: dict) -> float:
+	"""A maior escala acumulada da arvore.
+
+	**Existe porque escala de no e invisivel para quem so olha vertice.** Um
+	`scale = 1.4` na raiz do esqueleto entrega um personagem de 2,45 m na
+	engine, e a conferencia de altura, que le posicao local de vertice,
+	continuava reportando 1,75 e aprovando.
+	"""
+	pai = {}
+	for indice, no in enumerate(g.get("nodes", [])):
+		for filho in no.get("children", []) or []:
+			pai[filho] = indice
+	maior = 1.0
+	for indice in range(len(g.get("nodes", []))):
+		acumulada, atual = 1.0, indice
+		while atual is not None:
+			for valor in (g["nodes"][atual].get("scale") or (1.0, 1.0, 1.0)):
+				acumulada = max(acumulada, abs(valor))
+			atual = pai.get(atual)
+		maior = max(maior, acumulada)
+	return maior
+
+
+def ler_juntas(g: dict, b: bytes, indice: int) -> list:
+	"""`JOINTS_0` — os quatro ossos que influenciam cada vertice."""
+	acesso = g["accessors"][indice]
+	vista = g["bufferViews"][acesso["bufferView"]]
+	base = vista.get("byteOffset", 0) + acesso.get("byteOffset", 0)
+	formato = {5121: "<4B", 5123: "<4H"}[acesso["componentType"]]
+	# **O passo padrao e o TAMANHO do elemento, e nao um literal.** Escrito
+	# `byteStride or 8`, um buffer de bytes justapostos e lido de oito em oito e
+	# os indices saem embaralhados — defeito ja pago neste projeto.
+	tamanho = struct.calcsize(formato)
+	passo = vista.get("byteStride") or tamanho
+	return [struct.unpack_from(formato, b, base + i * passo)
+	        for i in range(acesso["count"])]
+
+
+def ler_pesos(g: dict, b: bytes, indice: int) -> list:
+	acesso = g["accessors"][indice]
+	vista = g["bufferViews"][acesso["bufferView"]]
+	base = vista.get("byteOffset", 0) + acesso.get("byteOffset", 0)
+	passo = vista.get("byteStride") or 16
+	return [struct.unpack_from("<4f", b, base + i * passo)
+	        for i in range(acesso["count"])]
 
 
 def _menos(a, b):
@@ -140,6 +237,99 @@ def _menos(a, b):
 
 def _norma(v):
 	return math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+
+
+def _cruza(t1, t2) -> bool:
+	"""Dois triangulos se atravessam? Por aresta contra triangulo.
+
+	Um cruzamento real entre dois triangulos que nao se tocam nas bordas sempre
+	tem pelo menos uma ARESTA de um furando o outro. Coplanares sobrepostos
+	escapam, e a ausencia esta declarada: numa casca gerada por subdivisao eles
+	nao aparecem, e cobrir esse caso custaria dez vezes mais codigo.
+	"""
+	for a, b in ((t1, t2), (t2, t1)):
+		for i in range(3):
+			if _aresta_fura(a[i], a[(i + 1) % 3], b):
+				return True
+	return False
+
+
+def _aresta_fura(p, q, tri) -> bool:
+	a, b, c = tri
+	e1 = _menos(b, a)
+	e2 = _menos(c, a)
+	direcao = _menos(q, p)
+	h = (direcao[1] * e2[2] - direcao[2] * e2[1],
+	     direcao[2] * e2[0] - direcao[0] * e2[2],
+	     direcao[0] * e2[1] - direcao[1] * e2[0])
+	det = sum(e1[i] * h[i] for i in range(3))
+	if abs(det) < 1e-12:
+		return False
+	inverso = 1.0 / det
+	s = _menos(p, a)
+	u = inverso * sum(s[i] * h[i] for i in range(3))
+	if u < 0.0 or u > 1.0:
+		return False
+	q1 = (s[1] * e1[2] - s[2] * e1[1],
+	      s[2] * e1[0] - s[0] * e1[2],
+	      s[0] * e1[1] - s[1] * e1[0])
+	v = inverso * sum(direcao[i] * q1[i] for i in range(3))
+	if v < 0.0 or u + v > 1.0:
+		return False
+	t = inverso * sum(e2[i] * q1[i] for i in range(3))
+	# **As bordas ficam de fora, com folga.** Numa malha costurada, triangulos
+	# vizinhos se tocam exatamente na aresta, e sem a folga cada costura do
+	# corpo seria contada como auto-intersecao.
+	return 1e-9 < t < 1.0 - 1e-9
+
+
+## Lado da celula da grade espacial, em metros. So triangulos que caem na mesma
+## celula sao comparados — sem isso seriam 2400 x 2400 pares.
+CELULA = 0.06
+
+
+def auto_intersecoes(pontos: list, triangulos: list) -> list:
+	"""Pares de triangulos que se atravessam sem compartilhar vertice.
+
+	**Casca unica NAO impede isto, e a diferenca custou uma reescrita inteira.**
+	O boneco anterior era um solido por osso e as pecas se atravessavam; este e
+	uma superficie so — e uma superficie so pode atravessar a si mesma. Afirmar
+	"nao ha pecas, entao nao ha peca dentro de peca" e um silogismo que nao
+	fecha, e a malha o desmentiu na axila, em repouso.
+
+	E o defeito que a reescrita existe para resolver. Sem esta funcao, ninguem
+	no projeto o mede.
+	"""
+	grade = {}
+	caixas = []
+	for indice, tri in enumerate(triangulos):
+		pts = [pontos[i] for i in tri]
+		menor = tuple(min(p[k] for p in pts) for k in range(3))
+		maior = tuple(max(p[k] for p in pts) for k in range(3))
+		caixas.append((menor, maior, pts))
+		for cx in range(int(menor[0] // CELULA), int(maior[0] // CELULA) + 1):
+			for cy in range(int(menor[1] // CELULA), int(maior[1] // CELULA) + 1):
+				for cz in range(int(menor[2] // CELULA), int(maior[2] // CELULA) + 1):
+					grade.setdefault((cx, cy, cz), []).append(indice)
+
+	vistos = set()
+	achados = []
+	for celula in grade.values():
+		for i in range(len(celula)):
+			for j in range(i + 1, len(celula)):
+				a, b = celula[i], celula[j]
+				if (a, b) in vistos:
+					continue
+				vistos.add((a, b))
+				if set(triangulos[a]) & set(triangulos[b]):
+					continue
+				ma, xa, pa = caixas[a]
+				mb, xb, pb = caixas[b]
+				if any(xa[k] < mb[k] or xb[k] < ma[k] for k in range(3)):
+					continue
+				if _cruza(pa, pb):
+					achados.append((a, b))
+	return achados
 
 
 def conferir(caminho: str) -> list:
@@ -233,6 +423,16 @@ def conferir(caminho: str) -> list:
 		falhas.append("%d vertices soltos, sem triangulo nenhum — lixo do "
 		              "gerador que atravessa o pipeline" % soltos)
 
+	# ------------------------------------------------- a casca se atravessa?
+	cruzados = auto_intersecoes(pontos, triangulos)
+	if cruzados:
+		zs = [pontos[triangulos[a][0]][1] for a, _ in cruzados]
+		falhas.append(
+			"a casca se atravessa em %d pares de faces, entre y %.3f e %.3f — "
+			"casca unica nao impede auto-intersecao, e este e o defeito que a "
+			"reescrita existe para resolver"
+			% (len(cruzados), min(zs), max(zs)))
+
 	# --------------------------------------------------------- o esqueleto
 	nos = mundo_dos_nos(g)
 	faltando = [o for o in OSSOS_EXIGIDOS if o not in nos]
@@ -241,15 +441,63 @@ def conferir(caminho: str) -> list:
 
 	# ------------------------------------------------------- a espessura
 	#
-	# Medida no meio do osso, pelo mesmo termo com que o original foi medido, e
-	# comparada com a FAIXA e nao com a mediana: os 27 campeoes variam muito, e
-	# exigir a mediana de uma populacao espalhada e exigir precisao que a
-	# referencia nao tem.
+	# **Medida pelos PESOS do arquivo, e nao por uma janela geometrica.**
+	#
+	# A versao anterior decidia "isto ainda e o braco?" por um cerco em volta do
+	# eixo do osso, e o cerco tinha dois defeitos que se somavam. Ele saia da
+	# MEDIANA, entao o maior valor que a conferencia conseguia reportar era
+	# `mediana x 1,2` — abaixo do maximo da faixa em NOVE de nove regioes. A
+	# metade "gordo demais" da comparacao estava morta: medido, uma coxa
+	# engordada 2,2 vezes, com esbeltez 3,183 contra um maximo de 0,936,
+	# PASSAVA.
+	#
+	# O `.glb` ja diz de quem e cada vertice, em `JOINTS_0` e `WEIGHTS_0`. Usar
+	# isso nao tem janela para calibrar, nao tem teto, e nao pode confundir a
+	# coxa com o tronco.
+	dono = {}
+	for regiao, osso in OSSO_DA_REGIAO.items():
+		dono[osso] = regiao
+	por_osso = {}
+	juntas_do_couro = []
+	for pele in g.get("skins", []):
+		juntas_do_couro = [g["nodes"][i].get("name", "?")
+		                   for i in pele.get("joints", [])]
+	if not juntas_do_couro:
+		falhas.append("o `.glb` nao tem esqueleto — sem `skin` nao da para "
+		              "saber de que osso e cada vertice")
+	for malha in g.get("meshes", []):
+		for primitiva in malha.get("primitives", []):
+			atributos = primitiva.get("attributes", {})
+			if "JOINTS_0" not in atributos or "WEIGHTS_0" not in atributos:
+				continue
+			locais = ler_vetores(g, b, atributos["POSITION"])
+			js = ler_juntas(g, b, atributos["JOINTS_0"])
+			ws = ler_pesos(g, b, atributos["WEIGHTS_0"])
+			for k, ponto in enumerate(locais):
+				melhor, peso = None, 0.0
+				for slot in range(4):
+					if ws[k][slot] > peso:
+						peso, melhor = ws[k][slot], js[k][slot]
+				if melhor is None or melhor >= len(juntas_do_couro):
+					continue
+				por_osso.setdefault(juntas_do_couro[melhor], []).append(ponto)
+
 	for regiao, (mediana, minimo, maximo) in sorted(FAIXA_DA_ESBELTEZ.items()):
 		osso = OSSO_DA_REGIAO[regiao]
 		filho = _cauda_do_osso(g, nos, osso)
 		if osso not in nos or filho is None:
 			falhas.append("nao achei o osso `%s` para medir a esbeltez" % osso)
+			continue
+		meus = por_osso.get(osso) or []
+		# **Poucos vertices REPROVA.** Uma medida decidida por um punhado de
+		# pontos nao mede a peca; ela mede o acaso de quais pontos sobraram. Na
+		# versao com cerco, a "mao" foi decidida por UM vertice e a conferencia
+		# aprovou sem piscar.
+		if len(meus) < AMOSTRA_MINIMA:
+			falhas.append(
+				"so %d vertices sao governados por `%s` (minimo %d) — a "
+				"esbeltez dele seria decidida pelo acaso"
+				% (len(meus), osso, AMOSTRA_MINIMA))
 			continue
 		cabeca, cauda = nos[osso], filho
 		eixo = _menos(cauda, cabeca)
@@ -258,23 +506,21 @@ def conferir(caminho: str) -> list:
 			falhas.append("o osso `%s` nao tem comprimento" % osso)
 			continue
 		direcao = tuple(v / comprimento for v in eixo)
-		cerco = mediana * comprimento * 0.5 * CERCO_DA_PECA
-		maior = 0.0
-		for ponto in pontos:
+		distancias = []
+		for ponto in meus:
 			relativo = _menos(ponto, cabeca)
 			ao_longo = sum(relativo[i] * direcao[i] for i in range(3)) / comprimento
 			if not 0.3 <= ao_longo <= 0.7:
 				continue
-			perpendicular = _norma(tuple(
+			distancias.append(_norma(tuple(
 				relativo[i] - direcao[i] * ao_longo * comprimento
-				for i in range(3)))
-			if perpendicular > cerco:
-				continue
-			maior = max(maior, perpendicular)
-		if maior <= 0.0:
-			falhas.append("nao achei carne em volta de `%s`" % osso)
+				for i in range(3))))
+		if len(distancias) < AMOSTRA_MINIMA:
+			falhas.append(
+				"so %d vertices de `%s` caem no meio do osso (minimo %d)"
+				% (len(distancias), osso, AMOSTRA_MINIMA))
 			continue
-		esbeltez = 2.0 * maior / comprimento
+		esbeltez = 2.0 * max(distancias) / comprimento
 		if not minimo <= esbeltez <= maximo:
 			falhas.append(
 				"a esbeltez de `%s` e %.3f, fora da faixa medida %.3f a %.3f"

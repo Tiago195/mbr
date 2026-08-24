@@ -193,6 +193,9 @@ RAIO_DA_CABECA = COMPRIMENTO_DA_CABECA * 0.5
 ## como peça própria, grosso o bastante para não sumir na subdivisão.
 RAIO_DO_PESCOCO = X_OMBRO * 0.34
 
+## O peito, em fração do meio-vão dos ombros. Ver o comentário na montagem.
+FRACAO_DO_PEITO = 0.72
+
 ## O punho estrangula e a mão infla, em fração do raio da mão. São o que
 ## transforma o braço de salsicha em braço com ponta.
 ESTREITAMENTO_DO_PULSO = 0.45
@@ -219,7 +222,19 @@ def _esqueleto_de_arestas(ajuste_topo: float = 0.0,
 
 	# O tronco, de baixo para cima. A raiz é o quadril.
 	nos.append(("quadril", Vector((0.0, 0.0, Y_QUADRIL)), None, X_QUADRIL * 1.15))
-	nos.append(("peito", Vector((0.0, 0.0, Y_PEITO)), "quadril", X_OMBRO * 0.95))
+	# **O peito é mais estreito que o vão dos ombros, e a diferença é medida.**
+	#
+	# Com 0,95 do vão, a superfície do peito chega a 0,145 do eixo e o ombro
+	# nasce em 0,153: os dois quase se encostam, e o Skin Modifier fecha essa
+	# junção rasa dobrando a superfície para dentro. Medido, a malha se
+	# auto-intersectava 36 vezes EM REPOUSO, todas na axila, e os pesos
+	# automáticos atribuíam o volume da dobra ao braço — que por isso saía com
+	# esbeltez 1,140 contra um máximo medido de 0,941.
+	#
+	# Casca única não impede auto-interseção: uma superfície só pode atravessar
+	# a si mesma, e foi o que aconteceu.
+	nos.append(("peito", Vector((0.0, 0.0, Y_PEITO)), "quadril",
+	            X_OMBRO * FRACAO_DO_PEITO))
 	# **O pescoço é FINO de propósito.** Ele é o que separa a cabeça do tronco;
 	# com o raio do peito, os dois viram uma massa só e o boneco fica encapuzado
 	# — foi o que a primeira versão desta pele produziu.
@@ -665,24 +680,40 @@ def _fora_da_faixa(regiao: str, valor: float) -> float:
 ## Até quantos raios declarados um vértice ainda conta como daquela peça. Dois
 ## engloba a peça inteira com folga e exclui o vizinho — a outra coxa, por
 ## exemplo, passa a 1,4 raio do eixo desta.
-CERCO_DA_PECA = 1.2
+## Quantos vértices uma região precisa ter para a medida dela valer. Medida
+## decidida por punhado de pontos mede o acaso: com a janela anterior, a "mão"
+## chegou a ser decidida por UM vértice.
+AMOSTRA_MINIMA = 12
 
 
 def _esbeltez_entregue(corpo: bpy.types.Object, ossos: list,
                        fatores: dict) -> dict:
 	"""A espessura que a malha REALMENTE tem, por região, sobre o comprimento.
 
-	**Medida no meio do osso, e não na peça inteira.** Perto das juntas a
-	superfície incha para encontrar o vizinho, e incluir isso mediria a junta em
-	vez do membro. O trecho central é onde a peça é ela mesma.
+	**Cada vértice pertence ao osso mais próximo em RAIOS dele, e não a um
+	cerco.** É a mesma regra que `pintar` usa, e ela substitui uma janela de
+	tamanho fixo que tinha dois defeitos somados: saía da mediana, então o maior
+	valor que a medida conseguia reportar era `mediana × 1,2` — abaixo do máximo
+	da faixa em nove das nove regiões. A metade "gordo demais" da comparação
+	estava morta, e uma coxa engordada 2,2 vezes passava.
 
-	Este número não existia, e a falta tinha preço: `convergir` corrigia altura,
-	cabeça e alcance do braço, e nunca a grossura. Medido pelo conferidor do
-	projeto, cinco das seis regiões reprovavam — a coxa 23% e o pé 28% mais
-	finos que o declarado, num arquivo cujo argumento inteiro é "as medidas vêm
-	dos 27 campeões".
+	Aqui não há teto: se a peça engordar, a medida acompanha.
+
+	Medida no meio do osso, porque perto das juntas a superfície incha para
+	encontrar o vizinho e isso mede a junta, não o membro.
 	"""
 	por_nome = {nome: (cabeca, cauda) for nome, cabeca, cauda, _p in ossos}
+	raios = _raio_do_osso(fatores)
+	# De quem é cada vértice: do osso mais próximo, em raios dele.
+	meus = {}
+	for vertice in corpo.data.vertices:
+		melhor, perto = None, None
+		for nome, cabeca, cauda, _pai in ossos:
+			distancia = _distancia_ao_osso(vertice.co, cabeca, cauda) / raios[nome]
+			if perto is None or distancia < perto:
+				melhor, perto = nome, distancia
+		meus.setdefault(melhor, []).append(vertice.co)
+
 	saida = {}
 	for regiao, osso in OSSO_DA_REGIAO.items():
 		if osso not in por_nome:
@@ -693,25 +724,18 @@ def _esbeltez_entregue(corpo: bpy.types.Object, ossos: list,
 		if comprimento <= 0.0:
 			continue
 		direcao = eixo / comprimento
-		# **O cerco sai do ALVO, e não do raio corrigido.** Feito com o raio
-		# corrente, a janela de medição cresce junto com o que ela mede: o
-		# cerco engorda, passa a incluir a peça vizinha, a medida sobe, o fator
-		# encolhe, o cerco encolhe. Medido, o erro oscilou entre 0,08 e 0,38
-		# por vinte voltas sem fechar. Janela que depende do medido não é
-		# janela, é realimentação.
-		cerco = ESBELTEZ[regiao] * comprimento * 0.5 * CERCO_DA_PECA
-		maior = 0.0
-		for vertice in corpo.data.vertices:
-			relativo = vertice.co - cabeca
+		distancias = []
+		for ponto in meus.get(osso, []):
+			relativo = ponto - cabeca
 			ao_longo = relativo.dot(direcao) / comprimento
 			if not 0.3 <= ao_longo <= 0.7:
 				continue
-			perpendicular = (relativo - direcao * (ao_longo * comprimento)).length
-			if perpendicular > cerco:
-				continue
-			maior = max(maior, perpendicular)
-		if maior > 0.0:
-			saida[regiao] = 2.0 * maior / comprimento
+			distancias.append(
+				(relativo - direcao * (ao_longo * comprimento)).length)
+		# Poucos pontos medem o acaso, não a peça — e é assim que uma medida
+		# passa a aprovar qualquer coisa.
+		if len(distancias) >= AMOSTRA_MINIMA:
+			saida[regiao] = 2.0 * max(distancias) / comprimento
 	return saida
 
 
@@ -914,7 +938,7 @@ def _raio_do_osso(fatores: dict = None) -> dict:
 	"""
 	return {
 		"quadril": X_QUADRIL * 1.15,
-		"peito": X_OMBRO * 0.95,
+		"peito": X_OMBRO * FRACAO_DO_PEITO,
 		"cabeca": RAIO_DA_CABECA,
 		"braco_D": _raio("braco", COMPRIMENTO_DO_BRACO, fatores),
 		"braco_E": _raio("braco", COMPRIMENTO_DO_BRACO, fatores),
