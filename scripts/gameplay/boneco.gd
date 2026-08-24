@@ -26,7 +26,24 @@ extends Node3D
 ## espera.
 
 ## Altura total, do pé ao alto da cabeça.
+##
+## Vale para o corpo de caixas montado aqui. O modelo de `arte/personagem.glb`
+## traz a altura dele próprio — 1,75 m, que é o §2 de `docs/11` — e é ela que
+## manda quando ele carrega.
 @export var altura: float = 1.8
+
+## O nosso personagem, gerado por `tools/arte/gerar_personagem.py` a partir de
+## `docs/11-direcao-de-arte.md`.
+##
+## **Ele existia e não era usado.** Era gerado, conferido pela direção de arte,
+## conferido de novo sem o Blender por `conferir_numeros.py`, e rastreado no
+## repositório — enquanto o jogo montava o corpo de caixas abaixo e pedia
+## clipes com nomes que nunca existiram. Quatro ferramentas verdes, e nenhuma
+## delas ABRIA o jogo: lição 9 do `CLAUDE.md`.
+##
+## Um caminho, e não um `PackedScene`: assim o projeto continua abrindo numa
+## máquina onde o arquivo não foi gerado — cai no corpo de caixas e segue.
+@export var modelo: String = "res://arte/personagem.glb"
 
 @export_group("Andaime de teste")
 ## Malhas a carregar em vez de montar o boneco de caixas, se existirem.
@@ -79,6 +96,10 @@ var _animador: AnimationPlayer = null
 ## O esqueleto da malha externa, quando ela tem um.
 var _esqueleto: Skeleton3D = null
 
+## Nomes de clipe que já reclamaram por não existir. Uma reclamação por nome:
+## o pedido acontece a cada quadro, e sem isto o console viraria um muro.
+var _reclamados: Dictionary = {}
+
 ## Verdadeiro quando o corpo tem membros animáveis. Falso quando é uma malha
 ## externa inteiriça — e aí o gesto move o corpo todo, que é o que dá para
 ## fazer sem esqueleto.
@@ -86,9 +107,43 @@ func tem_membros() -> bool:
 	return quadril != null
 
 func _ready() -> void:
+	if _montar_modelo():
+		return
 	if _montar_externas():
 		return
 	_montar()
+
+## Carrega `arte/personagem.glb`. Devolve se entrou.
+##
+## Vem antes do andaime e do corpo de caixas porque é o corpo DE VERDADE: ele
+## tem esqueleto, e sem osso o gesto move a malha inteira, que lê como
+## empurrão em vez de golpe.
+##
+## O modelo já nasce no sistema de eixos da Godot — Y para cima, olhando para
+## -Z — porque o exportador do gerador usa `export_yup=True` e o boneco encara
+## -Y no Blender. Por isso não leva giro nem escala: qualquer correção aqui
+## seria consertar duas vezes o que já está certo.
+func _montar_modelo() -> bool:
+	if modelo == "" or not ResourceLoader.exists(modelo):
+		return false
+	var recurso: Resource = load(modelo)
+	var empacotada: PackedScene = recurso as PackedScene
+	if empacotada == null:
+		push_warning("Boneco: '%s' não é uma cena." % modelo)
+		return false
+	var cena: Node3D = empacotada.instantiate() as Node3D
+	if cena == null:
+		return false
+	add_child(cena)
+	cena.position = Vector3(0.0, -pes_abaixo_do_centro, 0.0)
+	_animador = _achar_animador(cena)
+	_esqueleto = _achar_esqueleto(cena)
+	_fechar_os_ciclos()
+	if _animador == null or _esqueleto == null:
+		push_warning(
+			"Boneco: '%s' carregou sem esqueleto ou sem AnimationPlayer." % modelo
+		)
+	return true
 
 ## Carrega as malhas do andaime, se existirem. Devolve se alguma entrou.
 ##
@@ -192,13 +247,49 @@ func animador() -> AnimationPlayer:
 
 
 ## Toca um clipe pelo nome, se ele existir. Devolve se tocou.
+##
+## **Nome que não existe RECLAMA**, uma vez por nome. A versão silenciosa foi
+## como o jogo passou a pedir oito clipes do Royal Crown que nunca estiveram no
+## nosso arquivo: `tocar` devolvia `false`, ninguém lia o retorno, e o corpo
+## ficava parado sem uma linha no console. Ver `VocabularioDeAnimacao`.
 func tocar(nome: String, tocar_de_novo: bool = false) -> bool:
-	if _animador == null or not _animador.has_animation(nome):
+	if _animador == null:
+		return false
+	if not _animador.has_animation(nome):
+		if not _reclamados.has(nome):
+			_reclamados[nome] = true
+			push_warning(
+				"Boneco: '%s' não tem o clipe '%s'." % [modelo, nome]
+			)
 		return false
 	if not tocar_de_novo and _animador.current_animation == nome:
 		return true
 	_animador.play(nome)
 	return true
+
+## Quanto dura um clipe, em segundos. Zero quando ele não existe.
+##
+## Existe para o gesto durar o que o CLIPE dura. Sem isto o gesto de
+## conjuração usava um tempo próprio e a caminhada retomava o corpo no meio do
+## golpe — o clipe de ataque vivia um quadro.
+func duracao_de(nome: String) -> float:
+	if _animador == null or not _animador.has_animation(nome):
+		return 0.0
+	return _animador.get_animation(nome).length
+
+## Põe em ciclo os clipes que o vocabulário declara como ciclo.
+##
+## **O glTF não guarda essa informação**, então tudo importa como "uma vez":
+## sem isto o personagem dava um passo e congelava, e o console não dizia nada.
+## Quem sabe o que é ciclo é `VocabularioDeAnimacao.CICLOS`, que copia a coluna
+## "Tipo" do §3 de `docs/11` — medida nos 32 campeões do original.
+func _fechar_os_ciclos() -> void:
+	if _animador == null:
+		return
+	for nome: StringName in VocabularioDeAnimacao.CICLOS:
+		if not _animador.has_animation(nome):
+			continue
+		_animador.get_animation(nome).loop_mode = Animation.LOOP_LINEAR
 
 func _montar() -> void:
 	var h: float = altura

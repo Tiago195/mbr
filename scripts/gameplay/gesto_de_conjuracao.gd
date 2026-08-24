@@ -52,35 +52,39 @@ enum Gesto {
 ## Quanto o salto sobe, em metros.
 @export var altura_do_salto: float = 0.7
 
-@export_group("Andaime de teste")
-## Clipes do ataque básico, alternados a cada golpe.
+@export_group("Clipes do esqueleto")
+## Clipe do ataque básico.
 ##
-## O auto-ataque era a única ação do jogo sem gesto nenhum — o personagem
-## batia e não mexia um dedo. São dois porque o original alterna, e alternar é
-## o que faz uma sequência de golpes parecer sequência e não repetição.
-@export var clipes_de_ataque: PackedStringArray = PackedStringArray([
-	"swing", "swing2",
-])
+## O auto-ataque era a única ação do jogo sem gesto nenhum — o personagem batia
+## e não mexia um dedo. É a `estocada`, que é o mesmo gesto das habilidades que
+## saem para a frente: no original o golpe básico é clipe PRÓPRIO de campeão, e
+## clipe próprio é exatamente o que o nosso vocabulário resolve por forma.
+##
+## **Era uma lista de dois, alternada, e os dois nomes eram do Royal Crown** —
+## `swing` e `swing2`, herdados da pasta de assets que foi removida. Nenhum dos
+## dois existia no nosso arquivo, e como `tocar` falhava calado, o
+## comportamento visível era o mesmo de não haver gesto nenhum.
+@export var clipe_de_ataque: StringName = VocabularioDeAnimacao.ESTOCADA
 
 ## Clipe do deslocamento, tocado quando o corpo é de fato empurrado.
 ##
 ## Disparar no APERTO da tecla não bastava: entre conjurar e sair do lugar há a
 ## janela de conjuração, e a animação terminava antes de o personagem se mexer.
 ## Quem sabe a hora certa é o próprio deslocamento.
-@export var clipe_de_deslocamento: String = "shieldrush"
+@export var clipe_de_deslocamento: StringName = VocabularioDeAnimacao.SALTO
 
-## Que clipe do esqueleto externo toca em cada gesto de habilidade.
+## Que clipe toca em cada gesto de habilidade.
 ##
-## **É dado, não código** — a regra 5 do `CLAUDE.md`. Os nomes de agora são os
-## do Leo, porque é o único personagem com esqueleto importado; outro campeão
-## troca a tabela, não o script. Gesto sem clipe aqui simplesmente não anima,
-## que é melhor do que animar errado.
+## **É dado, não código** — a regra 5 do `CLAUDE.md`. Os nomes saem de
+## `VocabularioDeAnimacao`, que é a única lista que `conferir_numeros.py`
+## compara com o `.glb` exportado: nome escrito à mão aqui volta a ser um nome
+## que ninguém confere.
 @export var clipes_por_gesto: Dictionary = {
-	Gesto.ESTOCADA: "swing",
-	Gesto.GIRO: "comboslash",
-	Gesto.SALTO: "shieldrush",
-	Gesto.ERGUER: "shieldthrow",
-	Gesto.PREPARO: "shieldwall",
+	Gesto.ESTOCADA: VocabularioDeAnimacao.ESTOCADA,
+	Gesto.GIRO: VocabularioDeAnimacao.GIRO,
+	Gesto.SALTO: VocabularioDeAnimacao.SALTO,
+	Gesto.ERGUER: VocabularioDeAnimacao.ERGUER,
+	Gesto.PREPARO: VocabularioDeAnimacao.PREPARO,
 }
 
 ## O corpo articulado, quando existe. Com ele, o gesto move BRAÇO e PERNA;
@@ -94,8 +98,6 @@ var _base_escala: Vector3
 var _gesto: Gesto = Gesto.ESTOCADA
 var _restante: float = 0.0
 var _total: float = 0.0
-
-var _golpe: int = 0
 
 func _ready() -> void:
 	_boneco = _achar_boneco()
@@ -120,14 +122,10 @@ func _ready() -> void:
 
 ## O golpe básico saiu: o corpo bate.
 func _ao_atacar() -> void:
-	if _boneco != null and _boneco.animador() != null:
-		if clipes_de_ataque.size() > 0:
-			var clipe: String = clipes_de_ataque[_golpe % clipes_de_ataque.size()]
-			_golpe += 1
-			_boneco.tocar(clipe, true)
-		return
 	# Sem esqueleto, o ataque usa o mesmo gesto de estocada das habilidades.
 	_gesto = Gesto.ESTOCADA
+	if _tocar(clipe_de_ataque):
+		return
 	_total = duracao
 	_restante = _total
 
@@ -135,8 +133,25 @@ func _ao_atacar() -> void:
 ## O corpo foi deslocado: a animação de investida acompanha o deslocamento em
 ## vez de acontecer antes dele.
 func _ao_deslocar(_offset: Vector3) -> void:
-	if _boneco != null and _boneco.animador() != null and clipe_de_deslocamento != "":
-		_boneco.tocar(clipe_de_deslocamento, true)
+	_tocar(clipe_de_deslocamento)
+
+
+## Toca um clipe do esqueleto e SEGURA o corpo pelo tempo dele. Devolve se
+## tocou.
+##
+## **Segurar é metade do trabalho.** `GestoDeCaminhada` reescreve a animação a
+## cada quadro, e sem `esta_gesticulando()` verdadeiro o clipe de ataque vivia
+## exatamente um quadro antes de a caminhada retomar o corpo. Quem sabe quanto
+## tempo segurar é o próprio clipe — daí `duracao_de`, e não um número escrito
+## aqui que envelheceria junto com a animação.
+func _tocar(clipe: StringName) -> bool:
+	if _boneco == null or _boneco.animador() == null or clipe == &"":
+		return false
+	if not _boneco.tocar(clipe, true):
+		return false
+	_total = maxf(_boneco.duracao_de(clipe), 0.05)
+	_restante = _total
+	return true
 
 
 func _achar_irmao(classe: String) -> Node:
@@ -184,14 +199,17 @@ func _ao_conjurar(
 	# Com esqueleto, o gesto vira CLIPE. O nome sai do mesmo `_gesto` que o
 	# corpo de caixas usa, para os dois caminhos concordarem sobre o que a
 	# habilidade parece.
-	if _boneco != null and _boneco.animador() != null:
-		var clipe: String = String(clipes_por_gesto.get(_gesto, ""))
-		if clipe != "":
-			_boneco.tocar(clipe, true)
+	var tocou: bool = _tocar(StringName(clipes_por_gesto.get(_gesto, &"")))
 	# O gesto de uma conjuração com tempo dura o tempo dela: é ele que avisa
 	# que algo vem vindo, e avisar por um terço de segundo não avisa nada.
-	_total = maxf(saiu.cast_time if result.started() else duracao, 0.05)
-	_restante = _total
+	#
+	# **A conjuração com tempo ganha do clipe**, e só ela: `_tocar` já tinha
+	# ajustado a janela para a duração do `preparo`, mas o que o jogador precisa
+	# ver é o corpo junto até o canto terminar. A Godot estica o clipe pelo
+	# tempo de conjuração.
+	if result.started() or not tocou:
+		_total = maxf(saiu.cast_time if result.started() else duracao, 0.05)
+		_restante = _total
 
 ## Que gesto cabe a esta habilidade.
 ##

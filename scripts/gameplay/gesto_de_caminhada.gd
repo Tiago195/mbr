@@ -48,8 +48,17 @@ extends Node
 ## Abaixo desta velocidade o personagem é considerado parado.
 @export var velocidade_minima: float = 0.15
 
+## Fração da velocidade plena a partir da qual o corpo CORRE em vez de andar.
+##
+## Abaixo dela o personagem está retardado por alguma coisa, e o corpo diz
+## isso. O valor é escolha de jogo, não medida do original: lá `walk` e `run`
+## existem nos 32 campeões, e qual deles toca é decisão do controlador, que não
+## está nos bundles medidos (§3 de `docs/11`).
+@export_range(0.1, 1.0) var fracao_de_corrida: float = 0.75
+
 var _corpo: CharacterBody3D
 var _boneco: Boneco
+var _combatente: Combatant
 var _gesto: GestoDeConjuracao
 var _fase: float = 0.0
 var _base_y: float = 0.0
@@ -57,6 +66,7 @@ var _base_y: float = 0.0
 func _ready() -> void:
 	_corpo = get_parent() as CharacterBody3D
 	_boneco = _achar(Boneco) as Boneco
+	_combatente = _achar(Combatant) as Combatant
 	_gesto = _achar(GestoDeConjuracao) as GestoDeConjuracao
 	if _corpo == null or _boneco == null:
 		push_warning("GestoDeCaminhada sem corpo em '%s'." % get_parent().name)
@@ -84,7 +94,7 @@ func _process(delta: float) -> void:
 	# verdade eles viram o "boneco se tremendo de lado, meio que pulado" que o
 	# usuário reportou.
 	if _boneco.animador() != null:
-		_boneco.tocar("run" if rapidez >= velocidade_minima else "idle")
+		_boneco.tocar(_clipe_de_locomocao(rapidez))
 		return
 
 	if rapidez < velocidade_minima:
@@ -115,6 +125,30 @@ func _process(delta: float) -> void:
 		_boneco.position.y = _base_y + absf(sin(_fase)) * sobe_e_desce
 		_boneco.rotation_degrees.x = -inclinacao
 		_boneco.rotation_degrees.z = bamboleio * balanco
+
+## Parado, andando ou correndo — pela velocidade.
+##
+## **O original tem `walk` E `run`, e nós usávamos só um dos dois.** A distinção
+## não é enfeite: quem está lento por uma habilidade anda, quem está inteiro
+## corre, e é a única forma de lentidão aparecer no corpo em vez de só no
+## número. O limiar é uma fração da velocidade que o campeão teria SEM efeito
+## nenhum — comparar com um valor absoluto faria o campeão mais lento do elenco
+## andar o tempo todo e o mais rápido nunca andar.
+func _clipe_de_locomocao(rapidez: float) -> StringName:
+	if rapidez < velocidade_minima:
+		return VocabularioDeAnimacao.PARADO
+	var plena: float = _velocidade_plena()
+	if plena > 0.0 and rapidez < plena * fracao_de_corrida:
+		return VocabularioDeAnimacao.ANDANDO
+	return VocabularioDeAnimacao.CORRENDO
+
+## A velocidade do personagem sem efeito nenhum em cima. Zero quando não dá
+## para saber — e aí o corpo corre, que é o comportamento de antes.
+func _velocidade_plena() -> float:
+	if _combatente == null or _combatente.unit == null:
+		return 0.0
+	return _combatente.unit.stats.get_base(Stat.Id.MOVE_SPEED)
+
 
 func _repousar() -> void:
 	if _boneco.tem_membros():

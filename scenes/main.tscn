@@ -1,35 +1,25 @@
-[gd_scene load_steps=29 format=3]
+[gd_scene format=3 uid="uid://c0slkm17lb6kq"]
 
-[ext_resource type="Script" path="res://scripts/gameplay/player.gd" id="1_player"]
-[ext_resource type="Script" path="res://scripts/gameplay/camera_rig.gd" id="2_camera"]
-[ext_resource type="Script" path="res://scripts/gameplay/combatant.gd" id="3_combatant"]
+[ext_resource type="Script" uid="uid://d18oac4is7v2g" path="res://scripts/gameplay/player.gd" id="1_player"]
+[ext_resource type="Script" uid="uid://dy3re0u8vspyp" path="res://scripts/gameplay/camera_rig.gd" id="2_camera"]
+[ext_resource type="Script" uid="uid://vogmtgc2ttw6" path="res://scripts/gameplay/combatant.gd" id="3_combatant"]
 [ext_resource type="PackedScene" path="res://scenes/training_dummy.tscn" id="4_dummy"]
-[ext_resource type="Script" path="res://scripts/gameplay/combat_feedback.gd" id="5_feedback"]
-[ext_resource type="Script" path="res://scripts/gameplay/ability_caster.gd" id="6_caster"]
-[ext_resource type="Resource" path="res://data/abilities/meteoro.tres" id="7_meteoro"]
-[ext_resource type="Resource" path="res://data/abilities/raio.tres" id="8_raio"]
-[ext_resource type="Resource" path="res://data/abilities/investida.tres" id="9_investida"]
-[ext_resource type="Script" path="res://scripts/gameplay/champion_selector.gd" id="10_champion"]
-[ext_resource type="Script" path="res://scripts/gameplay/combat_log.gd" id="11_log"]
-[ext_resource type="Script" path="res://scripts/gameplay/marcador_de_alcance.gd" id="12_alcance"]
-[ext_resource type="Script" path="res://scripts/gameplay/gesto_de_conjuracao.gd" id="13_gesto"]
-[ext_resource type="Script" path="res://scripts/gameplay/boneco.gd" id="14_boneco"]
-[ext_resource type="Script" path="res://scripts/gameplay/gesto_de_caminhada.gd" id="15_andar"]
+[ext_resource type="Script" uid="uid://d31rikkwerg7l" path="res://scripts/gameplay/combat_feedback.gd" id="5_feedback"]
+[ext_resource type="Script" uid="uid://b6pnl10sj4rwt" path="res://scripts/gameplay/ability_caster.gd" id="6_caster"]
+[ext_resource type="Resource" uid="uid://8ex1wv1ns8qs" path="res://data/abilities/meteoro.tres" id="7_meteoro"]
+[ext_resource type="Resource" uid="uid://bqtshexhkclav" path="res://data/abilities/raio.tres" id="8_raio"]
+[ext_resource type="Resource" uid="uid://cajxtsy273qs3" path="res://data/abilities/investida.tres" id="9_investida"]
+[ext_resource type="Script" uid="uid://b4efyodpchbpm" path="res://scripts/gameplay/champion_selector.gd" id="10_champion"]
+[ext_resource type="Script" uid="uid://cgtqaers7g4tm" path="res://scripts/gameplay/combat_log.gd" id="11_log"]
+[ext_resource type="Script" uid="uid://bgm73m752agxq" path="res://scripts/gameplay/marcador_de_alcance.gd" id="12_alcance"]
+[ext_resource type="Script" uid="uid://c5nnk8mpu1p2p" path="res://scripts/gameplay/gesto_de_conjuracao.gd" id="13_gesto"]
+[ext_resource type="Script" uid="uid://buofawe5vgx5e" path="res://scripts/gameplay/boneco.gd" id="14_boneco"]
+[ext_resource type="Script" uid="uid://de6my37kijpt1" path="res://scripts/gameplay/gesto_de_caminhada.gd" id="15_andar"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
 size = Vector2(20, 20)
 
 [sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_ground"]
-
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_player"]
-
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
-
-[sub_resource type="BoxMesh" id="BoxMesh_front"]
-size = Vector3(0.2, 0.2, 0.6)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_front"]
-albedo_color = Color(0.85, 0.25, 0.2, 1)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
 albedo_color = Color(0.33, 0.37, 0.48, 1)
@@ -52,118 +42,119 @@ size = Vector3(1.5, 2, 1.5)
 [sub_resource type="BoxShape3D" id="BoxShape3D_pillar"]
 size = Vector3(1.5, 2, 1.5)
 
-[node name="Main" type="Node3D"]
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
 
-[node name="Ground" type="StaticBody3D" parent="."]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_front"]
+albedo_color = Color(0.85, 0.25, 0.2, 1)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
+[sub_resource type="BoxMesh" id="BoxMesh_front"]
+size = Vector3(0.2, 0.2, 0.6)
+
+[node name="Main" type="Node3D" unique_id=183064327]
+
+[node name="Ground" type="StaticBody3D" parent="." unique_id=468051400]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground" unique_id=1104455236]
 mesh = SubResource("PlaneMesh_ground")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground" unique_id=1760886674]
 shape = SubResource("WorldBoundaryShape3D_ground")
 
-[node name="Walls" type="Node3D" parent="."]
+[node name="Walls" type="Node3D" parent="." unique_id=1675127401]
 
-[node name="WallNorth" type="StaticBody3D" parent="Walls"]
+[node name="WallNorth" type="StaticBody3D" parent="Walls" unique_id=247887515]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -5)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Walls/WallNorth"]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Walls/WallNorth" unique_id=1794984628]
 material_override = SubResource("StandardMaterial3D_wall")
 mesh = SubResource("BoxMesh_wall_long")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Walls/WallNorth"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Walls/WallNorth" unique_id=1114050090]
 shape = SubResource("BoxShape3D_wall_long")
 
-[node name="WallEast" type="StaticBody3D" parent="Walls"]
+[node name="WallEast" type="StaticBody3D" parent="Walls" unique_id=932755618]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, -1)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Walls/WallEast"]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Walls/WallEast" unique_id=1014373689]
 material_override = SubResource("StandardMaterial3D_wall")
 mesh = SubResource("BoxMesh_wall_side")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Walls/WallEast"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Walls/WallEast" unique_id=551283510]
 shape = SubResource("BoxShape3D_wall_side")
 
-[node name="Pillar" type="StaticBody3D" parent="Walls"]
+[node name="Pillar" type="StaticBody3D" parent="Walls" unique_id=1913247454]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 1, 2)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Walls/Pillar"]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Walls/Pillar" unique_id=465110922]
 material_override = SubResource("StandardMaterial3D_wall")
 mesh = SubResource("BoxMesh_pillar")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Walls/Pillar"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Walls/Pillar" unique_id=1306270744]
 shape = SubResource("BoxShape3D_pillar")
 
-[node name="Player" type="CharacterBody3D" parent="."]
+[node name="Player" type="CharacterBody3D" parent="." unique_id=568924878]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 collision_layer = 2
 collision_mask = 3
 script = ExtResource("1_player")
 
-[node name="Boneco" type="Node3D" parent="Player"]
+[node name="Boneco" type="Node3D" parent="Player" unique_id=1940936996]
 script = ExtResource("14_boneco")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=1478862653]
 shape = SubResource("CapsuleShape3D_player")
 
-[node name="FrontMarker" type="MeshInstance3D" parent="Player"]
+[node name="FrontMarker" type="MeshInstance3D" parent="Player" unique_id=2016804399]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.7)
 material_override = SubResource("StandardMaterial3D_front")
 mesh = SubResource("BoxMesh_front")
 
-[node name="Combatant" type="Node" parent="Player"]
+[node name="Combatant" type="Node" parent="Player" unique_id=442994014]
 script = ExtResource("3_combatant")
-team = 0
-max_health = 600.0
-attack_damage = 60.0
 ability_power = 100.0
-armor = 30.0
 attack_speed = 1.5
-attack_range = 2.5
 crit_chance = 0.25
 
-[node name="CombatFeedback" type="Node3D" parent="Player"]
+[node name="CombatFeedback" type="Node3D" parent="Player" unique_id=1795327680]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 0)
 script = ExtResource("5_feedback")
 
-[node name="AbilityCaster" type="Node" parent="Player"]
+[node name="AbilityCaster" type="Node" parent="Player" unique_id=1227295892]
 script = ExtResource("6_caster")
 ability_q = ExtResource("7_meteoro")
 ability_w = ExtResource("8_raio")
 ability_e = ExtResource("9_investida")
 
-[node name="ChampionSelector" type="Node" parent="Player"]
+[node name="ChampionSelector" type="Node" parent="Player" unique_id=328109582]
 script = ExtResource("10_champion")
-champion_id = &"leo"
-level = 9
 
-[node name="CombatLog" type="Node" parent="Player"]
+[node name="CombatLog" type="Node" parent="Player" unique_id=958872386]
 script = ExtResource("11_log")
 
-[node name="MarcadorDeAlcance" type="Node3D" parent="Player"]
+[node name="MarcadorDeAlcance" type="Node3D" parent="Player" unique_id=839079073]
 script = ExtResource("12_alcance")
 
-[node name="GestoDeConjuracao" type="Node" parent="Player"]
+[node name="GestoDeConjuracao" type="Node" parent="Player" unique_id=916159163]
 script = ExtResource("13_gesto")
 
-[node name="GestoDeCaminhada" type="Node" parent="Player"]
+[node name="GestoDeCaminhada" type="Node" parent="Player" unique_id=1440197786]
 script = ExtResource("15_andar")
 
-[node name="DummyNear" parent="." instance=ExtResource("4_dummy")]
+[node name="DummyNear" parent="." unique_id=1928094544 instance=ExtResource("4_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1, -2)
 
-[node name="DummyFar" parent="." instance=ExtResource("4_dummy")]
+[node name="DummyFar" parent="." unique_id=767408005 instance=ExtResource("4_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1, 2.5)
 
-[node name="DummyMedio" parent="." instance=ExtResource("4_dummy")]
+[node name="DummyMedio" parent="." unique_id=873921815 instance=ExtResource("4_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -6)
 
-[node name="DummyLonge" parent="." instance=ExtResource("4_dummy")]
+[node name="DummyLonge" parent="." unique_id=1613572457 instance=ExtResource("4_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 1, -9)
 
-[node name="Camera3D" type="Camera3D" parent="."]
+[node name="Camera3D" type="Camera3D" parent="." unique_id=569121266]
 transform = Transform3D(1, 0, 0, 0, 0.57357645, 0.81915206, 0, -0.81915206, 0.57357645, 0, 12, 8)
 script = ExtResource("2_camera")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1881881052]
 transform = Transform3D(1, 0, 0, 0, 0.70710677, 0.70710677, 0, -0.70710677, 0.70710677, 0, 0, 0)

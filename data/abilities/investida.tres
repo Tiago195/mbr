@@ -1,11 +1,11 @@
-[gd_resource type="Resource" script_class="Ability" format=3]
+[gd_resource type="Resource" script_class="Ability" format=3 uid="uid://cajxtsy273qs3"]
 
-[ext_resource type="Script" path="res://scripts/core/abilities/ability_effect.gd" id="1_l6n3i"]
-[ext_resource type="Script" path="res://scripts/core/abilities/effects/displacement_effect.gd" id="2_1ma41"]
-[ext_resource type="Script" path="res://scripts/core/abilities/effects/damage_effect.gd" id="3_y4x27"]
-[ext_resource type="Script" path="res://scripts/core/abilities/effects/shield_effect.gd" id="4_xnj3g"]
-[ext_resource type="Script" path="res://scripts/core/abilities/ability_pulse.gd" id="5_pulse0"]
-[ext_resource type="Script" path="res://scripts/core/abilities/ability.gd" id="6_dlcan"]
+[ext_resource type="Script" uid="uid://daa6mwntjkysj" path="res://scripts/core/abilities/ability_effect.gd" id="1_l6n3i"]
+[ext_resource type="Script" uid="uid://b8rouoe5fptfk" path="res://scripts/core/abilities/effects/displacement_effect.gd" id="2_1ma41"]
+[ext_resource type="Script" uid="uid://d1o73q8krpq74" path="res://scripts/core/abilities/effects/damage_effect.gd" id="3_y4x27"]
+[ext_resource type="Script" uid="uid://bfp3pa5x325yd" path="res://scripts/core/abilities/effects/shield_effect.gd" id="4_xnj3g"]
+[ext_resource type="Script" uid="uid://e8wsr6dtjtb4" path="res://scripts/core/abilities/ability_pulse.gd" id="5_pulse0"]
+[ext_resource type="Script" uid="uid://qefw75lmx7ho" path="res://scripts/core/abilities/ability.gd" id="6_dlcan"]
 
 [sub_resource type="Resource" id="Resource_lxtd6"]
 script = ExtResource("2_1ma41")

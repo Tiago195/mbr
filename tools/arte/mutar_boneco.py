@@ -56,6 +56,14 @@ MUTACOES = [
     ("o parado vira um piscar",
      "(60, pose(peito=(2, 0, 0), cabeca=(1.5, 0, 0),",
      "(20, pose(peito=(2, 0, 0), cabeca=(1.5, 0, 0),"),
+    # **Ciclo que nao fecha.** So o ULTIMO quadro da corrida muda, e so ele: a
+    # duracao continua 0,80 s, a amplitude continua grande e o pe continua no
+    # chao, porque `assentar` recalcula o quadril quadro a quadro. A unica
+    # coisa que sai do lugar e a emenda da volta — que era exatamente o que
+    # nenhuma ferramenta media antes.
+    ("um ciclo deixa de fechar",
+     "(24, pose(\n\t\t\t\tcoxa_D=(-38, 0, 0)",
+     "(24, pose(\n\t\t\t\tcoxa_D=(-8, 0, 0)"),
     # A formula de onde saem TODAS as tolerancias, no conferidor.
     ("a formula da folga multiplica por cem",
      "meia = (faixa[2] - faixa[1]) * 0.5",

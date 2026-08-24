@@ -23,6 +23,15 @@ ALVOS = {
     "instantaneo": os.path.join(RAIZ, "data", "direcao-de-arte.json"),
     "claude": os.path.join(RAIZ, "CLAUDE.md"),
     "regra": os.path.join(RAIZ, "tools", "arte", "regra_da_folga.py"),
+    ## A lista de nomes que o JOGO pede. Ela entrou nos alvos junto com a
+    ## conferencia que a compara com o gerador e com o `.glb`: enquanto nao
+    ## havia essa conferencia, o jogo pediu oito clipes do Royal Crown que
+    ## nunca existiram no nosso arquivo, com tudo verde.
+    "vocabulario": os.path.join(
+        RAIZ, "scripts", "gameplay", "vocabulario_de_animacao.gd"),
+    ## E um dos consumidores, para provar que nome escrito a mao reprova.
+    "caminhada": os.path.join(
+        RAIZ, "scripts", "gameplay", "gesto_de_caminhada.gd"),
 }
 ## **Todo artefato rastreado que o gerador escreve.** Restaurar so o `.glb`
 ## deixava o `.blend` da ultima mutacao no disco, e ele foi commitado assim —
@@ -137,6 +146,52 @@ MUTACOES = [
     # --- byte de controle vizinho do que motivou a conferencia ---
     ("um byte 0x0B entra num arquivo publicado", [
         ("claude", "Blender Foundation", "Blender" + chr(11) + "Foundation")], False),
+    # --- o VOCABULARIO: o que o jogo pede contra o que o boneco tem ---
+    #
+    # Nenhuma destas era pega antes, e o buraco que elas fecham nao era
+    # hipotetico: o jogo pedia `run`, `idle`, `swing`, `swing2`, `comboslash`,
+    # `shieldrush`, `shieldthrow` e `shieldwall`, e nenhum dos oito existia.
+    # **A ancora e a linha de TODOS, e nao a dos cinco gestos**: aquela aparece
+    # duas vezes no arquivo — em `TODOS` e em `GESTOS` —, e uma mutacao com
+    # padrao ambiguo nao muta nada. A suite acusa isso como PADRAO INVALIDO em
+    # vez de contar como pega, que e o comportamento certo: quem esta errada e
+    # a mutacao, nao a defesa.
+    ("o jogo passa a pedir um clipe que o boneco nao tem", [
+        ("vocabulario", "\tPARADO, ANDANDO, CORRENDO,\n\tESTOCADA",
+         "\tPARADO, ANDANDO, CORRENDO, INVENTADO,\n\tESTOCADA"),
+        ("vocabulario", 'const ERGUER: StringName = &"erguer"',
+         'const ERGUER: StringName = &"erguer"\n'
+         'const INVENTADO: StringName = &"inventado"')], False),
+    ("o jogo deixa de conhecer um clipe que o boneco tem", [
+        ("vocabulario", "\tPARADO, ANDANDO, CORRENDO,\n\tESTOCADA",
+         "\tPARADO, ANDANDO,\n\tESTOCADA")], False),
+    ("uma constante do vocabulario fica fora de TODOS", [
+        ("vocabulario", 'const PREPARO: StringName = &"preparo"',
+         'const PREPARO: StringName = &"preparo"\n'
+         'const ORFAO: StringName = &"orfao"')], False),
+    ("um nome de clipe volta a ser escrito a mao", [
+        ("caminhada", "_boneco.tocar(_clipe_de_locomocao(rapidez))",
+         '_boneco.tocar("run")')], False),
+    # --- ciclo x uma vez, nas quatro fontes ---
+    ("o jogo poe em ciclo algo que o gerador nao poe", [
+        ("vocabulario", "const CICLOS: Array[StringName] = [\n\tPARADO, ANDANDO, CORRENDO,",
+         "const CICLOS: Array[StringName] = [\n\tPARADO, ANDANDO,")], False),
+    ("o conferidor deixa de exigir que um ciclo feche", [
+        ("conferidor", 'EM_CICLO = {"parado", "andando", "correndo"}',
+         'EM_CICLO = {"parado", "andando"}')], False),
+    ("a folga de fechamento de ciclo vira meio metro", [
+        ("conferidor", "FECHAMENTO_DO_CICLO = 0.005",
+         "FECHAMENTO_DO_CICLO = 0.5")], False),
+    ("o documento diz que a corrida nao e ciclo", [
+        ("doc", "| 0,67 / 0,80 / 1,13 s | ciclo |",
+         "| 0,67 / 0,80 / 1,13 s | uma vez |")], False),
+    # --- os dois numeros novos do documento ---
+    ("a contagem de tolerancias do §9 fica errada", [
+        ("doc", "6 números não saem de faixa nenhuma",
+         "5 números não saem de faixa nenhuma")], False),
+    ("a cobertura publicada no §3 fica errada", [
+        ("doc", "nosso boneco tem **3 dos 22**",
+         "nosso boneco tem **9 dos 22**")], False),
     ("o corpo exportado perde uma peca", [
         ("gerador", '"mao_E": (0.145, 0.13),', '"mao_zz": (0.145, 0.13),'),
         ("gerador", "	return resultado.returncode", "	return 0")], True),

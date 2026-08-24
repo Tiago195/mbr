@@ -184,6 +184,21 @@ mede as duas coisas e as duas dão 22.
 obrigatório em interagir com o cenário, e nenhum deles é combate. É o que
 separa o gênero de um MOBA, e nós não temos nenhum.
 
+### Quanto disto o nosso boneco já tem
+
+O nosso boneco tem **3 dos 22** verbos universais, mais os cinco gestos de
+habilidade. Os nomes nossos, e a tradução de cada um para o nome do original,
+vivem em `scripts/gameplay/vocabulario_de_animacao.gd` — que é a lista que o
+JOGO usa. `tools/conferir_numeros.py` exige que ela seja exatamente a mesma
+lista do gerador e a mesma do `.glb` publicado, nos dois sentidos.
+
+Essa conferência existe por um buraco medido: o jogo pedia `run`, `idle`,
+`swing`, `swing2`, `comboslash`, `shieldrush`, `shieldthrow` e `shieldwall` —
+nomes do Royal Crown, herdados de uma pasta de assets que foi removida — e
+nenhum dos oito existia no nosso arquivo. `Boneco.tocar` devolvia `false` sem
+dizer nada, e as quatro ferramentas do projeto ficavam verdes, porque nenhuma
+delas perguntava *o jogo consegue tocar isto?*.
+
 **Fora dos 22, um campeão tem de 2 a 14 clipes próprios** (mediana 6, contando
 só os 26 que têm algum) — as habilidades. **162 nomes** aparecem em um campeão
 só.
@@ -397,11 +412,17 @@ E as defesas têm suas próprias suítes de mutação, no repositório:
 `tools/mutar_direcao.py` quebra a concordância entre documento, código,
 instantâneo e artefato. **49 mutações, 49 pegas.**
 
-Cinco números não saem de faixa nenhuma e por isso são declarados aqui, para
+6 números não saem de faixa nenhuma e por isso são declarados aqui, para
 poderem ser conferidos: a altura vale com folga de **4 cm**, o pé encosta no
 chão com folga de **1,5 cm**, uma animação precisa de amplitude de pelo menos
-**3 cm** para contar como animação, o salto sobe pelo menos **25 cm** e a
-corrida sai do chão pelo menos **4 cm**.
+**3 cm** para contar como animação, o salto sobe pelo menos **25 cm**, a
+corrida sai do chão pelo menos **4 cm**, e um ciclo fecha com folga de
+**0,5 cm** — o último quadro tem que repetir o primeiro, e quem mede é o
+vértice que mais se afasta entre os dois.
+
+**A contagem faz parte da afirmação.** Ela era "cinco" e não era conferida
+contra nada: acrescentar um sexto número deixava a frase errada em silêncio, e
+documento discordando de si mesmo já reprovou quatro rodadas seguidas aqui.
 
 **As demais tolerâncias são derivadas, não escritas.** Cada uma é meia faixa
 medida, arredondada para cima em passos de **0,005**. Escrever a folga à mão já

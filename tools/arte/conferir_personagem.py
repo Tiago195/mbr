@@ -45,10 +45,27 @@ NO_AR = {"salto": 0.25, "correndo": 0.04}
 MOVIMENTO_MINIMO = 0.03
 ## O que o codigo de jogo chama pelo nome. `GestoDeConjuracao.Gesto` escolhe
 ## entre os cinco gestos; a locomocao usa os tres primeiros.
+##
+## **Esta lista tem que ser a mesma de `VocabularioDeAnimacao.TODOS`**, que e o
+## que o jogo pede, e a mesma que o `.glb` tem. Quem confere as tres e
+## `tools/conferir_numeros.py` — e ele existe porque o jogo passou a pedir oito
+## nomes do Royal Crown que nunca estiveram no nosso arquivo, com todas as
+## outras ferramentas verdes.
 NOMES_EXIGIDOS = [
 	"parado", "andando", "correndo",
 	"estocada", "giro", "salto", "erguer", "preparo",
 ]
+## Quais rodam em CICLO — a coluna "Tipo" do §3 de `docs/11`, medida nos 32
+## campeoes do original.
+##
+## Ciclo tem uma obrigacao que "uma vez" nao tem: **o ultimo quadro repete o
+## primeiro** (item 3 da lista do §10). Sem isso o corpo salta ao emendar a
+## volta, e o salto e tanto mais visivel quanto mais curto o clipe — na corrida
+## ele acontece tres vezes por segundo.
+EM_CICLO = {"parado", "andando", "correndo"}
+## Quanto o ultimo quadro de um ciclo pode se afastar do primeiro, em metros —
+## medido no vertice que mais se afasta. Publicado em `docs/11` §9.
+FECHAMENTO_DO_CICLO = 0.005
 ## A altura do corpo parado, em metros. Faixa APERTADA de proposito: o boneco
 ## e autorado com 1,75 exato, entao qualquer desvio significa que uma medida
 ## saiu de sincronia com as outras. Com a faixa larga de antes (1,60 a 1,90),
@@ -222,7 +239,29 @@ def medir(armature, malha, acao) -> dict:
 		"topo": topo,
 		"movimento": amplitude,
 		"duracao": (fim - inicio) / CADENCIA,
+		"fechamento": _fechamento(malha, inicio, fim),
 	}
+
+
+def _fechamento(malha, inicio: int, fim: int) -> float:
+	"""Quanto o ULTIMO quadro se afasta do primeiro, em metros.
+
+	O vertice que mais se afasta, no corpo ja deformado. Um ciclo cujo ultimo
+	quadro nao repete o primeiro salta ao emendar a volta — item 3 da lista de
+	checagem do §10 de `docs/11`.
+
+	Medido em VERTICE e nao em angulo de osso de proposito: e o mesmo termo que
+	o resto desta ferramenta usa, e ele pega qualquer diferenca de pose sem
+	precisar enumerar quais propriedades olhar. Enumerar propriedade e a
+	armadilha que mais rendeu achado neste projeto.
+	"""
+	bpy.context.scene.frame_set(inicio)
+	primeiro = pontos(malha)
+	bpy.context.scene.frame_set(fim)
+	ultimo = pontos(malha)
+	if len(primeiro) != len(ultimo) or not primeiro:
+		return float("inf")
+	return max((a - b).length for a, b in zip(primeiro, ultimo))
 
 
 def _fundo_do_grupo(malha, grupo: str):
@@ -370,15 +409,42 @@ def main() -> int:
 		m = medir(armature, malha, acoes[nome])
 		print(
 			"[confere] %-9s %5.2f s  chao %+.3f..%+.3f  topo %.2f  movimento %.2f"
+			"  %s fecha %.3f"
 			% (nome, m["duracao"], m["chao_minimo"], m["chao_maximo"],
-			   m["topo"], m["movimento"])
+			   m["topo"], m["movimento"],
+			   "ciclo  " if nome in EM_CICLO else "uma vez", m["fechamento"])
 		)
 
 		faixa = DURACAO_ESPERADA.get(nome)
-		if faixa and not faixa[0] <= m["duracao"] <= faixa[1]:
+		# **Arredondada as mesmas duas casas que o censo publica.** As faixas do
+		# vocabulario universal sao medidas e arredondadas por
+		# `censo_do_original.py`, e varias delas sao um PONTO — `cut` e 1,50 nos
+		# 32 campeoes, `collect` e 0,67, `eat` e 6,57. Um clipe nosso tem um
+		# numero INTEIRO de quadros a 30 fps, entao 0,67 s e 20 quadros = 0,6667
+		# e nenhuma duracao possivel cai dentro de [0,67; 0,67]. Comparar
+		# arredondado nao inventa folga nenhuma: usa a mesma precisao que a
+		# medida tem.
+		if faixa and not faixa[0] <= round(m["duracao"], 2) <= faixa[1]:
 			reprovas.append(
 				"'%s' dura %.2f s, fora da faixa %.2f--%.2f da direcao de arte"
 				% (nome, m["duracao"], faixa[0], faixa[1])
+			)
+
+		# **Ciclo fecha.** O ultimo quadro tem que repetir o primeiro, senao o
+		# corpo salta ao emendar a volta. Medido no vertice que mais se afasta
+		# entre os dois quadros, no corpo ja deformado — que e o mesmo termo que
+		# ja pega qualquer propriedade de pose sem enumerar nenhuma.
+		#
+		# O contrario nao reprova: um gesto de uma vez que comeca e termina na
+		# mesma pose e legitimo, e os cinco gestos voltam ao repouso. O que
+		# impede `EM_CICLO` de virar decoracao e `conferir_numeros.py`, que a
+		# compara com o gerador, com o vocabulario do jogo e com a coluna
+		# "Tipo" do §3.
+		if nome in EM_CICLO and m["fechamento"] > FECHAMENTO_DO_CICLO:
+			reprovas.append(
+				"'%s' e ciclo e nao fecha: o ultimo quadro esta %.3f m do "
+				"primeiro (maximo %.3f)"
+				% (nome, m["fechamento"], FECHAMENTO_DO_CICLO)
 			)
 
 		if m["movimento"] < MOVIMENTO_MINIMO:

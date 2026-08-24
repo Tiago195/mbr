@@ -1,9 +1,9 @@
-[gd_resource type="Resource" script_class="Ability" format=3]
+[gd_resource type="Resource" script_class="Ability" format=3 uid="uid://8ex1wv1ns8qs"]
 
-[ext_resource type="Script" path="res://scripts/core/abilities/ability_effect.gd" id="1_aoan8"]
-[ext_resource type="Script" path="res://scripts/core/abilities/effects/damage_effect.gd" id="2_v4mqq"]
-[ext_resource type="Script" path="res://scripts/core/abilities/ability_pulse.gd" id="3_pulse0"]
-[ext_resource type="Script" path="res://scripts/core/abilities/ability.gd" id="4_yv2iw"]
+[ext_resource type="Script" uid="uid://daa6mwntjkysj" path="res://scripts/core/abilities/ability_effect.gd" id="1_aoan8"]
+[ext_resource type="Script" uid="uid://d1o73q8krpq74" path="res://scripts/core/abilities/effects/damage_effect.gd" id="2_v4mqq"]
+[ext_resource type="Script" uid="uid://e8wsr6dtjtb4" path="res://scripts/core/abilities/ability_pulse.gd" id="3_pulse0"]
+[ext_resource type="Script" uid="uid://qefw75lmx7ho" path="res://scripts/core/abilities/ability.gd" id="4_yv2iw"]
 
 [sub_resource type="Resource" id="Resource_awbcx"]
 script = ExtResource("2_v4mqq")
@@ -12,8 +12,6 @@ scaling_ratio = 0.6
 
 [sub_resource type="Resource" id="Resource_pulso0"]
 script = ExtResource("3_pulse0")
-form = 1
-origin = 1
 radius = 3.0
 effects = Array[ExtResource("1_aoan8")]([SubResource("Resource_awbcx")])
 

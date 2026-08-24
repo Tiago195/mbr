@@ -947,10 +947,82 @@ ANCORA_DO_UM = {
     "ombro / cotovelo / mão": "ombro",
 }
 
-## As três animações de locomoção usam a faixa do clipe equivalente do original,
-## publicada na tabela do §3. Sem esta amarração dava para alargar a faixa da
-## corrida até nada reprovar, e nenhuma ferramenta notava.
-DIRECAO_LOCOMOCAO = {"parado": "idle", "andando": "walk", "correndo": "run"}
+## `(rótulo, padrão no §9, padrão no conferidor do boneco)` — os números que
+## não são meia faixa de nada e por isso vivem escritos.
+##
+## Estavam em dois laços separados, e a separação custava: a contagem que o §9
+## publica não era conferida contra nenhum deles, então acrescentar uma
+## tolerância nova deixava a frase "cinco números" errada em silêncio.
+TOLERANCIAS_SOLTAS = (
+    ("altura", r"a altura vale com folga de \*\*([0-9]) cm\*\*",
+     r"FOLGA_DA_ALTURA = ([0-9.]+)"),
+    ("chão", r"chão com folga de \*\*([0-9],[0-9]) cm\*\*",
+     r"TOLERANCIA_DO_CHAO = ([0-9.]+)"),
+    ("amplitude", r"amplitude de pelo menos\s+\*\*([0-9]) cm\*\*",
+     r"MOVIMENTO_MINIMO = ([0-9.]+)"),
+    ("voo do salto", r"o salto sobe pelo menos \*\*([0-9]+) cm\*\*",
+     r'"salto": ([0-9.]+)'),
+    ("voo da corrida", r"corrida sai do chão pelo menos \*\*([0-9]+) cm\*\*",
+     r'"correndo": ([0-9.]+)'),
+    ("fechamento do ciclo", r"ciclo fecha com folga de\s+\*\*([0-9],[0-9]) cm\*\*",
+     r"^FECHAMENTO_DO_CICLO = ([0-9.]+)"),
+)
+
+## O caminho do vocabulário de animação, do jogo até o original.
+##
+## **Era uma lista de três escrita aqui** — `{"parado": "idle", ...}` —, e
+## enquanto foi, uma animação nova nascia sem faixa e sem ninguém notar: a
+## tabela do §3 podia publicar qualquer duração para ela, e o conferidor do
+## boneco qualquer outra. Hoje o mapa vem de `VocabularioDeAnimacao.NO_ORIGINAL`,
+## que é o que o JOGO usa, e a varredura cobre o que existir lá.
+VOCABULARIO = "scripts/gameplay/vocabulario_de_animacao.gd"
+
+
+def _vocabulario_do_jogo(fonte: str) -> dict:
+    """As listas de `VocabularioDeAnimacao`, lidas do texto.
+
+    Do texto e não por importação, pela mesma razão que `PROPORCAO`: esta
+    ferramenta é Python comum e o arquivo é GDScript.
+    """
+    literais = dict(re.findall(
+        r'^const ([A-Z_]+): StringName = &"(\w+)"', fonte, re.M
+    ))
+
+    def lista(nome: str) -> list:
+        bloco = re.search(
+            r"^const %s: Array\[StringName\] = \[(.*?)^\]" % nome, fonte, re.S | re.M
+        )
+        if bloco is None:
+            return []
+        return [
+            literais[i] for i in re.findall(r"\b([A-Z_]+)\b", bloco.group(1))
+            if i in literais
+        ]
+
+    no_original = {}
+    bloco = re.search(
+        r"^const NO_ORIGINAL: Dictionary = \{(.*?)^\}", fonte, re.S | re.M
+    )
+    if bloco is not None:
+        for nosso, deles in re.findall(r'([A-Z_]+): &"(\w+)"', bloco.group(1)):
+            if nosso in literais:
+                no_original[literais[nosso]] = deles
+    return {
+        "literais": sorted(literais.values()),
+        "todos": lista("TODOS"),
+        "gestos": lista("GESTOS"),
+        "ciclos": lista("CICLOS"),
+        "no_original": no_original,
+    }
+
+
+def _ciclos_do_gerador(fonte: str) -> set:
+    """Os nomes que o gerador declara como ciclo, lidos das chaves `"ciclo"`."""
+    saida = set()
+    for bloco in re.finditer(r'^	"(\w+)": \{(.*?)^	\},', fonte, re.S | re.M):
+        if re.search(r'"ciclo": True', bloco.group(2)):
+            saida.add(bloco.group(1))
+    return saida
 
 
 def _decimal(texto: str) -> float:
@@ -1384,6 +1456,143 @@ def _conferir_bytes_de_controle(c: "Conferencia") -> None:
         c.falhas.append("byte de controle em arquivo de texto: %s" % "; ".join(sujos))
 
 
+def _conferir_o_vocabulario(
+    c: "Conferencia", vocab: dict, doc: str, gerador: str, conferidor: str
+) -> None:
+    """O que o JOGO pede contra o que o boneco TEM, nome por nome.
+
+    **Esta é a conferência que faltava, e o buraco dela era o maior do
+    projeto.** `arte/personagem.glb` era gerado, conferido pela direção de
+    arte, conferido de novo sem o Blender, e rastreado — enquanto a camada de
+    jogo pedia `run`, `idle`, `swing`, `swing2`, `comboslash`, `shieldrush`,
+    `shieldthrow` e `shieldwall`, que são nomes do Royal Crown herdados de uma
+    pasta de assets que foi removida. Nenhum dos oito existia no arquivo, e
+    `Boneco.tocar` devolvia `false` sem dizer nada.
+
+    Quatro ferramentas verdes, e nenhuma delas perguntava *o jogo consegue
+    tocar isto?*. É a lição 9 do `CLAUDE.md`: a camada que ninguém executa é
+    onde o defeito mora.
+
+    Cinco listas têm que dizer a mesma coisa, e cada seta é uma chance de elas
+    se separarem:
+
+        VocabularioDeAnimacao.TODOS  ==  ANIMACOES do gerador
+                                     ==  animações do `.glb` publicado
+                                     ==  NOMES_EXIGIDOS do conferidor
+        VocabularioDeAnimacao.CICLOS ==  `"ciclo": True` do gerador
+                                     ==  EM_CICLO do conferidor
+    """
+    todos = sorted(vocab["todos"])
+    c.contar()
+    if not todos:
+        c.falhas.append(
+            "não consegui ler `TODOS` de `%s` — a conferência do vocabulário "
+            "ficou órfã" % VOCABULARIO
+        )
+        return
+
+    # **Constante declarada e fora de `TODOS` é um nome que ninguém confere.**
+    # Era assim que um clipe entrava no jogo sem entrar em nenhuma lista.
+    c.contar()
+    if sorted(vocab["literais"]) != todos:
+        c.falhas.append(
+            "o vocabulário declara %s e `TODOS` lista %s — a diferença é nome "
+            "que o jogo pode pedir sem ninguém conferir"
+            % (sorted(vocab["literais"]), todos)
+        )
+
+    # `TODOS` é a união exata dos verbos universais com os gestos. Sem isto,
+    # um nome podia estar nas duas listas, ou em nenhuma das duas.
+    c.contar()
+    uniao = sorted(set(vocab["no_original"]) | set(vocab["gestos"]))
+    if uniao != todos:
+        c.falhas.append(
+            "`TODOS` é %s e `NO_ORIGINAL` + `GESTOS` dão %s" % (todos, uniao)
+        )
+    c.contar()
+    repetidos = sorted(set(vocab["no_original"]) & set(vocab["gestos"]))
+    if repetidos:
+        c.falhas.append(
+            "%s estão em `NO_ORIGINAL` E em `GESTOS` — um verbo universal não "
+            "é um gesto de campeão" % repetidos
+        )
+
+    # O gerador, que é quem escreve as animações.
+    c.contar()
+    do_gerador = sorted(_duracoes_do_gerador(gerador))
+    if do_gerador != todos:
+        c.falhas.append(
+            "o jogo pede %s e o gerador do boneco produz %s — o que sobra de "
+            "um lado o outro não tem" % (todos, do_gerador)
+        )
+
+    # E o `.glb` publicado, que é o que a Godot carrega de verdade. Não é
+    # redundante com a comparação acima: o artefato pode ser mais velho que o
+    # código, e já foi.
+    c.contar()
+    try:
+        do_glb = sorted(_duracoes_do_glb("arte/personagem.glb"))
+    except (OSError, ValueError, KeyError) as erro:
+        do_glb = None
+        c.falhas.append("o boneco exportado não pôde ser lido: %s" % erro)
+    if do_glb is not None and do_glb != todos:
+        c.falhas.append(
+            "o jogo pede %s e `arte/personagem.glb` tem %s — `Boneco.tocar` "
+            "devolveria `false` calado para o que falta" % (todos, do_glb)
+        )
+
+    # Os ciclos, nas três fontes que precisam concordar.
+    c.contar()
+    ciclos = sorted(vocab["ciclos"])
+    sobrando = sorted(set(ciclos) - set(todos))
+    if sobrando:
+        c.falhas.append("`CICLOS` cita %s, que não está em `TODOS`" % sobrando)
+    c.contar()
+    do_gerador_ciclos = sorted(_ciclos_do_gerador(gerador))
+    if do_gerador_ciclos != ciclos:
+        c.falhas.append(
+            "o jogo põe em ciclo %s e o gerador declara ciclo em %s"
+            % (ciclos, do_gerador_ciclos)
+        )
+    c.contar()
+    bloco = re.search(r"^EM_CICLO = \{(.*?)\}", conferidor, re.S | re.M)
+    if bloco is None:
+        c.falhas.append(
+            "`EM_CICLO` sumiu do conferidor do boneco — a conferência de que "
+            "um ciclo FECHA ficou órfã"
+        )
+    else:
+        do_conferidor = sorted(re.findall(r'"(\w+)"', bloco.group(1)))
+        if do_conferidor != ciclos:
+            c.falhas.append(
+                "o jogo põe em ciclo %s e o conferidor do boneco exige "
+                "fechamento em %s" % (ciclos, do_conferidor)
+            )
+
+    # Quantos dos 22 verbos universais o nosso boneco já tem. É o número que
+    # diz o tamanho do buraco, e por isso ele é afirmado no documento em vez
+    # de ficar na cabeça de quem contou.
+    c.afirma("docs/11 §3 verbos universais que temos", doc,
+             r"nosso boneco tem \*\*(\d+) dos 22\*\*",
+             len(vocab["no_original"]))
+
+    # **Nome de clipe escrito à mão volta a ser nome que ninguém confere.**
+    # Toda chamada tem que passar por uma constante do vocabulário; um literal
+    # em `tocar("...")` é exatamente como os oito nomes do Royal Crown
+    # sobreviveram à remoção dos assets.
+    c.contar()
+    soltos = []
+    for arquivo in sorted((RAIZ / "scripts").rglob("*.gd")):
+        texto = arquivo.read_text(encoding="utf-8")
+        for achado in re.findall(r"\.tocar\(\s*\"", texto):
+            soltos.append(arquivo.name)
+    if soltos:
+        c.falhas.append(
+            "há chamada de `tocar` com nome escrito à mão em %s — use uma "
+            "constante de `VocabularioDeAnimacao`" % sorted(set(soltos))
+        )
+
+
 def _conferir_direcao_de_arte(c: "Conferencia") -> None:
     """`docs/11` contra `tools/arte/`, nos dois sentidos, MEDIANA E FAIXA.
 
@@ -1737,20 +1946,6 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
     finally:
         sys.path.pop(0)
 
-    # Quanto o corpo tem que sair do chão em cada animação de voo. Era a única
-    # conferência que exigia que o salto saltasse, e não era publicada.
-    for nome, padrao in (("salto", r"o salto sobe pelo menos \*\*(\d+) cm\*\*"),
-                         ("correndo", r"corrida sai do chão pelo menos \*\*(\d+) cm\*\*")):
-        c.contar()
-        no_doc = re.search(padrao, doc)
-        no_codigo = re.search(r'"%s": ([0-9.]+)' % nome, conferidor)
-        if no_doc is None or no_codigo is None:
-            c.falhas.append("o voo de `%s` sumiu de `docs/11` ou do conferidor" % nome)
-        elif abs(float(no_doc.group(1)) / 100.0 - float(no_codigo.group(1))) > 1e-9:
-            c.falhas.append(
-                "docs/11 diz %s cm de voo para `%s` e o conferidor usa %s m"
-                % (no_doc.group(1), nome, no_codigo.group(1))
-            )
 
     # A lista do que o conferidor exige tem que ser a lista do que o gerador
     # produz. Sem isto, tirar um nome de `NOMES_EXIGIDOS` fazia a animação
@@ -1768,20 +1963,20 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
                 "é medido por ninguém" % (do_gerador, pedidos)
             )
 
-    # As três tolerâncias que não saem de faixa nenhuma, e por isso são
-    # declaradas no §9 para poderem ser conferidas. Sem isto, alargar qualquer
-    # uma até nada reprovar era uma edição de um dígito.
-    for rotulo, no_doc_padrao, no_codigo_padrao in (
-        ("altura", r"a altura vale com folga de \*\*([0-9]) cm\*\*",
-         r"FOLGA_DA_ALTURA = ([0-9.]+)"),
-        ("chão", r"chão com folga de \*\*([0-9],[0-9]) cm\*\*",
-         r"TOLERANCIA_DO_CHAO = ([0-9.]+)"),
-        ("amplitude", r"amplitude de pelo menos\s+\*\*([0-9]) cm\*\*",
-         r"MOVIMENTO_MINIMO = ([0-9.]+)"),
-    ):
+    # Os números que não saem de faixa nenhuma, e por isso são declarados no §9
+    # para poderem ser conferidos. Sem isto, alargar qualquer um até nada
+    # reprovar era uma edição de um dígito.
+    #
+    # **E a CONTAGEM deles é afirmada junto.** O §9 os apresenta dizendo
+    # quantos são; acrescentar um sexto sem mexer na frase deixava o documento
+    # discordando de si mesmo, que é o defeito que já reprovou quatro rodadas
+    # seguidas neste projeto.
+    c.afirma("docs/11 §9 quantas tolerâncias declaradas", doc,
+             r"(\d+) números não saem de faixa nenhuma", len(TOLERANCIAS_SOLTAS))
+    for rotulo, no_doc_padrao, no_codigo_padrao in TOLERANCIAS_SOLTAS:
         c.contar()
         no_doc = re.search(no_doc_padrao, doc)
-        no_codigo = re.search(no_codigo_padrao, conferidor)
+        no_codigo = re.search(no_codigo_padrao, conferidor, re.M)
         if no_doc is None or no_codigo is None:
             c.falhas.append(
                 "a tolerância de %s sumiu de `docs/11` ou do conferidor" % rotulo
@@ -1792,9 +1987,19 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
                 % (no_doc.group(1), rotulo, no_codigo.group(1))
             )
 
-    # As três de locomoção: a faixa do conferidor é a faixa publicada do clipe
-    # equivalente do original, sem folga inventada.
-    for nossa, deles in sorted(DIRECAO_LOCOMOCAO.items()):
+    # ---------------------------------------------- o vocabulário de animação
+    #
+    # **Varredura sobre `VocabularioDeAnimacao.NO_ORIGINAL`, e não uma lista de
+    # três escrita aqui.** Enquanto foi lista, uma animação nova nascia sem
+    # faixa: nem o §3 nem o conferidor do boneco eram cobrados por ela, e a
+    # única coisa que a julgava era a memória de quem a escreveu.
+    vocab = _vocabulario_do_jogo(ler(VOCABULARIO))
+    _conferir_o_vocabulario(c, vocab, doc, gerador, conferidor)
+
+    # Cada verbo universal que nós temos: a faixa do conferidor é a faixa
+    # publicada do clipe equivalente do original, sem folga inventada, e o
+    # TIPO — ciclo ou uma vez — é o que a mesma linha do §3 declara.
+    for nossa, deles in sorted(vocab["no_original"].items()):
         c.contar()
         # O instantâneo guarda a faixa de cada clipe universal, e ela é a
         # terceira fonte também aqui: sem isto, alargar a faixa no documento E
@@ -1806,8 +2011,23 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
                 "âncora no original" % deles
             )
         no_doc = re.search(
-            r"\| `%s` \| ([0-9],[0-9]+) / [0-9],[0-9]+ / ([0-9],[0-9]+) s \|" % deles, doc
+            r"\| `%s` \| ([0-9],[0-9]+) / [0-9],[0-9]+ / ([0-9],[0-9]+) s "
+            r"\| (ciclo|uma vez) \|" % deles, doc
         )
+        # **O tipo também vem da linha.** Ciclo tem uma obrigação que "uma vez"
+        # não tem — o último quadro repete o primeiro —, e sem esta amarração a
+        # coluna "Tipo" do §3 era prosa: tirar um nome de `EM_CICLO` desligava
+        # aquela conferência e nada acusava.
+        c.contar()
+        if no_doc is not None:
+            era_ciclo = no_doc.group(3) == "ciclo"
+            temos_ciclo = nossa in vocab["ciclos"]
+            if era_ciclo != temos_ciclo:
+                c.falhas.append(
+                    "docs/11 §3 diz que `%s` é `%s` e o nosso `%s` %s ciclo"
+                    % (deles, no_doc.group(3), nossa,
+                       "é" if temos_ciclo else "não é")
+                )
         if do_censo is not None and no_doc is not None:
             if (abs(_decimal(no_doc.group(1)) - do_censo[0]) > 5e-3
                     or abs(_decimal(no_doc.group(2)) - do_censo[2]) > 5e-3):
@@ -1847,7 +2067,9 @@ def _conferir_direcao_de_arte(c: "Conferencia") -> None:
                     "%.2f--%.2f" % (p25, p75, ritmo.get("habilidade_p25", -1),
                                     ritmo.get("habilidade_p75", -1))
                 )
-        for gesto in ("estocada", "giro", "salto", "erguer", "preparo"):
+        # Varredura sobre os gestos que o JOGO declara, e não sobre uma tupla
+        # de cinco escrita aqui: gesto novo já nasce com a faixa cobrada.
+        for gesto in vocab["gestos"]:
             c.contar()
             achado = re.search(
                 r'"%s": \(([0-9.]+), ([0-9.]+)\)' % gesto, conferidor
