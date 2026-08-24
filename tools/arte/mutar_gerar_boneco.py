@@ -185,8 +185,8 @@ MUTACOES = [
     # sucesso no stdout, entao ele nao sabe QUAL conferencia matou, e a guarda
     # levava credito por uma morte que nao era dela.
     ("uma chave de osso e escrita errada",
-     [("gerador", "coxa_E=(22, 5, 0), canela_E=(34, 0, 0),",
-       "coxa_e=(22, 5, 0), canela_E=(34, 0, 0),")]),
+     [("gerador", "coxa_E=(42, 5, 0), canela_E=(68, 0, 0),",
+       "coxa_e=(42, 5, 0), canela_E=(68, 0, 0),")]),
     # O ramo do conferidor para clipe de uma vez e um `continue`: ele nao
     # afirma nada. Um `morte` que terminasse de pe passaria por toda
     # conferencia que existia antes desta — a duracao bate, os ossos articulam,

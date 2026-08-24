@@ -1567,16 +1567,28 @@ ANIMACOES = {
 			(0.055, pose(peito=(-16, 0, 0), cabeca=(-14, 0, 0),
 			             braco_D=(-20, -15, 0), braco_E=(-20, 15, 0))),
 			# Os joelhos cedem e o quadril despenca. A esquerda cede mais.
+			#
+			# **E "despenca" era falso.** Medida a fcurve de `quadril.location`,
+			# nesta chave o quadril SUBIA 3,1 cm — de 0,8479 para 0,8791 — e o
+			# comentario afirmava o contrario. A causa e mecanica: dobrar pouco
+			# o joelho levanta o pe, e `assentar` sobe o corpo inteiro para
+			# reencostar. Medido em pose estatica, `coxa 16 / canela 30` poe o
+			# quadril a 0,866 contra 0,849 de pe.
+			#
+			# Um agachamento de verdade precisa do TORNOZELO: sem ele a canela
+			# gira e arranca a sola do chao. Com `coxa 35 / canela 60 / pe -25`
+			# o quadril desce a 0,623 — 23 cm — e a sola fica em zero. E dai
+			# que a queda deixa de ser uma prancha girando no tornozelo.
 			(0.220, pose(quadril=(-12, 0, 0), peito=(-6, 0, 0),
 			             cabeca=(4, 0, 0),
-			             coxa_D=(16, -2, 0), canela_D=(30, 0, 0),
-			             coxa_E=(20, 3, 0), canela_E=(40, 0, 0),
+			             coxa_D=(35, -2, 0), canela_D=(60, 0, 0), pe_D=(-25, 0, 0),
+			             coxa_E=(40, 3, 0), canela_E=(66, 0, 0), pe_E=(-28, 0, 0),
 			             braco_D=(-10, -25, 0), braco_E=(-14, 20, 0))),
 			# Tomba para tras: o tronco passa do ponto de equilibrio.
 			(0.450, pose(quadril=(-42, 0, 0), peito=(6, 0, 0),
 			             cabeca=(10, 0, 0),
-			             coxa_D=(18, -4, 0), canela_D=(26, 0, 0),
-			             coxa_E=(22, 5, 0), canela_E=(34, 0, 0),
+			             coxa_D=(38, -4, 0), canela_D=(62, 0, 0), pe_D=(-26, 0, 0),
+			             coxa_E=(42, 5, 0), canela_E=(68, 0, 0), pe_E=(-29, 0, 0),
 			             braco_D=(0, -34, 0), braco_E=(0, 30, 0))),
 			# As costas batem no chao.
 			#
