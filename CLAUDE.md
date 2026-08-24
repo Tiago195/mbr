@@ -353,8 +353,8 @@ Três achados que valem além da arte:
 `tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
 — e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
 reprova quando documento e código discordam, mediana E faixa.
-**98 mutações, 98 pegas** — 17 no boneco, 58 na concordância e
-23 no boneco novo.
+**100 mutações, 100 pegas** — 17 no boneco, 58 na concordância e
+25 no boneco novo.
 
 **E isto foi REPROVADO DUAS VEZES por um validador adversarial**, com 17 e 12
 achados. A segunda rodada achou o pior de todos, e era de processo: **o `.glb`
@@ -508,7 +508,7 @@ existir, e sem ela sai com 2 — que é diferente de reprovar.
 `arte/personagem.glb`, que é o que o jogo carrega hoje: cápsulas e caixas, com
 os 25 clipes do vocabulário universal. `gerar_boneco.py` faz `arte/boneco.glb`,
 o boneco novo — malha contínua por Skin Modifier, na proporção medida, com
-`parado` e `andando`. **Ele ainda não tem consumidor**: nada na camada de jogo
+`parado`, `andando` e `morrer`. **Ele ainda não tem consumidor**: nada na camada de jogo
 o carrega, e ligá-lo é trabalho que não foi feito.
 
 `gerar_boneco.py` custa **33 s** (mediana de três execuções; 34,0 / 32,7 /
@@ -571,7 +571,7 @@ py tools/mutar_direcao.py
 py tools/arte/mutar_gerar_boneco.py
 ```
 
-**98 mutações, 98 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
+**100 mutações, 100 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
 artefatos inclusive** — restaurar só o código-fonte já deixou um `.glb`
 commitado vindo de uma mutação, e restaurar só o `.glb` deixou o `.blend`.
 **Rodar uma de cada vez:** elas mutam os mesmos arquivos, e sobrepô-las

@@ -84,6 +84,7 @@ AMOSTRA_MINIMA = 12
 ANIMACOES_EXIGIDAS = {
 	"parado": (1.33, True),
 	"andando": (1.27, True),
+	"morrer": (1.82, False),
 }
 
 ## O nome do mesmo verbo no original, para a duracao poder ser conferida contra
@@ -91,6 +92,7 @@ ANIMACOES_EXIGIDAS = {
 NOME_NO_ORIGINAL = {
 	"parado": "idle",
 	"andando": "walk",
+	"morrer": "death",
 }
 
 

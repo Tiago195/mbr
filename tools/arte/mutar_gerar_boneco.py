@@ -98,8 +98,13 @@ MUTACOES = [
     ("o rosto nao e pintado",
      [("gerador", "\t\tface.material_index = indices[\"rosto\"]\n\t\tpintadas += 1",
        "\t\tpintadas += 1")]),
+    # Ancorada no comentario do `andando`: `morrer` tambem assenta, e sem
+    # o contexto o padrao passou a casar duas vezes — mutacao que aplica
+    # em dois lugares nao testa nenhum dos dois em separado.
     ("o corpo deixa de assentar no chao",
-     [("gerador", "\t\t\"assentar\": True,", "\t\t\"assentar\": False,")]),
+     [("gerador",
+       "\t\t# passada e levanta o boneco no ar na troca.\n\t\t\"assentar\": True,",
+       "\t\t# passada e levanta o boneco no ar na troca.\n\t\t\"assentar\": False,")]),
 
     # --- as animacoes ---
     ("a cadencia nao chega na cena",
@@ -167,6 +172,22 @@ MUTACOES = [
     ("o vao dos quadris sai da faixa",
      [("gerador", '\t"vao_dos_quadris": 0.129,',
        '\t"vao_dos_quadris": 0.160,')]),
+
+    # --- o `morrer`, e as duas conferencias que ele obrigou a existir ---
+    # `criar_animacao` faz `poses.get(osso.name, ...)`: ele percorre os ossos e
+    # pergunta o que cada um faz. Nome escrito errado nunca e perguntado, entao
+    # a chave e descartada em SILENCIO — e os pisos de articulacao continuam
+    # passando, porque os outros ossos ainda se mexem.
+    ("uma chave de osso e escrita errada",
+     [("gerador", "(1.000, pose(quadril=(-10, -85, 0), peito=(4, 0, 0),",
+       "(1.000, pose(quadrl=(-10, -85, 0), peito=(4, 0, 0),")]),
+    # O ramo do conferidor para clipe de uma vez e um `continue`: ele nao
+    # afirma nada. Um `morrer` que terminasse de pe passaria por toda
+    # conferencia que existia antes desta — a duracao bate, os ossos articulam,
+    # o pe nao afunda.
+    ("o morto termina em pe",
+     [("gerador", "(1.000, pose(quadril=(-10, -85, 0), peito=(4, 0, 0),",
+       "(1.000, pose(quadril=(0, 0, 0), peito=(4, 0, 0),")]),
 
     # --- o conferidor: quebrar a CONFERENCIA tambem tem que reprovar ---
     # Tirar `rosto` so de `CORES` nao desliga a conferencia: a presenca dele

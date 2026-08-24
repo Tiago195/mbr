@@ -1488,6 +1488,80 @@ ANIMACOES = {
 			           antebraco_D=(-4, 0, 0), antebraco_E=(-4, 0, 0))),
 		],
 	},
+	# **Morte, e ela e o primeiro clipe deste boneco que nao e ciclo.**
+	#
+	# 1,82 s e a mediana medida de `death` nos 1350 clipes do original (faixa
+	# 1,13 a 3,33). O §10 de `docs/11` pede antecipacao em gesto — e abre
+	# excecao justamente para REACAO: *"quem leva dano nao antecipa nada — o
+	# susto e a informacao... Numa reacao o tempo se inverte: instantaneo na
+	# entrada, lento na saida."* Por isso o solavanco esta em t=0,06 e os 94%
+	# restantes sao desaceleracao.
+	#
+	# **Tomba para tras e para a esquerda.** Para tras porque de camera
+	# isometrica a queda para tras abre a silhueta em vez de encolher (item 7
+	# do §10); para a esquerda porque uma queda simetrica nao existe, e porque
+	# assimetria de proposito e o que uma tabela espelhada nao consegue dar.
+	"morrer": {
+		"ciclo": False,
+		"duracao": 1.82,
+		# A perna cede e o braco se debate. `cabeca` fica de fora: no
+		# solavanco ela anda, mas do meio para o fim ela e carregada pelo
+		# tronco, e exigir articulacao propria dela ali seria pedir que o
+		# cadaver mexesse a cabeca para satisfazer uma regua.
+		"movem": ["coxa", "canela", "braco"],
+		# Nada de pe plantado: o corpo termina no chao. E nada de passada nem
+		# de "sempre um pe no chao" — as duas descrevem locomocao.
+		"pes_plantados": False,
+		"sempre_um_pe_no_chao": False,
+		"passada": False,
+		"assentar": True,
+		# O teto de altura no ultimo quadro. Ver a conferencia de `deitado`.
+		"deitado": 0.70,
+		"chaves": [
+			# De pe. O golpe chega agora, sem recuo nenhum antes dele.
+			(0.000, pose()),
+			# Solavanco: peito estufa, cabeca vai para tras, bracos abrem.
+			(0.055, pose(peito=(-16, 0, 0), cabeca=(-14, 0, 0),
+			             braco_D=(-20, -15, 0), braco_E=(-20, 15, 0))),
+			# Os joelhos cedem e o quadril despenca. A esquerda cede mais.
+			(0.220, pose(quadril=(-10, -3, 0), peito=(-6, 0, 0),
+			             cabeca=(4, 0, 0),
+			             coxa_D=(18, 0, 0), canela_D=(35, 0, 0),
+			             coxa_E=(22, 0, 0), canela_E=(45, 0, 0),
+			             braco_D=(-10, -25, 0), braco_E=(-14, 20, 0))),
+			# Tomba: o tronco passa do ponto de equilibrio.
+			#
+			# **A coxa contra-gira o quadril, e nao e escolha de estilo.** O
+			# quadril e a raiz do esqueleto: gira-lo leva as pernas junto. Sem
+			# a contra-rotacao o corpo dobra mas nao desce — medido, ele
+			# terminava com o ponto mais alto a 1,027 m, porque as pernas
+			# ficavam esticadas para baixo segurando o quadril no ar. Foi a
+			# conferencia de `deitado` que disse isso; nenhuma outra sabia.
+			(0.450, pose(quadril=(-38, -10, 0), peito=(6, 0, 0),
+			             cabeca=(10, 0, 0),
+			             coxa_D=(38, -5, 0), canela_D=(50, 0, 0),
+			             coxa_E=(46, 10, 0), canela_E=(62, 0, 0),
+			             braco_D=(20, -30, 0), braco_E=(10, 35, 0))),
+			# As costas batem no chao e as pernas se estendem sobre ele.
+			(0.700, pose(quadril=(-70, -16, 0), peito=(10, 0, 0),
+			             cabeca=(6, 0, 0),
+			             coxa_D=(55, -8, 0), canela_D=(35, 0, 0),
+			             coxa_E=(62, 14, 0), canela_E=(48, 0, 0),
+			             braco_D=(40, -20, 0), braco_E=(26, 28, 0))),
+			# Um ultimo espasmo, pequeno — e ele e o que separa um corpo de um
+			# manequim caindo.
+			(0.880, pose(quadril=(-8, -80, 0), peito=(6, 0, 0),
+			             cabeca=(2, 0, 0),
+			             coxa_D=(20, -6, 0), canela_D=(30, 0, 0),
+			             coxa_E=(26, 12, 0), canela_E=(40, 0, 0),
+			             braco_D=(64, -4, 0), braco_E=(76, 2, 0))),
+			# Imovel.
+			(1.000, pose(quadril=(-10, -85, 0), peito=(4, 0, 0),
+			             coxa_D=(15, -6, 0), canela_D=(25, 0, 0),
+			             coxa_E=(20, 12, 0), canela_E=(35, 0, 0),
+			             braco_D=(70, 0, 0), braco_E=(82, 0, 0))),
+		],
+	},
 	"andando": {
 		"ciclo": True,
 		"duracao": 1.27,
@@ -1817,6 +1891,10 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	giros = {osso.name: [] for osso in armature.pose.bones}
 	## `[pior contagem, quadro em que ela ocorreu]` de travessia da casca.
 	travessia = [0, 0]
+	## O ponto mais alto do corpo no ULTIMO quadro. Ver `deitado`.
+	altura_no_fim = [0.0]
+	## E o ponto mais alto de cada regiao, no mesmo quadro.
+	alto_no_fim = {}
 	for quadro in range(0, ultimo + 1):
 		bpy.context.scene.frame_set(quadro)
 		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
@@ -1859,6 +1937,17 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		# `TETO_DA_TRAVESSIA_ANIMADA`. Ela viveu num segundo passe sobre os
 		# quadros por uma versão, e o segundo `evaluated_get` custava nove
 		# vezes o que a medição em si custa.
+		if quadro == ultimo:
+			altura_no_fim[0] = max(p.z for p in pontos)
+			# **E de QUEM e cada altura**, porque "1,15 m" nao diz se o corpo
+			# ficou em pe, sentado ou de cabeca para baixo. Um teto sozinho
+			# reprova sem ensinar.
+			for ponto, quem in zip(pontos, dono):
+				if quem is None:
+					continue
+				regiao = _regiao_do_osso(quem)
+				alto_no_fim[regiao] = max(alto_no_fim.get(regiao, -9.9),
+				                          ponto.z)
 		temporaria.calc_loop_triangles()
 		quantos = len(conferir_boneco.auto_intersecoes(
 			[tuple(p) for p in pontos],
@@ -1912,7 +2001,7 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		articulacao[osso] = pior
 
 	return (amplitude, por_regiao, articulacao, lateral, chao, marcha,
-	        alturas_do_quadril, tuple(travessia))
+	        alturas_do_quadril, tuple(travessia), altura_no_fim[0], alto_no_fim)
 
 
 ## Quantos pares de face podem se atravessar num quadro ANIMADO.
@@ -2035,6 +2124,27 @@ def criar_animacao(armature: bpy.types.Object, nome: str,
 	for osso in armature.pose.bones:
 		osso.rotation_mode = "XYZ"
 
+	# **Nome de osso que nao existe era descartado em SILENCIO.**
+	#
+	# O laco abaixo faz `poses.get(osso.name, ...)`: ele percorre os ossos da
+	# armadura e pergunta o que cada um deve fazer. Uma chave escrita errada —
+	# `quadrl` por `quadril` — nunca e perguntada, entao a pose sai sem aquele
+	# movimento, sem erro e sem aviso. E os pisos de articulacao continuam
+	# passando, porque os outros ossos do clipe ainda se mexem.
+	#
+	# Conferencia que falha ABERTA, e a classe que este projeto mais persegue.
+	# Fecha com tres linhas, e passa a importar de verdade a partir do `morrer`,
+	# que e o primeiro clipe a escrever `quadril` numa pose.
+	conhecidos = {osso.name for osso in armature.pose.bones}
+	pedidos = set()
+	for _instante, poses in dados["chaves"]:
+		pedidos |= set(poses)
+	desconhecidos = sorted(pedidos - conhecidos)
+	if desconhecidos:
+		raise RuntimeError(
+			"a animacao `%s` pede osso que nao existe: %s — os ossos sao %s"
+			% (nome, ", ".join(desconhecidos), ", ".join(sorted(conhecidos))))
+
 	ultimo = 0
 	for instante, poses in dados["chaves"]:
 		quadro = int(round(instante * dados["duracao"] * CADENCIA))
@@ -2075,7 +2185,8 @@ def main() -> int:
 	for nome, dados in ANIMACOES.items():
 		quadros = criar_animacao(esqueleto, nome, dados)
 		(amplitude, por_regiao, por_osso, lateral, chao, marcha,
-		 alturas_do_quadril, travessia) = medir_animacao(  # em graus
+		 alturas_do_quadril, travessia, altura_no_fim,
+		 alto_no_fim) = medir_animacao(
 			esqueleto, corpo, nome, quadros)
 		# **A duração impressa é a MEDIDA, não a declarada.** Ela já imprimiu
 		# "1,33 s" com o arquivo saindo em 1,667 — mentindo sobre exatamente o
@@ -2122,6 +2233,40 @@ def main() -> int:
 				"teto e %d — o corpo entra em si mesmo em movimento"
 				% (nome, pior_travessia, quadro_ruim,
 				   TETO_DA_TRAVESSIA_ANIMADA))
+
+		## **O corpo terminou DEITADO?** Ver `deitado` em `ANIMACOES`.
+		##
+		## Existe porque "nao fecha ciclo" nao afirma nada: o ramo do
+		## conferidor para clipe de uma vez e um `continue`. Um `morrer` que
+		## voltasse a pose de pe passaria por toda conferencia que existe — a
+		## duracao bate, os ossos articulam, o pe nao afunda. O que distingue
+		## morte de tremeliques e ONDE O CORPO PARA.
+		teto_final = dados.get("deitado")
+		if teto_final is not None:
+			print("[boneco]     altura no ultimo quadro: %.3f m (corpo inteiro)"
+			      % altura_no_fim)
+			for regiao in sorted(alto_no_fim, key=lambda r: -alto_no_fim[r]):
+				print("[boneco]       %-10s topo em %.3f m"
+				      % (regiao, alto_no_fim[regiao]))
+			# **O que se exige e o TRONCO no chao, nao o corpo inteiro.**
+			#
+			# A primeira versao media o ponto mais alto do corpo, e o teto era
+			# inalcancavel por um motivo que so a medicao mostrou: o braco de
+			# cima nao consegue deitar junto ao tronco sem atravessa-lo. Sao
+			# 497 pares de auto-intersecao ao dobra-lo para dentro, contra 10
+			# com ele estendido — o boneco nao tem articulacao de ombro, que e
+			# a mesma limitacao que `ABERTURA_DO_BRACO` existe para contornar.
+			#
+			# E um braco estirado num cadaver e certo, nao errado. O que
+			# distingue morte de tropeco e o TRONCO estar no chao: em pe o
+			# peito fica a 1,15 m, e aqui ele tem de estar abaixo de 0,70.
+			no_tronco = max(alto_no_fim.get("peito", 0.0),
+			                alto_no_fim.get("quadril", 0.0))
+			if no_tronco > teto_final:
+				raise RuntimeError(
+					"em `%s` o tronco termina com o topo a %.3f m e o teto e "
+					"%.2f — o corpo nao caiu, so dobrou"
+					% (nome, no_tronco, teto_final))
 
 		for regiao, minimo in dados.get("balanca", {}).items():
 			andou = lateral.get(regiao, 0.0)
@@ -2176,7 +2321,14 @@ def main() -> int:
 			# era impresso e comparado só com o piso de amplitude, que não tem
 			# teto. Medido, o corpo subia e descia 7% da altura contra 4 a 5 cm
 			# de uma pessoa — 2,5 vezes demais, e em dente de serra.
-			if quique > QUIQUE_MAXIMO * ALTURA:
+			#
+			# **Só vale para LOCOMOÇÃO**, e a marca disso é `passada`. O teto
+			# diz "o corpo cai e escala em vez de andar", que é uma frase sobre
+			# andar: num `morrer` o quadril DEVE despencar, e ele despenca
+			# 29 cm. Aplicá-lo ali seria a régua certa no clipe errado —
+			# obrigaria o cadáver a cair devagar para satisfazer uma medida de
+			# caminhada.
+			if dados.get("passada") and quique > QUIQUE_MAXIMO * ALTURA:
 				raise RuntimeError(
 					"em `%s` o quadril sobe e desce %.4f m, %.1f%% da altura "
 					"(maximo %.1f%%) — o corpo cai e escala em vez de andar"
