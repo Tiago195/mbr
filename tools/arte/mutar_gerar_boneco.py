@@ -191,6 +191,14 @@ MUTACOES = [
     # afirma nada. Um `morte` que terminasse de pe passaria por toda
     # conferencia que existia antes desta — a duracao bate, os ossos articulam,
     # o pe nao afunda.
+    # O item 5 do §10 — "o pe encosta no chao" — nao era medido no `morte`: as
+    # duas metades da conferencia de chao estao atras de flags que um clipe de
+    # morte desliga, e a terceira da zero por identidade com `assentar` ligado.
+    ("o morto termina com os pes no ar",
+     [("gerador", "coxa_D=(3, -4, 0), canela_D=(5, 0, 0), pe_D=(-8, 0, 0),",
+       "coxa_D=(-40, -4, 0), canela_D=(5, 0, 0), pe_D=(-8, 0, 0),"),
+      ("gerador", "coxa_E=(5, 5, 0), canela_E=(8, 0, 0), pe_E=(-11, 0, 0),",
+       "coxa_E=(-40, 5, 0), canela_E=(8, 0, 0), pe_E=(-11, 0, 0),")]),
     ("o morto termina em pe",
      [("gerador", "(1.000, pose(quadril=(-85, 0, 0), peito=(-4, 0, 0),",
        "(1.000, pose(quadril=(0, 0, 0), peito=(-4, 0, 0),")]),

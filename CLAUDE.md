@@ -366,8 +366,8 @@ Três achados que valem além da arte:
 `tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
 — e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
 reprova quando documento e código discordam, mediana E faixa.
-**100 mutações, 100 pegas** — 17 no boneco, 58 na concordância e
-25 no boneco novo.
+**101 mutações, 101 pegas** — 17 no boneco, 58 na concordância e
+26 no boneco novo.
 
 **E isto foi REPROVADO DUAS VEZES por um validador adversarial**, com 17 e 12
 achados. A segunda rodada achou o pior de todos, e era de processo: **o `.glb`
@@ -585,7 +585,7 @@ py tools/mutar_direcao.py
 py tools/arte/mutar_gerar_boneco.py
 ```
 
-**100 mutações, 100 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
+**101 mutações, 101 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
 artefatos inclusive** — restaurar só o código-fonte já deixou um `.glb`
 commitado vindo de uma mutação, e restaurar só o `.glb` deixou o `.blend`.
 **Rodar uma de cada vez:** elas mutam os mesmos arquivos, e sobrepô-las

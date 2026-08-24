@@ -1530,8 +1530,18 @@ ANIMACOES = {
 		"pes_plantados": False,
 		"sempre_um_pe_no_chao": False,
 		"passada": False,
+		# **`assentar` produz TODA a trajetoria vertical desta queda**, e isso
+		# e honesto dizer: as chaves aqui so rotacionam. Lida a fcurve de
+		# `quadril.location`, o corpo sobe 3 cm enquanto os joelhos cedem e
+		# depois desce 64 cm — nada disso esta escrito nas poses. E uma
+		# ferramenta de locomocao ("sem isso, girar a perna enfia o pe no chao
+		# na passada") aplicada a uma queda.
+		#
+		# Funciona, e a razao e que a garantia dela e exatamente a que uma
+		# queda precisa: o corpo nunca atravessa o chao. Mas quem for autorar o
+		# proximo clipe de impacto precisa saber que a altura nao vem daqui.
 		"assentar": True,
-		# O teto de altura no ultimo quadro. Ver a conferencia de `deitado`.
+		# Termina deitado, e o pe encosta. Ver as duas conferencias.
 		"deitado": True,
 		"chaves": [
 			# De pe. O golpe chega agora, sem recuo nenhum antes dele.
@@ -2357,6 +2367,29 @@ def main() -> int:
 					"em `%s` o tronco termina a %.1f graus da vertical e o "
 					"piso e %.0f — o corpo nao deitou"
 					% (nome, inclinacao, INCLINACAO_DE_DEITADO))
+
+			# **E o PE encosta, que e o item 5 do §10.**
+			#
+			# Ele nao era medido aqui, e o revisor adversarial mostrou por que:
+			# as duas metades da conferencia de chao estao atras de
+			# `pes_plantados` e `sempre_um_pe_no_chao`, e um clipe de morte
+			# desliga as duas — as duas descrevem locomocao. A terceira metade,
+			# `enterrou`, da zero POR IDENTIDADE quando `assentar` esta ligado,
+			# porque e ele que poe o ponto mais baixo em zero.
+			#
+			# O resultado era que o unico item do §10 que o documento manda
+			# medir em vez de olhar ficava sem ninguem no clipe novo. Um corpo
+			# caido com o pe no ar nao esta caido; aqui ele fica a 0,008 m.
+			no_pe = alto_no_fim.get("pe")
+			if no_pe is None:
+				raise RuntimeError(
+					"em `%s` nenhum vertice e governado pelo pe — a "
+					"conferencia do item 5 do §10 ficou orfa" % nome)
+			if no_pe > FOLGA_DO_CHAO:
+				raise RuntimeError(
+					"em `%s` o pe termina a %.4f m do chao e a folga e %.3f — "
+					"o corpo caiu com o pe no ar"
+					% (nome, no_pe, FOLGA_DO_CHAO))
 
 		for regiao, minimo in dados.get("balanca", {}).items():
 			andou = lateral.get(regiao, 0.0)

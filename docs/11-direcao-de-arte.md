@@ -425,7 +425,7 @@ E as defesas têm suas próprias suítes de mutação, no repositório:
 `tools/arte/mutar_boneco.py` quebra o gerador e a regra da folga,
 `tools/mutar_direcao.py` quebra a concordância entre documento, código,
 instantâneo e artefato, e `tools/arte/mutar_gerar_boneco.py` quebra o
-gerador do boneco novo e o conferidor dele. **100 mutações, 100 pegas.**
+gerador do boneco novo e o conferidor dele. **101 mutações, 101 pegas.**
 
 6 números não saem de faixa nenhuma e por isso são declarados aqui, para
 poderem ser conferidos: a altura vale com folga de **4 cm**, o pé encosta no
