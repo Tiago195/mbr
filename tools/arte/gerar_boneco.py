@@ -1356,6 +1356,65 @@ ANIMACOES = {
 			           braco_D=(2, -3, 0), braco_E=(2, 3, 0))),
 		],
 	},
+	"andando": {
+		"ciclo": True,
+		"duracao": 1.27,
+		# **A PERNA tem que se mexer, e é só ela que precisa.** Sem isto o piso
+		# de amplitude aprovaria uma caminhada em que só o braço balança.
+		#
+		# A cabeça saiu desta lista depois de medida: ela anda 0,042 m numa
+		# caminhada, porque o que a move é o quique do corpo e não uma ação
+		# própria. Exigir 0,05 dela seria exigir que o boneco balançasse a
+		# cabeça ao andar para satisfazer uma régua.
+		"movem": ["coxa", "canela", "pe"],
+		# **Um pé de cada vez sai do chão, e é isso que separa andar de pular.**
+		# `parado` exige os dois plantados; aqui a exigência é que sempre haja
+		# ao menos UM no chão. Um clipe em que os dois saem ao mesmo tempo é um
+		# salto, e salto é justamente o que o usuário mandou não construir.
+		"pes_plantados": False,
+		"sempre_um_pe_no_chao": True,
+		# **O quadril assenta.** Sem isso, girar a perna enfia o pé no chão na
+		# passada e levanta o boneco no ar na troca.
+		"assentar": True,
+		# `+X` inclina para a frente, e num osso que aponta para BAIXO isso
+		# manda a ponta para trás — por isso perna à frente é `-X`.
+		#
+		# Braço e perna do MESMO lado vão em sentidos opostos: é o que o corpo
+		# faz para não girar em torno do próprio eixo, e é o que separa uma
+		# caminhada de um boneco de corda.
+		"chaves": [
+			(0.0, pose(
+				coxa_D=(-22, 0, 0), canela_D=(6, 0, 0),
+				coxa_E=(18, 0, 0), canela_E=(20, 0, 0),
+				braco_D=(16, -4, 0), antebraco_D=(-12, 0, 0),
+				braco_E=(-16, 4, 0), antebraco_E=(-12, 0, 0),
+				peito=(3, 0, 0), cabeca=(-2, 0, 0))),
+			(0.25, pose(
+				coxa_D=(-4, 0, 0), canela_D=(4, 0, 0),
+				coxa_E=(-2, 0, 0), canela_E=(34, 0, 0),
+				braco_D=(3, -4, 0), antebraco_D=(-14, 0, 0),
+				braco_E=(-3, 4, 0), antebraco_E=(-14, 0, 0),
+				peito=(4, 0, 0), cabeca=(-3, 0, 0))),
+			(0.5, pose(
+				coxa_D=(18, 0, 0), canela_D=(20, 0, 0),
+				coxa_E=(-22, 0, 0), canela_E=(6, 0, 0),
+				braco_D=(-16, -4, 0), antebraco_D=(-12, 0, 0),
+				braco_E=(16, 4, 0), antebraco_E=(-12, 0, 0),
+				peito=(3, 0, 0), cabeca=(-2, 0, 0))),
+			(0.75, pose(
+				coxa_D=(-2, 0, 0), canela_D=(34, 0, 0),
+				coxa_E=(-4, 0, 0), canela_E=(4, 0, 0),
+				braco_D=(-3, -4, 0), antebraco_D=(-14, 0, 0),
+				braco_E=(3, 4, 0), antebraco_E=(-14, 0, 0),
+				peito=(4, 0, 0), cabeca=(-3, 0, 0))),
+			(1.0, pose(
+				coxa_D=(-22, 0, 0), canela_D=(6, 0, 0),
+				coxa_E=(18, 0, 0), canela_E=(20, 0, 0),
+				braco_D=(16, -4, 0), antebraco_D=(-12, 0, 0),
+				braco_E=(-16, 4, 0), antebraco_E=(-12, 0, 0),
+				peito=(3, 0, 0), cabeca=(-2, 0, 0))),
+		],
+	},
 }
 
 
@@ -1459,6 +1518,48 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	return amplitude, por_regiao, chao
 
 
+def assentar(armature: bpy.types.Object, ultimo: int) -> None:
+	"""Baixa ou levanta o quadril até o ponto mais baixo do corpo tocar o chão.
+
+	**Sem isto, girar a perna enfia o pé no chão.** Uma coxa a 22 graus encurta
+	a distância do quadril ao pé; o corpo inteiro continua na mesma altura, e a
+	sola atravessa o piso. Na troca de passada acontece o contrário e o boneco
+	flutua.
+
+	É medido no corpo DEFORMADO, quadro a quadro, e não calculado por
+	trigonometria: a distância do quadril ao chão depende de coxa, canela, pé e
+	de como a pele se deforma na dobra, e uma conta fechada erraria em todos
+	esses termos ao mesmo tempo.
+
+	Vai no `location` do osso raiz, no eixo `Y` DELE — que é o eixo ao longo do
+	osso, e como o quadril aponta para cima, é o `Z` do mundo.
+	"""
+	corpo = None
+	for filho in armature.children:
+		if filho.type == "MESH":
+			corpo = filho
+			break
+	if corpo is None:
+		raise RuntimeError("o esqueleto nao tem malha para assentar")
+
+	quadril = armature.pose.bones.get("quadril")
+	if quadril is None:
+		raise RuntimeError("nao achei o osso `quadril` para assentar")
+
+	for quadro in range(0, ultimo + 1):
+		bpy.context.scene.frame_set(quadro)
+		quadril.location = (0.0, 0.0, 0.0)
+		bpy.context.view_layer.update()
+		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
+		temporaria = avaliado.to_mesh()
+		menor = min((avaliado.matrix_world @ v.co).z
+		            for v in temporaria.vertices)
+		avaliado.to_mesh_clear()
+		quadril.location = (0.0, -menor, 0.0)
+		quadril.keyframe_insert("location", frame=quadro)
+	bpy.context.scene.frame_set(0)
+
+
 def criar_animacao(armature: bpy.types.Object, nome: str, dados: dict) -> int:
 	"""Uma ação com as chaves declaradas, interpolada em Bézier.
 
@@ -1488,6 +1589,9 @@ def criar_animacao(armature: bpy.types.Object, nome: str, dados: dict) -> int:
 			osso.rotation_euler = _para_o_osso(
 				armature, osso.name, poses.get(osso.name, (0.0, 0.0, 0.0)))
 			osso.keyframe_insert("rotation_euler", frame=quadro)
+
+	if dados.get("assentar"):
+		assentar(armature, ultimo)
 
 	for curva in curvas_de(acao):
 		for ponto in curva.keyframe_points:
@@ -1549,6 +1653,18 @@ def main() -> int:
 				raise RuntimeError(
 					"em `%s` o `%s` sai %.4f m do chao e a folga e %.3f"
 					% (nome, pe, fora, FOLGA_DO_CHAO))
+		if dados.get("sempre_um_pe_no_chao"):
+			# **Os dois no ar ao mesmo tempo é um SALTO.** Numa caminhada há
+			# sempre um pé apoiado; num salto não há. O usuário mandou não
+			# construir pulo, e sem esta conferência a diferença entre andar e
+			# pular ficaria por conta de quem olha.
+			no_ar = [q for q in range(len(chao["pe_D"]))
+			         if min(chao["pe_D"][q], chao["pe_E"][q]) > FOLGA_DO_CHAO]
+			print("[boneco]     quadros com os DOIS pes no ar: %d" % len(no_ar))
+			if no_ar:
+				raise RuntimeError(
+					"em `%s` os dois pes saem do chao em %d quadro(s) — isso e "
+					"um salto, nao uma caminhada" % (nome, len(no_ar)))
 
 	rosto = pintar_rosto(corpo, indices)
 	print("[boneco] rosto: %d faces pintadas" % rosto)

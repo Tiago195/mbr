@@ -79,12 +79,14 @@ AMOSTRA_MINIMA = 12
 ## consigo mesmo.
 ANIMACOES_EXIGIDAS = {
 	"parado": (1.33, True),
+	"andando": (1.27, True),
 }
 
 ## O nome do mesmo verbo no original, para a duracao poder ser conferida contra
 ## o instantaneo do censo em vez de so contra o gerador.
 NOME_NO_ORIGINAL = {
 	"parado": "idle",
+	"andando": "walk",
 }
 
 
