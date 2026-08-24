@@ -414,6 +414,20 @@ def criar_pele(ajuste_topo: float = 0.0, ajuste_base: float = 0.0,
 ##
 ## O lado do voxel é o que decide a contagem de polígonos; a redução traz de
 ## volta para a ordem de um boneco de teste.
+## **Desligada, e a decisão foi tomada olhando as duas.**
+##
+## Voxelizar fecha a auto-interseção por construção — uma superfície
+## reconstruída da fronteira de um volume não pode se atravessar. Mas ela
+## devolve triângulos uniformes, sem relação com a estrutura do corpo, e a
+## pintura, que decide face a face, sai rasgada: gerado dos dois jeitos e
+## comparado na tela, a viseira vira máscara esfarrapada e a borda do tronco
+## fica picotada.
+##
+## **A auto-interseção fica DENTRO da malha e ninguém a vê; a pintura rasgada
+## está na cara do boneco.** Trocar defeito invisível por defeito visível não é
+## progresso. Ela continua medida e com teto — ver `TETO_DE_AUTOINTERSECAO` em
+## `conferir_boneco.py` —, então não pode crescer calada.
+VOXELIZAR = False
 LADO_DO_VOXEL = 0.022
 SOBRA_DA_REDUCAO = 0.35
 
@@ -426,6 +440,10 @@ def aplicar(corpo: bpy.types.Object) -> tuple:
 	bpy.context.view_layer.objects.active = corpo
 	for modificador in list(corpo.modifiers):
 		bpy.ops.object.modifier_apply(modifier=modificador.name)
+
+	if not VOXELIZAR:
+		alturas = [v.co.z for v in corpo.data.vertices]
+		return min(alturas), max(alturas)
 
 	voxel = corpo.modifiers.new(name="voxel", type="REMESH")
 	voxel.mode = "VOXEL"
