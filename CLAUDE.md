@@ -511,10 +511,18 @@ o boneco novo — malha contínua por Skin Modifier, na proporção medida, com
 `parado` e `andando`. **Ele ainda não tem consumidor**: nada na camada de jogo
 o carrega, e ligá-lo é trabalho que não foi feito.
 
-`gerar_boneco.py` custa 3m35s, e o motivo é o teto de travessia da casca: ele
-abre a malha DEFORMADA em cada um dos 78 quadros das duas animações. Uma grade
-esparsa erra o pior quadro — duas grades de seis amostras erraram, uma minha e
-uma do revisor.
+`gerar_boneco.py` custa **33 s** (mediana de três execuções; 34,0 / 32,7 /
+31,6). Parte disso é o teto de travessia da casca, que abre a malha DEFORMADA
+em cada um dos **80** quadros das duas animações — `parado` 0..40 e `andando`
+0..38. Uma grade esparsa erra o pior quadro: duas grades de seis amostras
+erraram, uma minha e uma do revisor.
+
+Este número já foi publicado como **3m35s**, em três lugares, e era sete vezes
+o medido. O 3m35s foi real por um commit — quando a travessia vivia num
+segundo passe sobre os quadros — e sobreviveu à correção porque eu consertei a
+ocorrência que falava no passado e deixei as três que afirmavam no presente,
+incluindo a que dimensionava a fatia da suíte de mutação. É a mesma classe que
+eu tinha acabado de declarar ter pego em mim mesmo, um arquivo antes.
 
 **E o `andando` está autorado para 0,40 m/s.** O gerador mede a passada e imprime
 a velocidade que ela implica: `pe_D` recua 0,514 m em 19 quadros a 30/s, o que

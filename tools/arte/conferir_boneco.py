@@ -275,26 +275,47 @@ def mundo_dos_nos(g: dict) -> dict:
 
 
 def escala_das_raizes(g: dict) -> float:
-	"""A maior escala acumulada da arvore.
+	"""A escala acumulada MAIS LONGE de 1 em toda a arvore.
 
 	**Existe porque escala de no e invisivel para quem so olha vertice.** Um
 	`scale = 1.4` na raiz do esqueleto entrega um personagem de 2,45 m na
 	engine, e a conferencia de altura, que le posicao local de vertice,
 	continuava reportando 1,75 e aprovando.
+
+	**E ela era de UMA VIA SO.** A primeira versao fazia
+	`acumulada = max(acumulada, abs(valor))` partindo de 1.0 — um maximo com
+	piso em 1, nao um produto. Escala MENOR que 1 nunca podia ser vista, e a
+	comparacao `abs(escala - 1.0) > ESCALA_TOLERADA` so disparava para cima.
+	Medido pelo revisor adversarial, injetando no no raiz do `.glb`:
+
+	    scale=0.99  ->  1,731 m na engine  ->  PASSAVA
+	    scale=0.97  ->  1,696 m na engine  ->  PASSAVA
+	    scale=1.01  ->                     ->  pego
+
+	Cinco centimetros de erro, cinco vezes a folga de altura, com "o boneco
+	passou" impresso. E a prova que eu tinha gravado no commit era `scale=1.4`
+	— a unica direcao que funcionava.
+
+	Hoje e produto de verdade, e o que volta e o extremo mais distante de 1 nos
+	dois sentidos.
 	"""
 	pai = {}
 	for indice, no in enumerate(g.get("nodes", [])):
 		for filho in no.get("children", []) or []:
 			pai[filho] = indice
-	maior = 1.0
+	pior = 1.0
 	for indice in range(len(g.get("nodes", []))):
-		acumulada, atual = 1.0, indice
+		atual = indice
+		acumulada = [1.0, 1.0, 1.0]
 		while atual is not None:
-			for valor in (g["nodes"][atual].get("scale") or (1.0, 1.0, 1.0)):
-				acumulada = max(acumulada, abs(valor))
+			escala = g["nodes"][atual].get("scale") or (1.0, 1.0, 1.0)
+			for eixo in range(3):
+				acumulada[eixo] *= abs(escala[eixo])
 			atual = pai.get(atual)
-		maior = max(maior, acumulada)
-	return maior
+		for valor in acumulada:
+			if abs(valor - 1.0) > abs(pior - 1.0):
+				pior = valor
+	return pior
 
 
 def ler_escalares(g: dict, b: bytes, indice: int) -> list:
@@ -413,17 +434,21 @@ def _aresta_fura(p, q, tri) -> bool:
 ## peito num angulo raso — os cascos se atravessam. Medido, 78 pares, sempre no
 ## mesmo lugar, sempre em repouso.
 ##
-## Tres tentativas de fechar: estreitar o peito (36 para 40 pares),
-## acrescentar clavicula (85, e mudou de lugar), e voxelizar. A voxelizacao
-## FECHA — e estraga a pintura, porque devolve triangulos sem relacao com a
-## estrutura do corpo. Comparadas as duas na tela, a versao voxelizada sai com
-## a viseira em farrapo.
+## Tres tentativas de fechar mexiam na COSTURA: estreitar o peito (36 para 40
+## pares), acrescentar clavicula (85, e mudou de lugar), e voxelizar. A
+## voxelizacao FECHA — e estraga a pintura, porque devolve triangulos sem
+## relacao com a estrutura do corpo. Comparadas as duas na tela, a versao
+## voxelizada sai com a viseira em farrapo.
+##
+## **A quarta tentativa nao mexeu na costura, e foi a que funcionou:** abrir
+## o braco de 20 para 28 graus levou 78 pares a 10. Ver `ABERTURA_DO_BRACO`
+## em `gerar_boneco.py`, que e onde a medicao esta.
 ##
 ## A auto-intersecao fica dentro da malha e nao aparece; a pintura rasgada
 ## aparece. Entao ela e aceita, com TETO: o numero e impresso a cada execucao e
 ## crescer reprova. Defeito conhecido e limitado e diferente de defeito
 ## ignorado.
-TETO_DE_AUTOINTERSECAO = 78
+TETO_DE_AUTOINTERSECAO = 10
 
 ## Lado da celula da grade espacial, em metros. So triangulos que caem na mesma
 ## celula sao comparados — sem isso seriam 2400 x 2400 pares.
@@ -459,12 +484,16 @@ def auto_intersecoes(pontos: list, triangulos: list) -> list:
 				for cz in range(int(menor[2] // CELULA), int(maior[2] // CELULA) + 1):
 					grade.setdefault((cx, cy, cz), []).append(indice)
 
-	# **Este laco roda 78 vezes por geracao desde que a travessia passou a ser
-	# medida em todos os quadros animados, e o custo virou estrutural:** 3m35s
-	# por geracao, o que fez a suite de mutacao (24 geracoes) estourar o tempo
-	# do executor e morrer no meio — deixando o repositorio MUTADO. O que segue
-	# nao muda o resultado, so o custo; o teste de regressao sao os numeros
-	# publicados, 78 pares em repouso e 79 no quadro 5 de `andando`.
+	# **Este laco roda 81 vezes por geracao** — 80 quadros animados mais o
+	# repouso —, e por um commit o custo foi estrutural: a geracao chegou a
+	# 3m35s e a suite de mutacao (24 geracoes) estourou o tempo do executor e
+	# morreu no meio, deixando o repositorio MUTADO. O que segue nao muda o
+	# resultado, so o custo; o teste de regressao sao os numeros publicados,
+	# 78 pares em repouso e 79 no quadro 5 de `andando`.
+	#
+	# Medido depois: `auto_intersecoes` responde em 0,28 s. Os tres minutos
+	# eram um segundo `evaluated_get` por quadro, nao esta funcao. Hoje a
+	# geracao inteira custa 33 s.
 	largura = len(triangulos)
 	vistos = set()
 	achados = []

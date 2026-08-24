@@ -147,7 +147,34 @@ COMPRIMENTO_DO_PE = 0.137 * ALTURA
 ## Numa pele contínua o preço de errar isso é pior do que em peças soltas: em
 ## vez de a mão ATRAVESSAR a coxa, ela FUNDE com ela, e o boneco sai com o braço
 ## grudado na perna. Vinte graus é o mínimo que separa as duas.
-ABERTURA_DO_BRACO = 20.0
+## **Vinte era o mínimo, e ninguém tinha perguntado quanto o máximo comprava.**
+##
+## A constante nasceu como piso — "vinte graus é o mínimo que separa as duas" —
+## e por três versões nada limitou o outro lado e nada mediu o ângulo. O revisor
+## adversarial varreu, e a autointerseção da axila é quase inteiramente função
+## dela:
+##
+##     abertura   repouso   pior quadro animado   largura
+##       20°        78              79             0,823
+##       24°        58              54             0,897
+##       28°        10              13             0,970
+##       32°         0              13             1,039
+##
+## As três tentativas registradas de fechar a axila — estreitar o peito, pôr
+## clavícula, voxelizar — todas mexiam na COSTURA. Abrir o braço não estava
+## entre elas, e resolve 87% do defeito sem tocar na malha.
+##
+## Por que 28 e não 32, que zera: 32° dá 1,039 de largura num corpo de 1,75, e
+## a pose deixa de ser um A para virar quase um T. O original é medido em pose
+## T, mas o que o jogador vê é o `parado`, que parte daqui. 28° troca os 78
+## pares por 10 e mantém a silhueta de alguém em pé.
+##
+## **Os 13 que sobram em movimento não são da axila.** Medidos pelo revisor,
+## 13 deles estão em z~0,5, do lado esquerdo: é a mão recuada entrando na
+## nádega, e ela APARECE na tela — ao contrário dos da axila, que ficam dentro
+## da malha. É defeito visual conhecido e não fechado; ver a lista do que
+## exige olho humano no `CLAUDE.md`.
+ABERTURA_DO_BRACO = 28.0
 
 
 def _no_braco(lado: float, distancia: float) -> Vector:
@@ -1807,7 +1834,23 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 					maior[indice][eixo] = max(maior[indice][eixo], ponto[eixo])
 		quadril = armature.matrix_world @ armature.pose.bones["quadril"].head
 		for osso in armature.pose.bones:
-			giros[osso.name].append(osso.matrix_basis.to_quaternion())
+			# **Para onde o osso APONTA, e não a rotação inteira.**
+			#
+			# `matrix_basis` vive na base de repouso do osso, onde o próprio
+			# osso corre ao longo de +Y. Girar em torno de Y é ROLAR o osso em
+			# torno do próprio comprimento — e num membro que é superfície de
+			# revolução isso é invisível. Aplicar a rotação a +Y descarta
+			# exatamente essa componente e guarda as outras duas.
+			#
+			# Medido pelo revisor adversarial na régua anterior, que usava o
+			# quaternion inteiro: trocar a flexão do antebraço do `parado` por
+			# rotação em torno do eixo vertical — rolagem pura, num braço que
+			# pende — dava os MESMOS 7,00 graus e publicava. A régua de metros
+			# contava carona como articulação; a de quaternion trocou esse
+			# ponto cego pelo espelho dele e passou a contar torção como
+			# movimento. `movem` promete "as regiões que o jogador VÊ".
+			giros[osso.name].append(
+				osso.matrix_basis.to_quaternion() @ Vector((0.0, 1.0, 0.0)))
 		# **A travessia da casca, no mesmo passe.** Ver
 		# `TETO_DA_TRAVESSIA_ANIMADA`. Ela viveu num segundo passe sobre os
 		# quadros por uma versão, e o segundo `evaluated_get` custava nove
@@ -1851,17 +1894,17 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		                      maior[indice].x - menor[indice].x)
 	amplitude = max((maior[i] - menor[i]).length for i in range(len(menor)))
 
-	## Quantos GRAUS cada osso girou, do quadro em que menos girou ao em que
-	## mais girou. É a maior distância angular entre dois quadros quaisquer —
-	## comparar só com o primeiro quadro subestima um osso que vai e volta.
+	## Quantos GRAUS a direção de cada osso varreu, do quadro em que ela menos
+	## se afastou ao em que mais se afastou. É a maior distância angular entre
+	## dois quadros quaisquer — comparar só com o primeiro quadro subestima um
+	## osso que vai e volta.
 	articulacao = {}
 	for osso, lista in giros.items():
 		pior = 0.0
 		for i in range(len(lista)):
 			for j in range(i + 1, len(lista)):
-				produto = abs(lista[i].dot(lista[j]))
-				pior = max(pior, 2.0 * math.degrees(
-					math.acos(min(1.0, produto))))
+				produto = max(-1.0, min(1.0, lista[i].dot(lista[j])))
+				pior = max(pior, math.degrees(math.acos(produto)))
 		articulacao[osso] = pior
 
 	return (amplitude, por_regiao, articulacao, lateral, chao, marcha,
@@ -1878,13 +1921,16 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 ##
 ## **Medido em TODOS os quadros, e a exaustão não é zelo.** O revisor amostrou
 ## seis quadros e achou 66; eu amostrei outros seis e achei 68; varrendo os 38
-## de `andando` o pior é **79, no quadro 5** — pior que os 78 do repouso, e
-## nenhuma das duas grades o continha. Uma grade esparsa aqui não mede o corpo,
-## mede quais quadros alguém escolheu.
+## de `andando` o pior era **79, no quadro 5**, e nenhuma das duas grades o
+## continha. Uma grade esparsa aqui não mede o corpo, mede quais quadros
+## alguém escolheu.
+##
+## Com o braço aberto a 28° o pior caiu para **13**, e esses 13 são de outro
+## sítio — a mão na nádega, não a axila. Ver `ABERTURA_DO_BRACO`.
 ##
 ## **E ela custa quase nada, agora que mede no passe certo.** A primeira
 ## versão abria a malha deformada num SEGUNDO passe sobre os quadros, e a
-## geração passou de 40 s para 3m35s — o que fez a suíte de mutação
+## geração passou de 33 s para 3m35s — o que fez a suíte de mutação
 ## estourar o tempo do executor e morrer no meio, deixando o repositório
 ## mutado, duas vezes. `medir_animacao` já avalia cada quadro; medir junto
 ## custa os 0,28 s de `auto_intersecoes` por quadro e mais nada.
@@ -1892,7 +1938,7 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 ## O teto é o pior valor medido, sem folga, pelo mesmo argumento de
 ## `TETO_DE_AUTOINTERSECAO` — e pelo argumento que `QUIQUE_MAXIMO` enunciava e
 ## descumpria: teto arredondado para cima é espaço para piorar sem ninguém ver.
-TETO_DA_TRAVESSIA_ANIMADA = 79
+TETO_DA_TRAVESSIA_ANIMADA = 13
 
 
 def assentar(armature: bpy.types.Object, ultimo: int) -> list:

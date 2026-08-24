@@ -1744,6 +1744,109 @@ def _quantas_mutacoes(caminho: str) -> int:
     return -1
 
 
+## De que medida de `data/direcao-de-arte.json` sai cada número do conferidor
+## do boneco novo. `PROPORCAO_EXIGIDA` e `VAOS_EXIGIDOS` guardam ossos e vãos;
+## o JSON guarda juntas. A correspondência é escrita uma vez, aqui.
+DE_ONDE_SAI_A_PROPORCAO = {
+    "pe_D": "tornozelo",
+    "canela_D": "joelho",
+    "coxa_D": "quadril",
+    "peito": "peito",
+    "cabeca": "pescoco",
+    "braco_D": "ombro",
+}
+DE_ONDE_SAI_O_VAO = {
+    "ombros": "vao_dos_ombros",
+    "quadris": "vao_dos_quadris",
+}
+DE_ONDE_SAI_O_COMPRIMENTO = {
+    "vao_das_maos": "vao_das_maos",
+    "envergadura": "envergadura",
+}
+
+
+def _conferir_as_folgas_do_boneco(c: "Conferencia") -> None:
+    """As dez folgas de `conferir_boneco.py` batem com a regra do §9?
+
+    **Elas eram literais escritos à mão, e o §9 proíbe isso em tantas palavras:**
+    *"As demais tolerâncias são derivadas, não escritas. Escrever a folga à mão
+    já produziu uma que violava a própria regra que o comentário ao lado dela
+    declarava."* A pipeline antiga tem `regra_da_folga.py` e uma suíte de 58
+    mutações em cima; a nova reabriu a classe, e o revisor adversarial provou o
+    custo alargando seis tolerâncias de uma vez — a rotina inteira ficou verde.
+
+    Aqui não se troca o literal por uma importação: o conferidor precisa
+    continuar independente do que ele confere. O que se faz é AMARRAR o literal
+    à regra, por máquina. Se alguém alargar uma folga, esta ferramenta acusa; se
+    alguém alargar a FAIXA no instantâneo para justificar a folga,
+    `mutar_direcao.py` acusa, que é o outro lado do mesmo cerco.
+
+    E confere a MEDIANA junto. Só a folga deixaria mover o alvo e manter a
+    tolerância — que é a metade do par que a lição 7 chama de "quem junta o dado
+    não decide".
+    """
+    caminho = os.path.join(RAIZ, "data", "direcao-de-arte.json")
+    try:
+        with open(caminho, encoding="utf-8") as arquivo:
+            proporcao = json.load(arquivo)["proporcao"]
+    except (OSError, ValueError, KeyError) as erro:
+        c.contar()
+        c.falhas.append("não consegui ler a proporção do instantâneo: %s" % erro)
+        return
+
+    antes = list(sys.path)
+    sys.path.insert(0, os.path.join(RAIZ, "tools", "arte"))
+    try:
+        import conferir_boneco
+        import regra_da_folga
+    except Exception as erro:  # noqa: BLE001
+        c.contar()
+        c.falhas.append("não consegui importar o conferidor do boneco: %r" % erro)
+        return
+    finally:
+        sys.path[:] = antes
+
+    tabelas = (
+        ("PROPORCAO_EXIGIDA", conferir_boneco.PROPORCAO_EXIGIDA,
+         DE_ONDE_SAI_A_PROPORCAO, 0, 1),
+        ("VAOS_EXIGIDOS", conferir_boneco.VAOS_EXIGIDOS,
+         DE_ONDE_SAI_O_VAO, 2, 3),
+        ("COMPRIMENTOS_EXIGIDOS", conferir_boneco.COMPRIMENTOS_EXIGIDOS,
+         DE_ONDE_SAI_O_COMPRIMENTO, 0, 1),
+    )
+    for nome_da_tabela, tabela, de_onde, i_valor, i_folga in tabelas:
+        c.contar()
+        if set(tabela) != set(de_onde):
+            c.falhas.append(
+                "`%s` tem as chaves %s e a correspondência com o instantâneo "
+                "tem %s — uma delas ficou órfã"
+                % (nome_da_tabela, sorted(tabela), sorted(de_onde)))
+            continue
+        for chave in sorted(tabela):
+            medida = de_onde[chave]
+            faixa = proporcao.get(medida)
+            c.contar()
+            if not isinstance(faixa, list) or len(faixa) != 3:
+                c.falhas.append(
+                    "o instantâneo não tem a faixa de `%s`, que é de onde a "
+                    "folga de `%s` deveria sair" % (medida, chave))
+                continue
+            esperada = regra_da_folga.folga_de(tuple(faixa))
+            escrita = tabela[chave][i_folga]
+            if abs(escrita - esperada) > 1e-9:
+                c.falhas.append(
+                    "a folga de `%s` em `%s` é %.3f e a regra do §9 sobre a "
+                    "faixa medida de `%s` (%.3f a %.3f) dá %.3f"
+                    % (chave, nome_da_tabela, escrita, medida,
+                       faixa[1], faixa[2], esperada))
+            c.contar()
+            alvo = tabela[chave][i_valor]
+            if abs(alvo - faixa[0]) > 1e-9:
+                c.falhas.append(
+                    "`%s` em `%s` mira %.3f e a mediana medida de `%s` é %.3f"
+                    % (chave, nome_da_tabela, alvo, medida, faixa[0]))
+
+
 def _conferir_o_boneco_novo(c: "Conferencia") -> None:
     """Roda `conferir_boneco.py` sobre o `.glb` COMMITADO, aqui na rotina.
 
@@ -3554,6 +3657,7 @@ def main() -> int:
     _conferir_a_esbeltez(c)
     _conferir_as_mutacoes(c)
     _conferir_o_boneco_novo(c)
+    _conferir_as_folgas_do_boneco(c)
     _conferir_o_artefato(c)
     _conferir_que_a_arvore_nao_esta_mutada(c)
     _conferir_bytes_de_controle(c)

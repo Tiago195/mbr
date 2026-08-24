@@ -35,7 +35,13 @@ import os
 import subprocess
 import sys
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+# `line_buffering=True` nao e zelo: sem ele o wrapper descarta o `-u` e
+# volta a bufferizar por bloco. Medido pelo revisor, uma execucao de 26
+# minutos escreveu ZERO byte e despejou 911 de uma vez no exit. Numa
+# ferramenta que ja foi morta tres vezes no meio, isso significa que a
+# execucao morta nao diz nem em qual mutacao parou.
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8",
+                              errors="replace", line_buffering=True)
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BLENDER = os.environ.get(
@@ -56,6 +62,17 @@ ARTEFATOS = [
 ## suites ao mesmo tempo — elas mexem nos mesmos arquivos — e serve de aviso
 ## para quem encontrar a arvore suja.
 TRAVA = os.path.join(RAIZ, ".mutacao-em-curso")
+## Onde os originais ficam enquanto a suite roda.
+##
+## **Restaurar num `finally` NAO sobrevive a morte do processo**, e esta suite
+## ja foi morta TRES vezes pelo executor — as tres deixando o repositorio
+## mutado em silencio. Um `SIGTERM` nao executa `finally`; nenhum desenho que
+## dependa disso fecha a classe, e fatiar so reduz a probabilidade.
+##
+## O que fecha: gravar os originais em disco ANTES de mutar, e restaura-los na
+## PARTIDA sempre que a trava for encontrada. A execucao seguinte conserta o
+## estrago da anterior sem ninguem precisar saber que houve um.
+GUARDADOS = os.path.join(RAIZ, ".mutacao-guardados")
 
 
 ## `(titulo, [(alvo, velho, novo)])`. Cada uma tem que fazer o gerador SAIR
@@ -182,6 +199,55 @@ def _conferir_os_padroes() -> bool:
     return not ruins
 
 
+def _caminho_guardado(relativo: str) -> str:
+    """Um nome plano dentro de `GUARDADOS`, sem subpasta."""
+    return os.path.join(GUARDADOS, relativo.replace("/", "__"))
+
+
+def _guardar(relativos: list) -> None:
+    """Copia os originais para `GUARDADOS` e escreve o manifesto."""
+    if not os.path.isdir(GUARDADOS):
+        os.makedirs(GUARDADOS)
+    presentes = []
+    for relativo in relativos:
+        inteiro = os.path.join(RAIZ, relativo)
+        if not os.path.exists(inteiro):
+            continue
+        io.open(_caminho_guardado(relativo), "wb").write(
+            io.open(inteiro, "rb").read())
+        presentes.append(relativo)
+    io.open(os.path.join(GUARDADOS, "MANIFESTO"), "w",
+            encoding="utf-8").write("\n".join(presentes) + "\n")
+
+
+def _restaurar_do_disco() -> list:
+    """Devolve os arquivos restaurados. Vazio se nao havia nada guardado."""
+    manifesto = os.path.join(GUARDADOS, "MANIFESTO")
+    if not os.path.exists(manifesto):
+        return []
+    voltaram = []
+    for relativo in io.open(manifesto, encoding="utf-8").read().split():
+        guardado = _caminho_guardado(relativo)
+        if not os.path.exists(guardado):
+            continue
+        inteiro = os.path.join(RAIZ, relativo)
+        bruto = io.open(guardado, "rb").read()
+        io.open(inteiro, "wb").write(bruto)
+        # **Conferido por leitura.** Restauracao que nao restaura e pior que
+        # nenhuma: ela apaga o aviso e deixa o estrago.
+        if io.open(inteiro, "rb").read() != bruto:
+            print("ATENCAO: nao consegui restaurar %s" % relativo)
+        voltaram.append(relativo)
+    return voltaram
+
+
+def _limpar_guardados() -> None:
+    for nome in os.listdir(GUARDADOS) if os.path.isdir(GUARDADOS) else []:
+        os.remove(os.path.join(GUARDADOS, nome))
+    if os.path.isdir(GUARDADOS):
+        os.rmdir(GUARDADOS)
+
+
 def _gerar() -> int:
     """Roda o gerador no Blender headless. Devolve o codigo de saida."""
     resultado = subprocess.run(
@@ -196,12 +262,16 @@ def _gerar() -> int:
 def _fatia(argv) -> tuple:
     """`(de, ate)` a partir da linha de comando. Sem argumento, tudo.
 
-    **A suite existe em fatias porque uma execucao inteira nao cabe.** Cada
-    mutacao regera o boneco, e o gerador custa 3m35s desde que a travessia da
-    casca passou a ser medida em TODOS os quadros: 24 execucoes dao ~86
-    minutos, e o executor em segundo plano matou a suite no meio disso. Uma
-    suite morta no meio **deixa o repositorio mutado** — foi o que aconteceu, e
-    so nao custou nada porque o trabalho estava commitado.
+    **A suite existe em fatias porque uma execucao inteira ja nao coube.** Com
+    o gerador a 33 s, as 23 mutacoes levam ~13 minutos e cabem; o fatiamento
+    fica porque o modo como ela falha e silencioso demais para depender de
+    caber.
+
+    O numero que dimensionava esta fatia estava ERRADO: dizia 3m35s, sete vezes
+    o medido, sobrevivente de um commit em que a travessia da casca vivia num
+    segundo passe sobre os quadros. Foi por isso que a fatia recomendada aqui —
+    `0 8` — nao coube nos dez minutos do executor e morreu na oitava mutacao.
+    Uma constante errada num comentario dimensionou uma defesa e a fez falhar.
 
     Rodar `py tools/arte/mutar_gerar_boneco.py 0 8` faz as oito primeiras.
     Sempre UMA fatia de cada vez: a trava e o repositorio inteiro, nao a fatia.
@@ -214,9 +284,28 @@ def _fatia(argv) -> tuple:
 
 
 def main() -> int:
+    # **A trava encontrada nao significa "outra suite rodando".** Na pratica
+    # ela significou, tres vezes em tres, "a suite anterior foi MORTA e o
+    # repositorio esta mutado" — e a versao anterior respondia a isso recusando
+    # rodar, sem dizer o que fazer. Pior: `_conferir_os_padroes` diagnosticava a
+    # arvore mutada como "conserte-os antes de rodar", descrevendo a causa mais
+    # provavel como a menos provavel.
+    #
+    # Agora ela conserta e segue. Duas suites ao mesmo tempo continuam sendo
+    # erro, mas esse nunca aconteceu; o outro aconteceu sempre.
     if os.path.exists(TRAVA):
-        print("ja ha uma suite de mutacao em curso (%s)" % TRAVA)
-        return 1
+        voltaram = _restaurar_do_disco()
+        if voltaram:
+            print("a execucao anterior foi morta no meio e deixou o "
+                  "repositorio MUTADO; restaurei %d arquivo(s):" % len(voltaram))
+            for relativo in voltaram:
+                print("  %s" % relativo)
+        else:
+            print("a trava %s existe e nao ha nada guardado — se nao houver "
+                  "outra suite rodando, apague-a a mao" % TRAVA)
+            return 1
+        _limpar_guardados()
+        os.remove(TRAVA)
     if not os.path.exists(BLENDER):
         print("nao achei o Blender em %s" % BLENDER)
         return 2
@@ -238,6 +327,11 @@ def main() -> int:
                  for alvo, caminho in ALVOS.items()}
     guardados = {c: io.open(c, "rb").read() for c in ARTEFATOS
                  if os.path.exists(c)}
+    # A ordem importa: guardar PRIMEIRO, travar depois. Morrer entre as duas
+    # deixa uma copia orfa, que e inofensiva; morrer na ordem inversa deixaria
+    # uma trava sem copia, que e o caso que nao se conserta sozinho.
+    _guardar([os.path.relpath(caminho, RAIZ).replace("\\", "/")
+              for caminho in list(ALVOS.values()) + ARTEFATOS])
     io.open(TRAVA, "w", encoding="utf-8").write(
         "mutar_gerar_boneco.py esta mexendo nos arquivos deste repositorio\n")
 
@@ -273,6 +367,7 @@ def main() -> int:
                 print("ATENCAO: nao consegui restaurar %s" % caminho)
         for caminho, bruto in guardados.items():
             io.open(caminho, "wb").write(bruto)
+        _limpar_guardados()
         os.remove(TRAVA)
         print("regerando o boneco a partir do fonte restaurado...")
         _gerar()
