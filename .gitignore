@@ -35,7 +35,3 @@ arte/previa/
 # o jogo consome, ESSE é determinístico, rastreado e conferido.
 arte/fonte/*.blend
 .mutacao-em-curso
-
-# O boneco novo so entra rastreado quando passar na propria conferencia.
-# Ver tools/arte/conferir_boneco.py e a decisao registrada no commit.
-arte/boneco.glb

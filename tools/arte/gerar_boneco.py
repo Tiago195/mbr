@@ -1301,7 +1301,7 @@ def pose(**ossos) -> dict:
 def _ciclo_de_pernas(pernas: list, bracos: list, tronco: list) -> list:
 	"""Monta um ciclo de locomoção a partir de UM lado.
 
-	`pernas` é `(instante, coxa, canela)` da direita; `bracos` é
+	`pernas` é `(instante, coxa, canela, pé)` da direita; `bracos` é
 	`(instante, braço, antebraço)` da direita; `tronco` é
 	`(instante, peito, cabeça)`. O lado esquerdo é o direito defasado em meio
 	ciclo, e o braço direito acompanha a perna ESQUERDA.
@@ -1338,8 +1338,8 @@ def _ciclo_de_pernas(pernas: list, bracos: list, tronco: list) -> list:
 	                   | {q for q, *_ in tronco})
 	chaves = []
 	for instante in instantes + [1.0]:
-		coxa_D, canela_D = em(pernas, instante)
-		coxa_E, canela_E = em(pernas, instante + 0.5)
+		coxa_D, canela_D, pe_D = em(pernas, instante)
+		coxa_E, canela_E, pe_E = em(pernas, instante + 0.5)
 		# O braço acompanha a perna do lado oposto: o braço direito vai com a
 		# perna esquerda, e por isso ele lê a tabela defasada.
 		braco_D, antebraco_D = em(bracos, instante)
@@ -1347,7 +1347,9 @@ def _ciclo_de_pernas(pernas: list, bracos: list, tronco: list) -> list:
 		peito, cabeca = em(tronco, instante)
 		chaves.append((instante, pose(
 			coxa_D=(coxa_D, 0, 0), canela_D=(canela_D, 0, 0),
+			pe_D=(pe_D, 0, 0),
 			coxa_E=(coxa_E, 0, 0), canela_E=(canela_E, 0, 0),
+			pe_E=(pe_E, 0, 0),
 			braco_D=(braco_D, -4, 0), antebraco_D=(antebraco_D, 0, 0),
 			braco_E=(braco_E, 4, 0), antebraco_E=(antebraco_E, 0, 0),
 			peito=(peito, 0, 0), cabeca=(cabeca, 0, 0))))
@@ -1461,15 +1463,24 @@ ANIMACOES = {
 		# primeira versão saiu com os joelhos invertidos.
 		"chaves": _ciclo_de_pernas(
 			# (instante, coxa, canela) da perna DIREITA. A esquerda sai daqui.
+			# **O pé entra na tabela porque o joelho sozinho não levanta.**
+			#
+			# Medido isolando o osso: dobrar o joelho 60 graus levanta a sola
+			# apenas 7 cm, e o quadril desce junto na troca de apoio. Com folga
+			# de 7 cm o pé que balança voltava a tocar o chão nos quadros 30 a
+			# 33 de 38 e arrastava 0,266 m para a frente.
+			#
+			# Dedo para cima tira a ponta do caminho sem mexer na altura do
+			# corpo, que é o que uma pessoa faz ao passar o pé.
 			[
-				(0.000, -24, 2),    # contato: à frente, esticada
-				(0.125, -16, 10),   # recebe o peso
-				(0.250, -2, 2),     # passagem: vertical, sustentando
-				(0.375, 10, 4),     # empurra
-				(0.500, 20, 10),    # desprende
-				(0.625, 6, 70),     # levanta: joelho no máximo
-				(0.750, -10, 62),   # passa por cima, ainda dobrado
-				(0.875, -22, 34),   # estende, mas SEM tocar
+				(0.000, -24, 2, 0),     # contato: à frente, esticada
+				(0.125, -16, 10, -6),   # recebe o peso
+				(0.250, -2, 2, 0),      # passagem: vertical, sustentando
+				(0.375, 10, 4, 6),      # empurra
+				(0.500, 20, 10, 14),    # desprende: calcanhar sai primeiro
+				(0.625, 6, 70, -24),    # levanta: joelho no máximo, dedo acima
+				(0.750, -12, 66, -24),  # passa por cima, ainda dobrado
+				(0.875, -26, 48, -16),  # estende, mas SEM tocar
 			],
 			# (instante, braço, antebraço) do braço DIREITO. Ele acompanha a
 			# perna do lado OPOSTO — é o que impede o corpo de girar sobre o
