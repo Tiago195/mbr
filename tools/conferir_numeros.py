@@ -1765,6 +1765,108 @@ DE_ONDE_SAI_O_COMPRIMENTO = {
 }
 
 
+def _conferir_o_artefato_do_boneco(c: "Conferencia") -> None:
+    """`arte/boneco.glb` veio do `tools/arte/gerar_boneco.py` commitado?
+
+    **Esta pergunta já foi respondida "não" neste repositório**, e o memorial
+    está em `_conferir_o_artefato`, que é a contraparte para o outro boneco: a
+    suíte de mutação restaurava o código-fonte no fim e deixava o artefato da
+    última mutação no disco, e ele foi commitado assim. Nenhuma ferramenta via,
+    porque todas liam CÓDIGO e nenhuma abria o arquivo exportado.
+
+    `conferir_boneco.conferir` abre o arquivo, mas compara com as constantes
+    duplicadas dentro dele mesmo — nunca com o gerador. O revisor adversarial
+    demonstrou o vão: mudou `ABERTURA_DO_BRACO` de 20 para 38, gerou, restaurou
+    SÓ o fonte, e o `.glb` no disco divergia de HEAD com a rotina inteira verde.
+
+    O que se confere aqui são as grandezas do gerador que o artefato carrega e
+    que nenhuma outra conferência olha:
+
+    - **a abertura do braço**, medida como o ângulo do osso com a vertical;
+    - **a fração até o cotovelo**, medida como a razão entre braço e antebraço.
+      Ela é o único número da proporção do braço que não sai do original — lá
+      ombro, cotovelo e mão ficam na mesma altura na pose T — e por isso não
+      tem faixa medida para ancorá-la. Sem esta conferência, mover o cotovelo
+      publicava: `convergir` reajusta os raios e a esbeltez volta para dentro
+      da faixa. Achado do revisor.
+    """
+    fonte_do_gerador = os.path.join(RAIZ, "tools", "arte", "gerar_boneco.py")
+    caminho = os.path.join(RAIZ, "arte", "boneco.glb")
+    c.contar()
+    if not os.path.exists(caminho) or not os.path.exists(fonte_do_gerador):
+        c.falhas.append(
+            "falta `arte/boneco.glb` ou o gerador dele — a conferência do "
+            "artefato contra o código ficou órfã")
+        return
+    with open(fonte_do_gerador, encoding="utf-8") as arquivo:
+        fonte = arquivo.read()
+
+    declarados = {}
+    for chave in ("ABERTURA_DO_BRACO", "FRACAO_ATE_O_COTOVELO"):
+        achado = re.search(r"^%s = ([0-9.]+)$" % chave, fonte, re.M)
+        c.contar()
+        if achado is None:
+            c.falhas.append(
+                "não achei `%s` em `gerar_boneco.py` — a conferência do "
+                "artefato contra o código ficou órfã" % chave)
+            return
+        declarados[chave] = float(achado.group(1))
+
+    antes = list(sys.path)
+    sys.path.insert(0, os.path.join(RAIZ, "tools", "arte"))
+    try:
+        import conferir_boneco
+        g, _bruto = conferir_boneco.ler_glb(caminho)
+        nos = conferir_boneco.mundo_dos_nos(g)
+    except Exception as erro:  # noqa: BLE001
+        c.contar()
+        c.falhas.append("não consegui abrir `arte/boneco.glb`: %r" % erro)
+        return
+    finally:
+        sys.path[:] = antes
+
+    for lado in ("D", "E"):
+        ombro = nos.get("braco_" + lado)
+        cotovelo = nos.get("antebraco_" + lado)
+        pulso = nos.get("mao_" + lado)
+        c.contar()
+        if ombro is None or cotovelo is None or pulso is None:
+            c.falhas.append(
+                "faltam ossos do braço %s no `.glb` para conferir o artefato "
+                "contra o gerador" % lado)
+            continue
+
+        # O ângulo do braço com a vertical. Em glTF o alto é +Y.
+        eixo = [cotovelo[k] - ombro[k] for k in range(3)]
+        comprimento = math.sqrt(sum(v * v for v in eixo))
+        c.contar()
+        if comprimento <= 0.0:
+            c.falhas.append("o braço %s tem comprimento zero no `.glb`" % lado)
+            continue
+        abertura = math.degrees(math.acos(
+            max(-1.0, min(1.0, -eixo[1] / comprimento))))
+        c.contar()
+        if abs(abertura - declarados["ABERTURA_DO_BRACO"]) > 0.5:
+            c.falhas.append(
+                "no `.glb` o braço %s abre %.2f graus e `gerar_boneco.py` "
+                "declara %.2f — o artefato não veio deste gerador"
+                % (lado, abertura, declarados["ABERTURA_DO_BRACO"]))
+
+        # A fração até o cotovelo, sobre o comprimento ombro→pulso.
+        ate_o_pulso = math.sqrt(sum(
+            (pulso[k] - ombro[k]) ** 2 for k in range(3)))
+        c.contar()
+        if ate_o_pulso <= 0.0:
+            c.falhas.append("o braço %s não tem extensão no `.glb`" % lado)
+            continue
+        fracao = comprimento / ate_o_pulso
+        if abs(fracao - declarados["FRACAO_ATE_O_COTOVELO"]) > 0.02:
+            c.falhas.append(
+                "no `.glb` o cotovelo do braço %s cai em %.3f do caminho até o "
+                "pulso e `gerar_boneco.py` declara %.3f"
+                % (lado, fracao, declarados["FRACAO_ATE_O_COTOVELO"]))
+
+
 def _conferir_as_folgas_do_boneco(c: "Conferencia") -> None:
     """As dez folgas de `conferir_boneco.py` batem com a regra do §9?
 
@@ -3658,6 +3760,7 @@ def main() -> int:
     _conferir_as_mutacoes(c)
     _conferir_o_boneco_novo(c)
     _conferir_as_folgas_do_boneco(c)
+    _conferir_o_artefato_do_boneco(c)
     _conferir_o_artefato(c)
     _conferir_que_a_arvore_nao_esta_mutada(c)
     _conferir_bytes_de_controle(c)

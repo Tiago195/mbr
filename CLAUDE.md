@@ -536,6 +536,27 @@ em que tiver. **E não há nada no repositório que resolva:** `grep -rn
 precisa, antes, de um jeito de casar cadência de clipe com velocidade de
 translação — ou reautorar a passada para a velocidade do jogo.
 
+**E dois defeitos VISUAIS conhecidos, que nenhuma ferramenta mede.** Os dois
+foram achados por um revisor adversarial abrindo o `.glb` e olhando, que é a
+única forma que existe hoje:
+
+- **a pintura sai rasgada em degraus de face** — nos ombros, no peito, na
+  virilha e no punho —, e o `rosto` lê como um retângulo escuro chapado de
+  bordas em escada, não como a frente de um personagem. Isto importa porque é
+  exatamente o argumento com que `VOXELIZAR = False` se justifica: que voxelizar
+  deixaria *"a viseira em farrapo e a borda do tronco picotada"*. A versão **não**
+  voxelizada tem as duas coisas, então aquela comparação media diferença de
+  grau, não de espécie;
+- **a mão recuada entra na nádega** no quadro 5 do `andando`. São os 13 pares
+  de autointerseção que sobram depois de abrir o braço, e eles são de um sítio
+  diferente do da axila: os da axila ficam dentro da malha e não aparecem;
+  estes aparecem.
+
+Nenhum dos dois é medido por ferramenta nenhuma. A autointerseção tem CONTAGEM
+com teto e nunca LUGAR — e foi por confiar na contagem que o comentário dela
+afirmou por duas versões que o defeito era *"sempre no mesmo lugar, sempre em
+repouso"*, o que é falso nos dois termos.
+
 O `.blend` **não é rastreado**, e a razão é medida: exportá-lo duas vezes do
 mesmo código dá dois arquivos diferentes, então ele não se confere por
 reprodução e rastreá-lo sujava a árvore a cada geração. Ele nasce local em dez

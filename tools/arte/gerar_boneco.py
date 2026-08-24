@@ -1631,22 +1631,26 @@ AMPLITUDE_MINIMA = 0.05
 ## Quantos GRAUS um osso listado em `movem` tem de girar para contar como
 ## animado. E angulo, nao metro, porque metro nao distingue articular de ser
 ## carregado — ver o comentario de `giros` em `medir_animacao`.
+##
+## **Aqui viveu uma conferencia de SIMETRIA, e ela foi removida por nao poder
+## falhar.** Ela exigia que os dois lados de um osso par articulassem dentro de
+## 5% um do outro. Medido pelo revisor adversarial, os dez pares dos dois
+## clipes dao o mesmo numero ate a segunda decimal — 0,00% de desvio em 10 de
+## 10 — e nao por acaso: `_ciclo_de_pernas` deriva o lado esquerdo do direito e
+## a tabela do `parado` e espelhada a mao. A excursao e identica por
+## CONSTRUCAO, entao nao ha clipe que o projeto consiga autorar hoje em que ela
+## pudesse reprovar.
+##
+## E o terreno dela ja estava coberto duas vezes. Desligando-a, a unica mutacao
+## assimetrica da suite — `a perna esquerda manca` — continua sendo pega, por
+## `DESEQUILIBRIO`, que compara altura do passo e passada. E `os bracos param
+## de balancar` e pega por este piso aqui, cujo laco roda ANTES dela.
+##
+## E a licao 8 do `CLAUDE.md` em letra de forma: *"Fixture degenerado e
+## cobertura falsa. Se todos os casos tem o mesmo valor, a mutacao que troca
+## esse valor e um no-op literal."* Conferencia que nao pode reprovar e pior
+## que nenhuma, porque LE como cobertura.
 ARTICULACAO_MINIMA = 5.0
-## Quanto os dois lados de um osso par podem articular diferente, em fracao do
-## maior. Medido no boneco publicado, os pares batem em 0,00% — a pose de um
-## lado e a do outro espelhada, entao a excursao ANGULAR e identica por
-## construcao. A tolerancia existe so para ponto flutuante.
-##
-## Ela vale APENAS para regiao listada em `movem`, e a razao e medida: a versao
-## anterior comparava deslocamento no mundo sobre um conjunto de vertices
-## escolhido por argmax de peso, que nao e espelhado. Um vertice trocando de
-## dono mudava o numero em 70%, e baixar o pescoco 7 cm produzia 41% de
-## assimetria numa animacao simetrica — falso positivo sobre ossos cuja
-## excursao real era 3 cm de carona.
-##
-## Uma animacao que queira ser assimetrica declara `assimetricos` e diz quais
-## regioes — que e o que faz esta defesa falhar FECHADA em vez de aberta.
-TOLERANCIA_DA_SIMETRIA = 0.05
 
 ## Quanto o pé pode sair do chão numa animação que não é de pulo.
 FOLGA_DO_CHAO = 0.015
@@ -2118,36 +2122,6 @@ def main() -> int:
 				"teto e %d — o corpo entra em si mesmo em movimento"
 				% (nome, pior_travessia, quadro_ruim,
 				   TETO_DA_TRAVESSIA_ANIMADA))
-
-		## **Os pares articulam o mesmo?** Ver `TOLERANCIA_DA_SIMETRIA`. So
-		## sobre regiao listada em `movem`: e la que o projeto declara o que
-		## tem de se mexer, e comparar razao entre dois ruidos da falso
-		## positivo.
-		poupados = set(dados.get("assimetricos", ()))
-		exigidas = set(dados.get("movem", ()))
-		for osso in sorted(por_osso):
-			if not osso.endswith("_D"):
-				continue
-			regiao = _regiao_do_osso(osso)
-			if regiao in poupados or regiao not in exigidas:
-				continue
-			irmao = regiao + "_E"
-			if irmao not in por_osso:
-				raise RuntimeError(
-					"em `%s` o osso `%s` nao tem irmao `%s` — a conferencia "
-					"de simetria dele ficou orfa" % (nome, osso, irmao))
-			direito, esquerdo = por_osso[osso], por_osso[irmao]
-			maior_lado = max(direito, esquerdo)
-			if maior_lado <= 0.0:
-				continue
-			desvio = abs(direito - esquerdo) / maior_lado
-			if desvio > TOLERANCIA_DA_SIMETRIA:
-				raise RuntimeError(
-					"em `%s` a regiao `%s` articula %.2f graus de um lado e "
-					"%.2f do outro (%.0f%% de diferenca, teto %.0f%%) — um "
-					"dos lados nao esta se mexendo"
-					% (nome, regiao, direito, esquerdo, desvio * 100,
-					   TOLERANCIA_DA_SIMETRIA * 100))
 
 		for regiao, minimo in dados.get("balanca", {}).items():
 			andou = lateral.get(regiao, 0.0)
