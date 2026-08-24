@@ -35,6 +35,10 @@ PADRAO = os.path.join(RAIZ, "arte", "boneco.glb")
 
 ALTURA = 1.75
 FOLGA_DA_ALTURA = 0.01
+## Quanto a escala acumulada da arvore de nos pode fugir de 1. E aperto de
+## proposito: o exportador do Blender escreve 1,0 exato, e qualquer outra
+## coisa e alguem escalando o no em vez da geometria.
+ESCALA_TOLERADA = 0.001
 
 ## As cores que `gerar_boneco.py` declara. Repetidas aqui de proposito: uma
 ## conferencia que importa a constante do arquivo conferido aprova qualquer
@@ -115,25 +119,49 @@ FOLGA_DO_CICLO = 0.002
 ## A altura de cada junta, como fracao da altura total. Medida em 27 campeoes;
 ## §1 de `docs/11-direcao-de-arte.md`. Repetida aqui de proposito: conferencia
 ## que importa a constante do arquivo conferido compara o numero consigo mesmo.
+## **A folga e de CADA medida, e nao a mais larga aplicada a todas.**
+##
+## O §9 manda: "cada uma e meia faixa medida, arredondada para cima em passos
+## de 0,005". A versao anterior calculava meia faixa da regiao mais larga e
+## repetia esse numero nas oito — o comentario ate citava a regra que estava
+## violando, e dizia "a mais larga das seis" governando oito. O custo era
+## medido: para o vao dos quadris a tolerancia (0,050) ficava MAIOR que a
+## faixa inteira dos 27 campeoes (0,040), e um tornozelo em 0,140 — acima do
+## maximo de 0,123 da populacao — publicava.
+##
+## `osso: (fracao da altura, folga)`. Faixas de `data/direcao-de-arte.json`,
+## que guarda `[mediana, minimo, maximo]`.
 PROPORCAO_EXIGIDA = {
-	"pe_D": 0.093,      # tornozelo
-	"canela_D": 0.283,  # joelho
-	"coxa_D": 0.485,    # quadril
-	"peito": 0.656,
-	"cabeca": 0.763,    # base do pescoco
-	"braco_D": 0.725,   # ombro
+	"pe_D": (0.093, 0.035),      # tornozelo, 0,057 a 0,123
+	"canela_D": (0.283, 0.040),  # joelho,    0,253 a 0,328
+	"coxa_D": (0.485, 0.050),    # quadril,   0,417 a 0,512
+	"peito": (0.656, 0.045),     #            0,602 a 0,687
+	"cabeca": (0.763, 0.045),    # pescoco,   0,708 a 0,795
+	"braco_D": (0.725, 0.045),   # ombro,     0,672 a 0,753
 }
 
-## `rotulo: (osso, osso, fracao da altura)`.
+## `rotulo: (osso, osso, fracao da altura, folga)`.
 VAOS_EXIGIDOS = {
-	"ombros": ("braco_D", "braco_E", 0.175),
-	"quadris": ("coxa_D", "coxa_E", 0.129),
+	"ombros": ("braco_D", "braco_E", 0.175, 0.040),   # 0,162 a 0,241
+	"quadris": ("coxa_D", "coxa_E", 0.129, 0.020),    # 0,105 a 0,145
 }
 
-## A folga vem da faixa medida, pela regra do §9: meia faixa, arredondada para
-## cima em passos de 0,005. A mais larga das seis e a do quadril (0,417 a
-## 0,512), que da 0,050.
-FOLGA_DA_PROPORCAO = 0.05
+## **O COMPRIMENTO do braco, que nenhuma das duas acima mede.**
+##
+## As alturas de junta e os vaos deixavam passar um braco curto: medido pelo
+## revisor, encurtar a envergadura de 0,895 para 0,760 — abaixo do minimo dos
+## 27 campeoes — publicava com rc=0, porque o laco de convergencia constroi um
+## corpo consistente com o numero errado e a esbeltez afina o raio junto.
+##
+## Sao DUAS medidas, e a separacao e a licao de uma reprovacao anterior: com
+## so a envergadura, o boneco acertava o numero com antebraco esticado e
+## nenhuma mao. `vao_das_maos` para no PULSO; `envergadura` vai ate a ponta.
+##
+## `rotulo: (fracao da altura, folga)`. Medido no publicado: 0,6294 e 0,8949.
+COMPRIMENTOS_EXIGIDOS = {
+	"vao_das_maos": (0.629, 0.060),   # 0,588 a 0,703
+	"envergadura": (0.895, 0.080),    # 0,808 a 0,966
+}
 
 ## Os quinze ossos que o corpo tem que ter, e que a camada de jogo nomeia.
 OSSOS_EXIGIDOS = [
@@ -473,6 +501,24 @@ def conferir(caminho: str) -> list:
 
 	# **No glTF o eixo de cima e Y**, e a exportacao converte do Z do Blender.
 	alturas = [p[1] for p in pontos]
+	# **A escala de no entra ANTES da altura**, porque e ela que decide se o
+	# numero medido nos vertices vale alguma coisa.
+	#
+	# `escala_das_raizes` existia e NAO ERA CHAMADA por ninguem — uma defesa
+	# cuja docstring afirmava uma protecao que o arquivo nao executava. Achado
+	# do revisor, e e a licao 9 do projeto na forma mais curta possivel: a
+	# camada que nenhuma ferramenta roda e onde o defeito mora. Que o caso
+	# fosse pego por acidente pela proporcao — que divide posicao de no
+	# (escalada) por altura de malha (nao escalada) — nao conta: bastava a
+	# proporcao mudar de referencial para a classe reabrir sem ruido.
+	escala = escala_das_raizes(g)
+	if abs(escala - 1.0) > ESCALA_TOLERADA:
+		falhas.append(
+			"a arvore de nos tem escala acumulada de %.4f — o `.glb` entrega "
+			"um corpo de %.3f m na engine, e a altura medida nos vertices "
+			"(%.3f m) nao ve isso" % (escala, (max(alturas) - min(alturas)) *
+			                          escala, max(alturas) - min(alturas)))
+
 	altura = max(alturas) - min(alturas)
 	if abs(altura - ALTURA) > FOLGA_DA_ALTURA:
 		falhas.append("o corpo tem %.3f m e a direcao manda %.2f"
@@ -632,25 +678,24 @@ def conferir(caminho: str) -> list:
 	# As alturas sao fracao da altura total, com o pe em zero. A cabeca de cada
 	# osso e a junta: `pe_D` e o tornozelo, `canela_D` o joelho, `coxa_D` o
 	# quadril, `braco_D` o ombro.
-	for osso, esperado in sorted(PROPORCAO_EXIGIDA.items()):
+	for osso, (esperado, folga) in sorted(PROPORCAO_EXIGIDA.items()):
 		if osso not in nos:
 			falhas.append("falta o osso `%s` para medir a proporcao" % osso)
 			continue
 		fracao = nos[osso][1] / altura
-		if abs(fracao - esperado) > FOLGA_DA_PROPORCAO:
+		if abs(fracao - esperado) > folga:
 			falhas.append(
 				"`%s` esta em %.3f da altura e a direcao de arte mede %.3f "
-				"(folga %.3f)" % (osso, fracao, esperado, FOLGA_DA_PROPORCAO))
-	for rotulo, (a, b_, esperado) in sorted(VAOS_EXIGIDOS.items()):
+				"(folga %.3f)" % (osso, fracao, esperado, folga))
+	for rotulo, (a, b_, esperado, folga) in sorted(VAOS_EXIGIDOS.items()):
 		if a not in nos or b_ not in nos:
 			falhas.append("faltam ossos para medir o vao `%s`" % rotulo)
 			continue
 		vao = abs(nos[a][0] - nos[b_][0]) / altura
-		if abs(vao - esperado) > FOLGA_DA_PROPORCAO:
+		if abs(vao - esperado) > folga:
 			falhas.append(
 				"o vao `%s` esta em %.3f da altura e a direcao de arte mede "
-				"%.3f (folga %.3f)"
-				% (rotulo, vao, esperado, FOLGA_DA_PROPORCAO))
+				"%.3f (folga %.3f)" % (rotulo, vao, esperado, folga))
 
 	# ------------------------------------------------------- a espessura
 	#
@@ -694,6 +739,44 @@ def conferir(caminho: str) -> list:
 				if melhor is None or melhor >= len(juntas_do_couro):
 					continue
 				por_osso.setdefault(juntas_do_couro[melhor], []).append(ponto)
+
+	# ------------------------------------- o COMPRIMENTO do braco
+	#
+	# Medido pelo mesmo caminho que `docs/11` usa: do ombro ate o pulso sai o
+	# vao das maos, e do ombro ate a PONTA da mao sai a envergadura, os dois
+	# vezes dois mais o vao dos ombros. A ponta nao e osso — e o vertice da mao
+	# mais distante do ombro, e por isso esta conferencia vive aqui embaixo,
+	# depois de `por_osso`.
+	#
+	# **Os DOIS lados, um a um.** Um braco curto so de um lado e assimetria que
+	# nenhuma outra conferencia deste arquivo ve.
+	vao_dos_ombros = None
+	if "braco_D" in nos and "braco_E" in nos:
+		vao_dos_ombros = abs(nos["braco_D"][0] - nos["braco_E"][0])
+	for lado in ("D", "E"):
+		ombro, pulso = nos.get("braco_" + lado), nos.get("mao_" + lado)
+		if ombro is None or pulso is None or vao_dos_ombros is None:
+			falhas.append("faltam ossos para medir o comprimento do braco %s"
+			              % lado)
+			continue
+		maos = por_osso.get("mao_" + lado) or []
+		if len(maos) < AMOSTRA_MINIMA:
+			falhas.append(
+				"so %d vertices sao governados por `mao_%s` (minimo %d) — a "
+				"ponta do braco seria decidida pelo acaso"
+				% (len(maos), lado, AMOSTRA_MINIMA))
+			continue
+		medidos = {
+			"vao_das_maos": _norma(_menos(pulso, ombro)),
+			"envergadura": max(_norma(_menos(v, ombro)) for v in maos),
+		}
+		for rotulo, (esperado, folga) in sorted(COMPRIMENTOS_EXIGIDOS.items()):
+			fracao = (2.0 * medidos[rotulo] + vao_dos_ombros) / altura
+			if abs(fracao - esperado) > folga:
+				falhas.append(
+					"do lado %s a `%s` esta em %.3f da altura e a direcao de "
+					"arte mede %.3f (folga %.3f)"
+					% (lado, rotulo, fracao, esperado, folga))
 
 	for regiao, (mediana, minimo, maximo) in sorted(FAIXA_DA_ESBELTEZ.items()):
 		osso = OSSO_DA_REGIAO[regiao]

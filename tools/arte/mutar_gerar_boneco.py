@@ -94,10 +94,12 @@ MUTACOES = [
      [("gerador", "\t\t\"duracao\": 1.27,", "\t\t\"duracao\": 2.10,")]),
     ("o ciclo do `parado` deixa de fechar",
      [("gerador",
-       "			(1.0, pose(peito=(3, 0, 0), cabeca=(2, 0, 0),\n"
-       "			           braco_D=(2, -3, 0), braco_E=(2, 3, 0))),",
-       "			(1.0, pose(peito=(9, 0, 0), cabeca=(2, 0, 0),\n"
-       "			           braco_D=(2, -3, 0), braco_E=(2, 3, 0))),")]),
+       "			(1.0, pose(peito=(3, 0, 0), cabeca=(3, 0, 0),\n"
+       "			           braco_D=(2, -3, 0), braco_E=(2, 3, 0),\n"
+       "			           antebraco_D=(-4, 0, 0), antebraco_E=(-4, 0, 0))),",
+       "			(1.0, pose(peito=(9, 0, 0), cabeca=(3, 0, 0),\n"
+       "			           braco_D=(2, -3, 0), braco_E=(2, 3, 0),\n"
+       "			           antebraco_D=(-4, 0, 0), antebraco_E=(-4, 0, 0))),")]),
     # Zerar UMA chave de braco nao para o braco: as outras sete continuam. O
     # que para e o ombro na montagem do ciclo.
     ("os bracos param de balancar",
@@ -122,6 +124,32 @@ MUTACOES = [
      [("gerador", "\t\t\t\t(0.250, -2, 6, 0),      # passagem: vertical, sustentando",
        "\t\t\t\t(0.250, -2, 6, 0),      # passagem: vertical, sustentando\n"
        "\t\t\t\t(0.250, 40, 80, 30),")]),
+
+    # --- as conferencias acrescentadas na rodada do revisor adversarial ---
+    # **Congelar UM braco ja era mutacao; congelar os DOIS nao era**, e era
+    # justamente o caso que escapava: a regiao guarda o maximo dos dois lados,
+    # entao com um lado vivo o numero se sustentava, e com os dois mortos o
+    # deslocamento no mundo ainda dava 0,14 m de carona do tronco. So a
+    # articulacao ANGULAR do proprio osso distingue os dois casos.
+    ("os DOIS bracos param de balancar",
+     [("gerador",
+       "\t\tbraco_D, antebraco_D = em(bracos, instante)\n"
+       "\t\tbraco_E, antebraco_E = em(bracos, instante + 0.5)",
+       "\t\tbraco_D, antebraco_D = 10.0, -20.0\n"
+       "\t\tbraco_E, antebraco_E = 10.0, -20.0")]),
+    # O conferidor media espessura, cor, ciclo e duracao — e nada do
+    # ESQUELETO. Encurtar o braco publicava, e o laco de convergencia
+    # construia um corpo consistente com o numero errado.
+    ("o braco fica curto",
+     [("gerador", '\t"envergadura": 0.895,', '\t"envergadura": 0.760,')]),
+    # Fora da populacao inteira dos 27 campeoes (0,057 a 0,123), mas dentro
+    # da folga unica de 0,050 que valia para as oito medidas.
+    ("o tornozelo sai da populacao medida",
+     [("gerador", '\t"tornozelo": 0.093,', '\t"tornozelo": 0.140,')]),
+    # Idem: 0,160 esta fora da faixa (0,105 a 0,145) e dentro da folga antiga.
+    ("o vao dos quadris sai da faixa",
+     [("gerador", '\t"vao_dos_quadris": 0.129,',
+       '\t"vao_dos_quadris": 0.160,')]),
 
     # --- o conferidor: quebrar a CONFERENCIA tambem tem que reprovar ---
     # Tirar `rosto` so de `CORES` nao desliga a conferencia: a presenca dele

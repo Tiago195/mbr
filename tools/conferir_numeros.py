@@ -1744,6 +1744,46 @@ def _quantas_mutacoes(caminho: str) -> int:
     return -1
 
 
+def _conferir_o_boneco_novo(c: "Conferencia") -> None:
+    """Roda `conferir_boneco.py` sobre o `.glb` COMMITADO, aqui na rotina.
+
+    **Existe porque nenhum comando da rotina executava esta pipeline.** Um
+    `grep` por `gerar_boneco|conferir_boneco` fora dos três arquivos novos dava
+    zero ocorrências no repositório inteiro: a única defesa do boneco novo era
+    alguém lembrar de digitar `py tools/arte/conferir_boneco.py`. Achado do
+    revisor adversarial, e é literalmente a lição 11 — defesa que depende de
+    alguém lembrar não é defesa.
+
+    E a decisão 24 afirma que o artefato é conferível **sem a engine e sem o
+    Blender**. Para `arte/personagem.glb` isso já era verdade; para
+    `arte/boneco.glb` era falso até esta função existir.
+
+    `conferir_boneco.py` é Python puro — o cabeçalho de um glTF é JSON —, então
+    importá-lo aqui não traz o `bpy` junto.
+    """
+    c.contar()
+    caminho = os.path.join(RAIZ, "arte", "boneco.glb")
+    if not os.path.exists(caminho):
+        c.falhas.append(
+            "não achei `arte/boneco.glb` — o artefato que o gerador publica "
+            "não está no disco, e a conferência dele ficaria órfã"
+        )
+        return
+    antes = list(sys.path)
+    sys.path.insert(0, os.path.join(RAIZ, "tools", "arte"))
+    try:
+        import conferir_boneco
+        motivos = conferir_boneco.conferir(caminho)
+    except Exception as erro:  # noqa: BLE001 — qualquer estouro é reprovação
+        c.falhas.append("`conferir_boneco.conferir` estourou: %r" % erro)
+        return
+    finally:
+        sys.path[:] = antes
+    for motivo in motivos:
+        c.contar()
+        c.falhas.append("o `arte/boneco.glb` commitado reprova: %s" % motivo)
+
+
 def _conferir_as_mutacoes(c: "Conferencia") -> None:
     """O `CLAUDE.md` publica quantas mutações existem; elas têm que existir.
 
@@ -1765,8 +1805,14 @@ def _conferir_as_mutacoes(c: "Conferencia") -> None:
         return
     no_boneco = _quantas_mutacoes("tools/arte/mutar_boneco.py")
     na_concordancia = _quantas_mutacoes("tools/mutar_direcao.py")
+    # **A terceira suíte faltava aqui, e o custo foi medido.** Enquanto ela não
+    # era contada, `docs/11` publicava 49 e o `CLAUDE.md` 75 para os MESMOS
+    # dois arquivos, com esta ferramenta verde — ela conferia o 75 e nunca
+    # tinha olhado o 49. Achado do revisor adversarial.
+    no_gerador = _quantas_mutacoes("tools/arte/mutar_gerar_boneco.py")
     for onde, quantas in (("tools/arte/mutar_boneco.py", no_boneco),
-                          ("tools/mutar_direcao.py", na_concordancia)):
+                          ("tools/mutar_direcao.py", na_concordancia),
+                          ("tools/arte/mutar_gerar_boneco.py", no_gerador)):
         if quantas < 0:
             c.contar()
             c.falhas.append(
@@ -1778,11 +1824,14 @@ def _conferir_as_mutacoes(c: "Conferencia") -> None:
              r"\*\*(?:\d+) mutações, (?:\d+) pegas\*\* — (\d+) no boneco",
              no_boneco)
     c.afirma("CLAUDE.md mutações na concordância", claude,
-             r"— (?:\d+) no boneco e (\d+) na concordância",
+             r"— (?:\d+) no boneco, (\d+) na concordância",
              na_concordancia)
+    c.afirma("CLAUDE.md mutações no boneco novo", claude,
+             r"na concordância e\s+(\d+) no boneco novo",
+             no_gerador)
     # O total é afirmado DUAS vezes no documento, em seções diferentes, e as
     # duas são conferidas: elas já discordaram entre si.
-    total = no_boneco + na_concordancia
+    total = no_boneco + na_concordancia + no_gerador
     # O `\.?` não é zelo: a segunda ocorrência termina em "pegas.**", com o
     # ponto DENTRO do negrito, e sem ele o padrão achava uma só. A conferência
     # acusou isso na primeira execução — que é o que ela deve fazer quando só
@@ -1795,12 +1844,31 @@ def _conferir_as_mutacoes(c: "Conferencia") -> None:
             "aparece em duas seções e as duas são conferidas" % len(achados)
         )
         return
+    # **`docs/11` publica o mesmo total, e entra na mesma conferência.** Ele
+    # descrevia os mesmos dois arquivos e dizia outro número; um documento por
+    # vez é como esta classe de defeito recorre.
+    try:
+        onze = ler("docs/11-direcao-de-arte.md")
+    except OSError as erro:
+        c.contar()
+        c.falhas.append("o docs/11 não pôde ser lido: %s" % erro)
+        return
+    achados += re.findall(r"\*\*(\d+) mutações, (\d+) pegas\.?\*\*", onze)
+    c.contar()
+    if len(achados) < 3:
+        c.falhas.append(
+            "a contagem de mutações aparece %d vez(es) entre CLAUDE.md e "
+            "docs/11; são três e as três são conferidas" % len(achados)
+        )
+        return
     for publicado, pegas in achados:
+        c.contar()
         if int(publicado) != total or int(pegas) != total:
             c.falhas.append(
-                "o CLAUDE.md diz \"%s mutações, %s pegas\" e as suítes têm %d "
-                "(%d no boneco + %d na concordância)"
-                % (publicado, pegas, total, no_boneco, na_concordancia)
+                "um documento diz \"%s mutações, %s pegas\" e as suítes têm %d "
+                "(%d no boneco + %d na concordância + %d no boneco novo)"
+                % (publicado, pegas, total, no_boneco, na_concordancia,
+                   no_gerador)
             )
             return
 
@@ -3485,6 +3553,7 @@ def main() -> int:
     _conferir_direcao_de_arte(c)
     _conferir_a_esbeltez(c)
     _conferir_as_mutacoes(c)
+    _conferir_o_boneco_novo(c)
     _conferir_o_artefato(c)
     _conferir_que_a_arvore_nao_esta_mutada(c)
     _conferir_bytes_de_controle(c)

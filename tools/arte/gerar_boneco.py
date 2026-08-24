@@ -1409,7 +1409,11 @@ ANIMACOES = {
 		# que é sempre a extremidade mais distante do pivô — e aprova um corpo
 		# em que só a ponta se mexe: medido, uma perna levantada o clipe inteiro
 		# publicava os mesmos 0,123 m.
-		"movem": ["cabeca", "mao"],
+		# **`mao` saiu daqui, e a saida e um achado.** Medida a articulacao do
+		# proprio osso, a mao girava 0,00 grau: ela nunca teve chave nenhuma,
+		# e os 0,123 m publicados como prova de vida eram carona do braco. A
+		# regua antiga lia deslocamento no mundo e nao sabia a diferenca.
+		"movem": ["cabeca", "braco", "antebraco"],
 		"pes_plantados": True,
 		# **Quem carrega a leitura é a CABEÇA e a MÃO, não o peito.**
 		#
@@ -1434,19 +1438,27 @@ ANIMACOES = {
 		#
 		# E na câmera do jogo — personagem a 43 px de altura — o peito se move
 		# 0,44 px. É sub-pixel: ninguém o vê. Quem se vê são as duas mãos, a
-		# 3,0 px, e a cabeça, a 2,3. Por isso `movem` lista cabeça e mão, e não
-		# peito: exigir movimento de uma região invisível seria exigir
-		# exagero para satisfazer uma régua.
+		# 3,0 px, e a cabeça, a 2,3. Por isso `movem` não lista peito: exigir
+		# movimento de uma região invisível seria exigir exagero para
+		# satisfazer uma régua.
+		#
+		# Mas a mão que se vê a 3,0 px é levada pelo BRAÇO e pelo ANTEBRAÇO, e
+		# são eles que `movem` nomeia. O antebraço ganhou chave nesta rodada:
+		# um respiro em que o cotovelo não acompanha lê como manequim, e sem
+		# ele a única articulação do membro inteiro era o ombro.
 		#
 		# O quadril continua parado de propósito: as pernas são rígidas, sem
 		# joelho dobrando para compensar, e levantá-lo tira os dois pés do chão.
 		"chaves": [
-			(0.0, pose(peito=(3, 0, 0), cabeca=(2, 0, 0),
-			           braco_D=(2, -3, 0), braco_E=(2, 3, 0))),
-			(0.5, pose(peito=(-3, 0, 0), cabeca=(-2.5, 0, 0),
-			           braco_D=(-4, -8, 0), braco_E=(-4, 8, 0))),
-			(1.0, pose(peito=(3, 0, 0), cabeca=(2, 0, 0),
-			           braco_D=(2, -3, 0), braco_E=(2, 3, 0))),
+			(0.0, pose(peito=(3, 0, 0), cabeca=(3, 0, 0),
+			           braco_D=(2, -3, 0), braco_E=(2, 3, 0),
+			           antebraco_D=(-4, 0, 0), antebraco_E=(-4, 0, 0))),
+			(0.5, pose(peito=(-3, 0, 0), cabeca=(-3, 0, 0),
+			           braco_D=(-4, -8, 0), braco_E=(-4, 8, 0),
+			           antebraco_D=(-11, 0, 0), antebraco_E=(-11, 0, 0))),
+			(1.0, pose(peito=(3, 0, 0), cabeca=(3, 0, 0),
+			           braco_D=(2, -3, 0), braco_E=(2, 3, 0),
+			           antebraco_D=(-4, 0, 0), antebraco_E=(-4, 0, 0))),
 		],
 	},
 	"andando": {
@@ -1463,7 +1475,10 @@ ANIMACOES = {
 		# `movem` listando só a perna, congelar os dois braços publicava com
 		# rc=0 — e a tabela de braço morta que a revisão anterior reprovou
 		# voltava sem uma linha no console.
-		"movem": ["coxa", "canela", "pe", "mao", "antebraco"],
+		# `mao` saiu, `braco` entrou, pelo mesmo motivo do `parado`: medida a
+		# articulacao do proprio osso, a mao gira 0,00 grau nos dois clipes —
+		# ela nunca teve chave. Quem balanca o membro e o ombro, a 52 graus.
+		"movem": ["coxa", "canela", "pe", "braco", "antebraco"],
 		# E a báscula, no eixo dela. Medida: 0,033 m de lado no peito.
 		"balanca": {"peito": 0.020},
 		# **Um pé de cada vez sai do chão, e é isso que separa andar de pular.**
@@ -1586,16 +1601,25 @@ ANIMACOES = {
 ## Se a animação lê bem ou não, quem responde é o olho: é o item que não se
 ## automatiza, e está declarado como tal.
 AMPLITUDE_MINIMA = 0.05
+## Quantos GRAUS um osso listado em `movem` tem de girar para contar como
+## animado. E angulo, nao metro, porque metro nao distingue articular de ser
+## carregado — ver o comentario de `giros` em `medir_animacao`.
+ARTICULACAO_MINIMA = 5.0
 ## Quanto os dois lados de um osso par podem articular diferente, em fracao do
-## maior. Medido no boneco publicado, os pares batem em 0,2% — `pe_D` 0,8526
-## contra `pe_E` 0,8525. A folga e enorme de proposito: o que este teto pega
-## nao e desequilibrio fino (isso e `DESEQUILIBRIO`, que mede passada e altura
-## do passo), e um lado MORTO. Medido, congelar so o braco direito publicava:
-## a regiao `mao` guarda o maximo dos dois lados, e o esquerdo vivo sustentava
-## o numero sozinho. Uma animacao que queira ser assimetrica declara
-## `assimetricos` e diz quais regioes — que e o que faz esta defesa falhar
-## FECHADA em vez de aberta.
-TOLERANCIA_DA_SIMETRIA = 0.15
+## maior. Medido no boneco publicado, os pares batem em 0,00% — a pose de um
+## lado e a do outro espelhada, entao a excursao ANGULAR e identica por
+## construcao. A tolerancia existe so para ponto flutuante.
+##
+## Ela vale APENAS para regiao listada em `movem`, e a razao e medida: a versao
+## anterior comparava deslocamento no mundo sobre um conjunto de vertices
+## escolhido por argmax de peso, que nao e espelhado. Um vertice trocando de
+## dono mudava o numero em 70%, e baixar o pescoco 7 cm produzia 41% de
+## assimetria numa animacao simetrica — falso positivo sobre ossos cuja
+## excursao real era 3 cm de carona.
+##
+## Uma animacao que queira ser assimetrica declara `assimetricos` e diz quais
+## regioes — que e o que faz esta defesa falhar FECHADA em vez de aberta.
+TOLERANCIA_DA_SIMETRIA = 0.05
 
 ## Quanto o pé pode sair do chão numa animação que não é de pulo.
 FOLGA_DO_CHAO = 0.015
@@ -1660,14 +1684,21 @@ APOIO_SIMPLES_MINIMO = 0.20
 ## 7,1% a 5,6%; fechar o resto exige o que uma perna rígida não tem — tornozelo
 ## que rola do calcanhar à ponta, e bacia que gira no plano transversal.
 ##
-## O teto é o valor MEDIDO, sem folga — 5,6%. Já foi 6,0%, e isso não era o
-## "mesmo tratamento de `TETO_DE_AUTOINTERSECAO`" que o comentário prometia:
-## aquele é o valor exato, 78 contra 78, folga zero. Teto arredondado para cima
-## é espaço para piorar sem ninguém ver.
+## O teto é o valor medido. Já foi 6,0%, e isso não era o "mesmo tratamento de
+## `TETO_DE_AUTOINTERSECAO`" que o comentário prometia: aquele é o valor exato,
+## 78 contra 78, folga zero. Teto arredondado para cima é espaço para piorar
+## sem ninguém ver.
+##
+## **E o próprio comentário violava a regra que enunciava**, achado do revisor:
+## ele dizia "sem folga — 5,6%" enquanto o medido é 5,5762%, ou seja arredondado
+## para cima justamente como ele condenava duas linhas antes. Hoje o teto é
+## 5,578%, que é o medido arredondado na QUARTA casa — 0,04 mm de folga num
+## corpo de 1,75 m, e o `.glb` sai byte a byte igual entre execuções, então nem
+## isso seria preciso.
 ##
 ## Ele continua reprovando a regressão que motivou a correção — a tabela de
 ## pernas anterior mede 7,3%.
-QUIQUE_MAXIMO = 0.056
+QUIQUE_MAXIMO = 0.05578
 
 
 def _passada(alturas: list, posicoes: list) -> tuple:
@@ -1740,9 +1771,19 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	chao = {"pe_D": [], "pe_E": []}
 	## Onde cada pé está em Y, quadro a quadro. A frente é -Y.
 	marcha = {"pe_D": [], "pe_E": []}
-	## E o mesmo par min/max, mas com o QUADRIL descontado a cada quadro. Ver
-	## o comentário de `por_osso_relativo`, mais abaixo.
-	menor_rel = maior_rel = None
+	## **A rotação LOCAL de cada osso, quadro a quadro.**
+	##
+	## `matrix_basis` é o desvio do osso em relação ao repouso DELE, no espaço
+	## do pai. Um osso que não articula tem essa matriz constante, e isso não
+	## depende de quem o carrega — que é o defeito que derrubou as duas
+	## tentativas anteriores. A primeira mediu deslocamento no mundo: um braço
+	## congelado no ombro ainda anda 0,14 m de carona. A segunda descontou o
+	## quadril: em `parado` o quadril não tem chave nenhuma, então ela não
+	## descontava nada, e quem carregava o braço era o peito — a margem para
+	## publicar um braço morto era de 1,3 mm, e um grau a mais de báscula a
+	## apagava. Descontar um osso escolhido à mão não fecha a classe; medir a
+	## articulação do próprio osso fecha.
+	giros = {osso.name: [] for osso in armature.pose.bones}
 	for quadro in range(0, ultimo + 1):
 		bpy.context.scene.frame_set(quadro)
 		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
@@ -1763,17 +1804,8 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 					menor[indice][eixo] = min(menor[indice][eixo], ponto[eixo])
 					maior[indice][eixo] = max(maior[indice][eixo], ponto[eixo])
 		quadril = armature.matrix_world @ armature.pose.bones["quadril"].head
-		relativos = [p - quadril for p in pontos]
-		if menor_rel is None:
-			menor_rel = [p.copy() for p in relativos]
-			maior_rel = [p.copy() for p in relativos]
-		else:
-			for indice, ponto in enumerate(relativos):
-				for eixo in range(3):
-					menor_rel[indice][eixo] = min(menor_rel[indice][eixo],
-					                              ponto[eixo])
-					maior_rel[indice][eixo] = max(maior_rel[indice][eixo],
-					                              ponto[eixo])
+		for osso in armature.pose.bones:
+			giros[osso.name].append(osso.matrix_basis.to_quaternion())
 		avaliado.to_mesh_clear()
 		alturas_do_quadril.append(quadril.z)
 	bpy.context.scene.frame_set(0)
@@ -1788,14 +1820,6 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	por_regiao = {}
 	## A amplitude de cada OSSO, para os dois lados serem comparados.
 	por_osso = {}
-	## **E por osso COM O QUADRIL DESCONTADO.** Este é o que tem dentes.
-	##
-	## Um osso parado no ombro continua se deslocando no mundo, porque o tronco
-	## o carrega: medido, com o braço direito inteiro congelado a mão ainda
-	## andava 0,14 m — três vezes o piso — só de ser levada pelo quique e pela
-	## báscula. O deslocamento absoluto não distingue ARTICULAR de SER
-	## CARREGADO, e é articular que `movem` promete.
-	por_osso_relativo = {}
 	## E a excursão LATERAL, separada. Ela é a báscula do quadril, e sem ela o
 	## corpo desliza sobre trilhos — mas ela some dentro da amplitude total, que
 	## é dominada pelo avanço das pernas.
@@ -1811,14 +1835,76 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		# braço direito inteiro publicava, porque o esquerdo sozinho sustentava
 		# o número. É a mesma cegueira que a manqueira explorava na perna.
 		por_osso[nome] = max(por_osso.get(nome, 0.0), anda)
-		por_osso_relativo[nome] = max(
-			por_osso_relativo.get(nome, 0.0),
-			(maior_rel[indice] - menor_rel[indice]).length)
 		lateral[regiao] = max(lateral.get(regiao, 0.0),
 		                      maior[indice].x - menor[indice].x)
 	amplitude = max((maior[i] - menor[i]).length for i in range(len(menor)))
-	return (amplitude, por_regiao, por_osso_relativo, lateral, chao, marcha,
+
+	## Quantos GRAUS cada osso girou, do quadro em que menos girou ao em que
+	## mais girou. É a maior distância angular entre dois quadros quaisquer —
+	## comparar só com o primeiro quadro subestima um osso que vai e volta.
+	articulacao = {}
+	for osso, lista in giros.items():
+		pior = 0.0
+		for i in range(len(lista)):
+			for j in range(i + 1, len(lista)):
+				produto = abs(lista[i].dot(lista[j]))
+				pior = max(pior, 2.0 * math.degrees(
+					math.acos(min(1.0, produto))))
+		articulacao[osso] = pior
+
+	return (amplitude, por_regiao, articulacao, lateral, chao, marcha,
 	        alturas_do_quadril)
+
+
+## Quantos pares de face podem se atravessar num quadro ANIMADO.
+##
+## **A pose de repouso tinha teto e o movimento não tinha nenhum**, e a queixa
+## que abriu este trabalho era exatamente sobre peças se atravessando andando —
+## *"várias peças dele entra uma dentro da outra, até com ele parado"*. O
+## conferidor lê o acessor `POSITION` do `.glb`, que é a malha em REPOUSO:
+## nenhuma ferramenta abria a malha deformada. Achado do revisor adversarial.
+##
+## **Medido em TODOS os quadros, e a exaustão não é zelo.** O revisor amostrou
+## seis quadros e achou 66; eu amostrei outros seis e achei 68; varrendo os 38
+## de `andando` o pior é **79, no quadro 5** — pior que os 78 do repouso, e
+## nenhuma das duas grades o continha. Uma grade esparsa aqui não mede o corpo,
+## mede quais quadros alguém escolheu.
+##
+## Custa 3m35s por geração, contra 40 s sem ela. É caro e vale: era o único
+## lugar onde a queixa original do usuário podia ser medida.
+##
+## O teto é o pior valor medido, sem folga, pelo mesmo argumento de
+## `TETO_DE_AUTOINTERSECAO` — e pelo argumento que `QUIQUE_MAXIMO` enunciava e
+## descumpria: teto arredondado para cima é espaço para piorar sem ninguém ver.
+TETO_DA_TRAVESSIA_ANIMADA = 79
+
+
+def medir_travessia(armature: bpy.types.Object, corpo: bpy.types.Object,
+                    nome: str, ultimo: int) -> tuple:
+	"""`(pior contagem, quadro em que ela ocorreu)` na malha DEFORMADA."""
+	acao = bpy.data.actions.get(nome)
+	if acao is None:
+		raise RuntimeError("a acao `%s` sumiu antes de ser medida" % nome)
+	armature.animation_data.action = acao
+	if hasattr(armature.animation_data, "action_slot") and acao.slots:
+		armature.animation_data.action_slot = acao.slots[0]
+
+	quadros = list(range(0, ultimo + 1))
+	pior, onde = 0, quadros[0]
+	for quadro in quadros:
+		bpy.context.scene.frame_set(quadro)
+		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
+		temporaria = avaliado.to_mesh()
+		temporaria.calc_loop_triangles()
+		pontos = [tuple(avaliado.matrix_world @ v.co)
+		          for v in temporaria.vertices]
+		triangulos = [tuple(t.vertices) for t in temporaria.loop_triangles]
+		quantos = len(conferir_boneco.auto_intersecoes(pontos, triangulos))
+		if quantos > pior:
+			pior, onde = quantos, quadro
+		avaliado.to_mesh_clear()
+	bpy.context.scene.frame_set(0)
+	return pior, onde
 
 
 def assentar(armature: bpy.types.Object, ultimo: int) -> list:
@@ -1951,7 +2037,7 @@ def main() -> int:
 	for nome, dados in ANIMACOES.items():
 		quadros = criar_animacao(esqueleto, nome, dados)
 		(amplitude, por_regiao, por_osso, lateral, chao, marcha,
-		 alturas_do_quadril) = medir_animacao(  # por_osso e RELATIVO ao quadril
+		 alturas_do_quadril) = medir_animacao(  # por_osso e ANGULAR, em graus
 			esqueleto, corpo, nome, quadros)
 		# **A duração impressa é a MEDIDA, não a declarada.** Ela já imprimiu
 		# "1,33 s" com o arquivo saindo em 1,667 — mentindo sobre exatamente o
@@ -1965,7 +2051,8 @@ def main() -> int:
 		for regiao in sorted(por_regiao):
 			print("[boneco]     %-10s anda %.4f m" % (regiao, por_regiao[regiao]))
 		for osso in sorted(por_osso):
-			print("[boneco]       %-12s articula %.4f m" % (osso, por_osso[osso]))
+			print("[boneco]       %-12s articula %6.2f graus"
+			      % (osso, por_osso[osso]))
 
 		for regiao in dados.get("movem", ()):
 			# **Os DOIS lados, um a um.** Olhando só o máximo da região, um
@@ -1978,20 +2065,35 @@ def main() -> int:
 					"em `%s` a regiao `%s` nao tem osso nenhum na malha — a "
 					"conferencia dela ficou orfa" % (nome, regiao))
 			for osso in sorted(lados):
-				# Relativo ao quadril: articulacao, nao carona.
-				andou = por_osso[osso]
-				if andou < AMPLITUDE_MINIMA:
+				# Rotacao LOCAL do osso: articulacao, nao carona.
+				girou = por_osso[osso]
+				if girou < ARTICULACAO_MINIMA:
 					raise RuntimeError(
-						"em `%s` o osso `%s` anda %.4f m e o piso e %.3f — a "
-						"animacao existe, mas a parte que ela deveria mover "
-						"nao se move" % (nome, osso, andou, AMPLITUDE_MINIMA))
-		## **Os pares articulam o mesmo?** Ver `TOLERANCIA_DA_SIMETRIA`.
+						"em `%s` o osso `%s` gira %.2f graus e o piso e %.1f "
+						"— a animacao existe, mas a parte que ela deveria "
+						"mover nao se move"
+						% (nome, osso, girou, ARTICULACAO_MINIMA))
+		## **A casca se atravessa ANDANDO?** Ver `TETO_DA_TRAVESSIA_ANIMADA`.
+		travessia, quadro_ruim = medir_travessia(esqueleto, corpo, nome, quadros)
+		print("[boneco]     travessia da casca: %d pares no pior quadro (%d), "
+		      "teto %d" % (travessia, quadro_ruim, TETO_DA_TRAVESSIA_ANIMADA))
+		if travessia > TETO_DA_TRAVESSIA_ANIMADA:
+			raise RuntimeError(
+				"em `%s` a casca se atravessa em %d pares no quadro %d, e o "
+				"teto e %d — o corpo entra em si mesmo em movimento"
+				% (nome, travessia, quadro_ruim, TETO_DA_TRAVESSIA_ANIMADA))
+
+		## **Os pares articulam o mesmo?** Ver `TOLERANCIA_DA_SIMETRIA`. So
+		## sobre regiao listada em `movem`: e la que o projeto declara o que
+		## tem de se mexer, e comparar razao entre dois ruidos da falso
+		## positivo.
 		poupados = set(dados.get("assimetricos", ()))
+		exigidas = set(dados.get("movem", ()))
 		for osso in sorted(por_osso):
 			if not osso.endswith("_D"):
 				continue
 			regiao = _regiao_do_osso(osso)
-			if regiao in poupados:
+			if regiao in poupados or regiao not in exigidas:
 				continue
 			irmao = regiao + "_E"
 			if irmao not in por_osso:
@@ -2005,9 +2107,9 @@ def main() -> int:
 			desvio = abs(direito - esquerdo) / maior_lado
 			if desvio > TOLERANCIA_DA_SIMETRIA:
 				raise RuntimeError(
-					"em `%s` a regiao `%s` articula %.4f m de um lado e %.4f "
-					"do outro (%.0f%% de diferenca, teto %.0f%%) — um dos "
-					"lados nao esta se mexendo"
+					"em `%s` a regiao `%s` articula %.2f graus de um lado e "
+					"%.2f do outro (%.0f%% de diferenca, teto %.0f%%) — um "
+					"dos lados nao esta se mexendo"
 					% (nome, regiao, direito, esquerdo, desvio * 100,
 					   TOLERANCIA_DA_SIMETRIA * 100))
 
@@ -2058,7 +2160,7 @@ def main() -> int:
 					% (nome, pe, max(alturas), FOLGA_DO_CHAO))
 		if dados.get("assentar"):
 			quique = max(alturas_do_quadril) - min(alturas_do_quadril)
-			print("[boneco]     quique do quadril: %.4f m (%.1f%% da altura)"
+			print("[boneco]     quique do quadril: %.4f m (%.4f%% da altura)"
 			      % (quique, 100.0 * quique / ALTURA))
 			# **O quique tem TETO, e ele não tinha.** `quadril anda 0,1310 m`
 			# era impresso e comparado só com o piso de amplitude, que não tem

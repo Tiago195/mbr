@@ -353,7 +353,8 @@ Três achados que valem além da arte:
 `tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
 — e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
 reprova quando documento e código discordam, mediana E faixa.
-**75 mutações, 75 pegas** — 17 no boneco e 58 na concordância.
+**98 mutações, 98 pegas** — 17 no boneco, 58 na concordância e
+23 no boneco novo.
 
 **E isto foi REPROVADO DUAS VEZES por um validador adversarial**, com 17 e 12
 achados. A segunda rodada achou o pior de todos, e era de processo: **o `.glb`
@@ -494,13 +495,38 @@ não da Godot:
 
 ```
 "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python tools/arte/gerar_personagem.py
+"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python tools/arte/gerar_boneco.py
 py tools/arte/censo_do_original.py
 ```
 
-A primeira gera o boneco **e roda a conferência dele**, e só publica os dois
-artefatos se ele passar. A segunda mede o original e regrava
+As duas primeiras geram um boneco cada **e rodam a conferência dele**, e só
+publicam os artefatos se ele passar. A terceira mede o original e regrava
 `data/direcao-de-arte.json`; ela só funciona onde a instalação da Steam
 existir, e sem ela sai com 2 — que é diferente de reprovar.
+
+**São DOIS bonecos, e é preciso saber qual é qual.** `gerar_personagem.py` faz
+`arte/personagem.glb`, que é o que o jogo carrega hoje: cápsulas e caixas, com
+os 25 clipes do vocabulário universal. `gerar_boneco.py` faz `arte/boneco.glb`,
+o boneco novo — malha contínua por Skin Modifier, na proporção medida, com
+`parado` e `andando`. **Ele ainda não tem consumidor**: nada na camada de jogo
+o carrega, e ligá-lo é trabalho que não foi feito.
+
+`gerar_boneco.py` custa 3m35s, e o motivo é o teto de travessia da casca: ele
+abre a malha DEFORMADA em cada um dos 78 quadros das duas animações. Uma grade
+esparsa erra o pior quadro — duas grades de seis amostras erraram, uma minha e
+uma do revisor.
+
+**E o `andando` está autorado para 0,40 m/s.** O gerador mede a passada e imprime
+a velocidade que ela implica: `pe_D` recua 0,514 m em 19 quadros a 30/s, o que
+dá 0,406 m/s. O jogo translada o personagem a **3,3 a 5,0 m/s**. Ligado como
+está, o ciclo deslizaria 8 a 12 vezes — pior que o `gesto_de_caminhada.gd`
+procedural, que existe justamente porque o usuário reclamou de deslizamento.
+
+Não é bug hoje, porque `arte/boneco.glb` não tem consumidor. Vira bug no minuto
+em que tiver. **E não há nada no repositório que resolva:** `grep -rn
+"speed_scale" --include=*.gd .` dá zero ocorrências. Quem for ligar este boneco
+precisa, antes, de um jeito de casar cadência de clipe com velocidade de
+translação — ou reautorar a passada para a velocidade do jogo.
 
 O `.blend` **não é rastreado**, e a razão é medida: exportá-lo duas vezes do
 mesmo código dá dois arquivos diferentes, então ele não se confere por
@@ -513,18 +539,27 @@ As defesas têm suítes de mutação próprias, e elas estão no repositório:
 ```
 py tools/arte/mutar_boneco.py
 py tools/mutar_direcao.py
+py tools/arte/mutar_gerar_boneco.py
 ```
 
-**75 mutações, 75 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
+**98 mutações, 98 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
 artefatos inclusive** — restaurar só o código-fonte já deixou um `.glb`
 commitado vindo de uma mutação, e restaurar só o `.glb` deixou o `.blend`.
-**Rodar uma de cada vez:** as duas mutam os mesmos arquivos, e sobrepô-las
-corrompe as duas.
+**Rodar uma de cada vez:** elas mutam os mesmos arquivos, e sobrepô-las
+corrompe as duas. `mutar_gerar_boneco.py` planta a trava `.mutacao-em-curso`
+enquanto roda, e **enquanto ela existe o repositório está mutado** — não editar
+arquivo nenhum do projeto até ela sair.
 
 São **quatro**, e `py tools/conferir_numeros.py` sozinho já roda os três
 primeiros: ele executa a suíte E as duas sondas, e trata `SCRIPT ERROR` no
 stderr, código de saída e ausência da marca de sucesso como falha. Rodar os
 quatro à mão continua valendo quando se quer ler a saída de um deles.
+
+**E ele confere `arte/boneco.glb` também**, chamando `conferir_boneco.conferir`
+sobre o artefato commitado. Antes disso, um `grep` por `gerar_boneco` ou
+`conferir_boneco` fora dos três arquivos novos dava zero ocorrências no
+repositório inteiro: a única defesa do boneco novo era alguém lembrar de digitar
+o comando. É a lição 11, e foi achado do revisor adversarial.
 
 **Sonda que estoura no meio imprime `[ok]`.** Um acesso a propriedade
 inexistente não aborta a função: empurra erro, devolve nulo e o laço segue.
