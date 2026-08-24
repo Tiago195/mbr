@@ -196,6 +196,7 @@ RAIO_DO_PESCOCO = X_OMBRO * 0.34
 ## O peito, em fração do meio-vão dos ombros. Ver o comentário na montagem.
 FRACAO_DO_PEITO = 0.72
 
+
 ## O punho estrangula e a mão infla, em fração do raio da mão. São o que
 ## transforma o braço de salsicha em braço com ponta.
 ESTREITAMENTO_DO_PULSO = 0.45
@@ -394,11 +395,49 @@ def criar_pele(ajuste_topo: float = 0.0, ajuste_base: float = 0.0,
 	return corpo
 
 
+## O lado do voxel, em metros, e quanto da malha sobra depois de reduzir.
+##
+## **A voxelização é o que torna a auto-interseção impossível**, e não uma
+## escolha de acabamento. O Skin Modifier costura um casco em cada junção, e
+## quando dois ramos saem perto um do outro com raios diferentes os cascos se
+## atravessam: medido, a casca cruzava a si mesma em 78 pares na axila, em
+## repouso — o mesmo defeito que motivou a reescrita, agora numa superfície só.
+##
+## Tentei fechar a junção estreitando o peito (0,95 → 0,72 do meio-vão) e
+## acrescentando uma clavícula. O primeiro foi de 36 para 40 pares; o segundo
+## para 85, e mudou o defeito de lugar. Junção rasa não se conserta ajustando
+## quem entra nela.
+##
+## Uma superfície reconstruída a partir de voxels **não pode** se atravessar: o
+## algoritmo caminha a fronteira de um volume, e volume não tem dois lados no
+## mesmo lugar. Ela também arredonda as junções, que é o que chibi pede.
+##
+## O lado do voxel é o que decide a contagem de polígonos; a redução traz de
+## volta para a ordem de um boneco de teste.
+LADO_DO_VOXEL = 0.022
+SOBRA_DA_REDUCAO = 0.35
+
+
 def aplicar(corpo: bpy.types.Object) -> tuple:
-	"""Aplica pele e subdivisão. Devolve `(base, topo)` do que saiu."""
+	"""Aplica pele, subdivisão, voxelização e redução.
+
+	Devolve `(base, topo)` do que saiu.
+	"""
 	bpy.context.view_layer.objects.active = corpo
 	for modificador in list(corpo.modifiers):
 		bpy.ops.object.modifier_apply(modifier=modificador.name)
+
+	voxel = corpo.modifiers.new(name="voxel", type="REMESH")
+	voxel.mode = "VOXEL"
+	voxel.voxel_size = LADO_DO_VOXEL
+	# Sem suavização o resultado sai escadinha de cubo, que é justamente o
+	# visual de que estamos fugindo.
+	voxel.use_smooth_shade = True
+	bpy.ops.object.modifier_apply(modifier=voxel.name)
+
+	reduzir = corpo.modifiers.new(name="reduzir", type="DECIMATE")
+	reduzir.ratio = SOBRA_DA_REDUCAO
+	bpy.ops.object.modifier_apply(modifier=reduzir.name)
 	alturas = [v.co.z for v in corpo.data.vertices]
 	return min(alturas), max(alturas)
 
@@ -483,8 +522,11 @@ def convergir() -> tuple:
 		limpar_soltos(corpo)
 		cabeca = _largura_da_cabeca(corpo)
 		braco = _alcance_do_braco(corpo)
-		entregue = _esbeltez_entregue(corpo, _ossos(ajuste_base, ajuste_do_braco),
-		                              fatores)
+		# Veste para medir: a espessura é medida pelos pesos, e peso só existe
+		# depois da pele estar presa ao esqueleto.
+		esqueleto = criar_esqueleto(corpo, ajuste_base, ajuste_do_braco)
+		vestir(corpo, esqueleto)
+		entregue = _esbeltez_entregue(corpo, _ossos(ajuste_base, ajuste_do_braco))
 		gorda = max((_fora_da_faixa(r, entregue[r]) for r in entregue),
 		            default=1.0)
 		if (abs(topo - ALTURA) <= FOLGA_DA_ALTURA
@@ -500,7 +542,7 @@ def convergir() -> tuple:
 				faixa = FAIXA_DA_ESBELTEZ[regiao]
 				print("[boneco]   esbeltez %-10s %.3f  (faixa %.3f a %.3f)"
 				      % (regiao, entregue[regiao], faixa[1], faixa[2]))
-			return corpo, ajuste_base, ajuste_do_braco, fatores
+			return corpo, esqueleto, ajuste_base, ajuste_do_braco, fatores
 		# **Todas as correções são AMORTECIDAS, e isso não é zelo.**
 		#
 		# As quatro se puxam: engordar a cabeça também a levanta, e empurrar a
@@ -563,8 +605,19 @@ def convergir() -> tuple:
 			# uma região sair para a outra entrar.
 			if valor <= 0.001 or _fora_da_faixa(regiao, valor) <= 0.0:
 				continue
-			_mediana, minimo, maximo = FAIXA_DA_ESBELTEZ[regiao]
-			alvo = minimo if valor < minimo else maximo
+			# **Mira na MEDIANA, e não na borda mais próxima.**
+			#
+			# Corrigindo em direção à borda, o laço para no instante em que
+			# cruza: medido, o pé parava em 0,532005 contra um piso de 0,532 —
+			# margem de cinco milionésimos — e o braço encostava no teto. A
+			# linha impressa parecia uma medida que concorda com a direção de
+			# arte, e era a condição de parada impressa de volta.
+			#
+			# Mirando no meio, ele entra na faixa com folga dos dois lados, e
+			# qualquer mudança em subdivisão, altura ou voxel não o joga para
+			# fora de novo.
+			mediana, _minimo, _maximo = FAIXA_DA_ESBELTEZ[regiao]
+			alvo = mediana
 			fatores[regiao] = fatores.get(regiao, 1.0) * (
 				1.0 + AMORTECIMENTO_DA_ESPESSURA * (alvo / valor - 1.0))
 	raise RuntimeError(
@@ -686,33 +739,34 @@ def _fora_da_faixa(regiao: str, valor: float) -> float:
 AMOSTRA_MINIMA = 12
 
 
-def _esbeltez_entregue(corpo: bpy.types.Object, ossos: list,
-                       fatores: dict) -> dict:
+def _esbeltez_entregue(corpo: bpy.types.Object, ossos: list) -> dict:
 	"""A espessura que a malha REALMENTE tem, por região, sobre o comprimento.
 
-	**Cada vértice pertence ao osso mais próximo em RAIOS dele, e não a um
-	cerco.** É a mesma regra que `pintar` usa, e ela substitui uma janela de
-	tamanho fixo que tinha dois defeitos somados: saía da mediana, então o maior
-	valor que a medida conseguia reportar era `mediana × 1,2` — abaixo do máximo
-	da faixa em nove das nove regiões. A metade "gordo demais" da comparação
-	estava morta, e uma coxa engordada 2,2 vezes passava.
+	**Mede pelos PESOS da pele, que é o mesmo termo de `conferir_boneco.py`.**
 
-	Aqui não há teto: se a peça engordar, a medida acompanha.
+	Antes ela usava um substituto geométrico — o osso mais próximo em raios
+	dele — porque os pesos só existem depois de vestir. O preço foi medido: o
+	gerador publicava braço 0,828 e o conferidor, lendo `WEIGHTS_0` do arquivo,
+	1,291. Dois números para a mesma grandeza, e ninguém comparando; o gerador
+	convergia contra um alvo que o conferidor não reconhecia.
 
-	Medida no meio do osso, porque perto das juntas a superfície incha para
-	encontrar o vizinho e isso mede a junta, não o membro.
+	A diferença não era ruído: o peso automático atribui a massa do ombro ao
+	BRAÇO, e o substituto geométrico a atribuía ao peito. Quem decide é a pele,
+	porque é ela que a engine vai deformar.
+
+	Por isso o laço veste o corpo a cada volta. Custa alguns segundos no total,
+	e compra que gerador e conferidor não possam discordar.
 	"""
 	por_nome = {nome: (cabeca, cauda) for nome, cabeca, cauda, _p in ossos}
-	raios = _raio_do_osso(fatores)
-	# De quem é cada vértice: do osso mais próximo, em raios dele.
+	grupos = {g.index: g.name for g in corpo.vertex_groups}
 	meus = {}
 	for vertice in corpo.data.vertices:
-		melhor, perto = None, None
-		for nome, cabeca, cauda, _pai in ossos:
-			distancia = _distancia_ao_osso(vertice.co, cabeca, cauda) / raios[nome]
-			if perto is None or distancia < perto:
-				melhor, perto = nome, distancia
-		meus.setdefault(melhor, []).append(vertice.co)
+		melhor, peso = None, 0.0
+		for atribuicao in vertice.groups:
+			if atribuicao.weight > peso:
+				peso, melhor = atribuicao.weight, grupos.get(atribuicao.group)
+		if melhor is not None:
+			meus.setdefault(melhor, []).append(vertice.co)
 
 	saida = {}
 	for regiao, osso in OSSO_DA_REGIAO.items():
@@ -732,8 +786,7 @@ def _esbeltez_entregue(corpo: bpy.types.Object, ossos: list,
 				continue
 			distancias.append(
 				(relativo - direcao * (ao_longo * comprimento)).length)
-		# Poucos pontos medem o acaso, não a peça — e é assim que uma medida
-		# passa a aprovar qualquer coisa.
+		# Poucos pontos medem o acaso, não a peça.
 		if len(distancias) >= AMOSTRA_MINIMA:
 			saida[regiao] = 2.0 * max(distancias) / comprimento
 	return saida
@@ -1041,6 +1094,57 @@ def pintar(corpo: bpy.types.Object, indices: dict,
 			if perto is None or distancia < perto:
 				melhor, perto = nome, distancia
 		face.material_index = indices[MATERIAL_DO_OSSO.get(melhor, "roupa")]
+	_alisar_pintura(corpo)
+
+
+## Quantas passadas de voto da vizinhança. Duas tiram a poeira sem apagar
+## região pequena; mais que isso comeria o rosto.
+PASSADAS_DE_ALISAMENTO = 2
+
+
+def _alisar_pintura(corpo: bpy.types.Object) -> None:
+	"""Cada face adota a cor da MAIORIA das vizinhas, quando ela é maioria.
+
+	**A voxelização trocou um problema por outro.** Ela fecha a auto-interseção
+	por construção, mas devolve triângulos uniformes que não têm relação
+	nenhuma com a estrutura do corpo — e aí uma decisão tomada face a face
+	alterna na divisa e sai em farrapo. Na tela virou máscara rasgada no rosto e
+	borda picotada no tronco.
+
+	Voto da vizinhança é o remédio padrão para ruído de rótulo: uma face isolada
+	com cor diferente das vizinhas é quase certamente erro de amostragem, não
+	uma região de uma face. Duas passadas bastam, e regiões de verdade
+	sobrevivem porque elas TÊM vizinhança.
+	"""
+	vizinhas = {}
+	por_aresta = {}
+	for face in corpo.data.polygons:
+		for chave in face.edge_keys:
+			por_aresta.setdefault(chave, []).append(face.index)
+	for lista in por_aresta.values():
+		for a in lista:
+			for b in lista:
+				if a != b:
+					vizinhas.setdefault(a, set()).add(b)
+
+	for _passada in range(PASSADAS_DE_ALISAMENTO):
+		atual = [f.material_index for f in corpo.data.polygons]
+		novo = list(atual)
+		for indice, face in enumerate(corpo.data.polygons):
+			contagem = {}
+			for outra in vizinhas.get(indice, ()):
+				contagem[atual[outra]] = contagem.get(atual[outra], 0) + 1
+			if not contagem:
+				continue
+			campea = max(contagem, key=contagem.get)
+			# Só troca quando a maioria é ESTRITA e maior que os próprios
+			# vizinhos da cor atual — senão duas cores empatadas piscam entre
+			# as passadas em vez de assentar.
+			if (campea != atual[indice]
+					and contagem[campea] > contagem.get(atual[indice], 0)):
+				novo[indice] = campea
+		for indice, face in enumerate(corpo.data.polygons):
+			face.material_index = novo[indice]
 
 
 ## Quanto da frente da cabeça vira rosto, em fração do raio dela.
@@ -1078,7 +1182,9 @@ def pintar_rosto(corpo: bpy.types.Object, indices: dict) -> int:
 			continue
 		face.material_index = indices["rosto"]
 		pintadas += 1
-	return pintadas
+	_alisar_pintura(corpo)
+	return sum(1 for f in corpo.data.polygons
+	           if f.material_index == indices["rosto"])
 
 
 def exportar(caminho: str) -> None:
@@ -1116,9 +1222,7 @@ def exportar(caminho: str) -> None:
 
 
 def main() -> int:
-	corpo, ajuste_base, ajuste_do_braco, fatores = convergir()
-	esqueleto = criar_esqueleto(corpo, ajuste_base, ajuste_do_braco)
-	vestir(corpo, esqueleto)
+	corpo, esqueleto, ajuste_base, ajuste_do_braco, fatores = convergir()
 	indices = criar_materiais(corpo)
 	pintar(corpo, indices, ajuste_base, ajuste_do_braco, fatores)
 	rosto = pintar_rosto(corpo, indices)
