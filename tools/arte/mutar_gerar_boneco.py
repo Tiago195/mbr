@@ -98,7 +98,7 @@ MUTACOES = [
     ("o rosto nao e pintado",
      [("gerador", "\t\tface.material_index = indices[\"rosto\"]\n\t\tpintadas += 1",
        "\t\tpintadas += 1")]),
-    # Ancorada no comentario do `andando`: `morrer` tambem assenta, e sem
+    # Ancorada no comentario do `andando`: `morte` tambem assenta, e sem
     # o contexto o padrao passou a casar duas vezes — mutacao que aplica
     # em dois lugares nao testa nenhum dos dois em separado.
     ("o corpo deixa de assentar no chao",
@@ -173,21 +173,27 @@ MUTACOES = [
      [("gerador", '\t"vao_dos_quadris": 0.129,',
        '\t"vao_dos_quadris": 0.160,')]),
 
-    # --- o `morrer`, e as duas conferencias que ele obrigou a existir ---
+    # --- o `morte`, e as duas conferencias que ele obrigou a existir ---
     # `criar_animacao` faz `poses.get(osso.name, ...)`: ele percorre os ossos e
     # pergunta o que cada um faz. Nome escrito errado nunca e perguntado, entao
     # a chave e descartada em SILENCIO — e os pisos de articulacao continuam
     # passando, porque os outros ossos ainda se mexem.
+    # **Num osso que NAO muda a pose final**, e a escolha e um achado do
+    # revisor: escrita errada no quadro 1.000, esta mutacao era
+    # sobredeterminada — `poses.get` devolve identidade, o quadril fica em zero,
+    # e `deitado` matava a mutacao antes da guarda. O arnes so olha a marca de
+    # sucesso no stdout, entao ele nao sabe QUAL conferencia matou, e a guarda
+    # levava credito por uma morte que nao era dela.
     ("uma chave de osso e escrita errada",
-     [("gerador", "(1.000, pose(quadril=(-10, -85, 0), peito=(4, 0, 0),",
-       "(1.000, pose(quadrl=(-10, -85, 0), peito=(4, 0, 0),")]),
+     [("gerador", "coxa_E=(22, 5, 0), canela_E=(34, 0, 0),",
+       "coxa_e=(22, 5, 0), canela_E=(34, 0, 0),")]),
     # O ramo do conferidor para clipe de uma vez e um `continue`: ele nao
-    # afirma nada. Um `morrer` que terminasse de pe passaria por toda
+    # afirma nada. Um `morte` que terminasse de pe passaria por toda
     # conferencia que existia antes desta — a duracao bate, os ossos articulam,
     # o pe nao afunda.
     ("o morto termina em pe",
-     [("gerador", "(1.000, pose(quadril=(-10, -85, 0), peito=(4, 0, 0),",
-       "(1.000, pose(quadril=(0, 0, 0), peito=(4, 0, 0),")]),
+     [("gerador", "(1.000, pose(quadril=(-85, 0, 0), peito=(-4, 0, 0),",
+       "(1.000, pose(quadril=(0, 0, 0), peito=(-4, 0, 0),")]),
 
     # --- o conferidor: quebrar a CONFERENCIA tambem tem que reprovar ---
     # Tirar `rosto` so de `CORES` nao desliga a conferencia: a presenca dele
@@ -283,16 +289,18 @@ def _gerar() -> int:
 def _fatia(argv) -> tuple:
     """`(de, ate)` a partir da linha de comando. Sem argumento, tudo.
 
-    **A suite existe em fatias porque uma execucao inteira ja nao coube.** Com
-    o gerador a 33 s, as 23 mutacoes levam ~13 minutos e cabem; o fatiamento
-    fica porque o modo como ela falha e silencioso demais para depender de
-    caber.
+    **A suite existe em fatias porque uma execucao inteira ja nao coube.** Cada
+    mutacao regera o boneco inteiro, e o custo cresce com o numero de clipes.
 
-    O numero que dimensionava esta fatia estava ERRADO: dizia 3m35s, sete vezes
-    o medido, sobrevivente de um commit em que a travessia da casca vivia num
-    segundo passe sobre os quadros. Foi por isso que a fatia recomendada aqui —
-    `0 8` — nao coube nos dez minutos do executor e morreu na oitava mutacao.
-    Uma constante errada num comentario dimensionou uma defesa e a fez falhar.
+    **Este docstring nao publica mais um tempo, e a razao e que ele ja
+    dimensionou esta defesa e a fez falhar.** Ele dizia "3m35s" quando o medido
+    era 33 s, e depois "33 s, ~13 minutos" quando o clipe `morte` ja tinha
+    dobrado o custo. Foi por isso que a fatia recomendada aqui — `0 8` — nao
+    coube nos dez minutos do executor e morreu na oitava mutacao, deixando o
+    repositorio mutado.
+
+    Meça antes de escolher a fatia, em vez de acreditar num numero escrito
+    aqui: uma geração isolada diz quanto custa hoje, e a fatia sai disso.
 
     Rodar `py tools/arte/mutar_gerar_boneco.py 0 8` faz as oito primeiras.
     Sempre UMA fatia de cada vez: a trava e o repositorio inteiro, nao a fatia.

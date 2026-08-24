@@ -34,6 +34,15 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 PADRAO = os.path.join(RAIZ, "arte", "boneco.glb")
 
 ALTURA = 1.75
+## **Vale 0,01 aqui e 0,04 em `conferir_personagem.py`**, com o mesmo nome e a
+## mesma grandeza — e o §9 de `docs/11` publica só o 0,04, dizendo "a altura
+## vale com folga de 4 cm". Achado do revisor adversarial, e a divergencia e
+## deliberada: aquele boneco e montado de solidos e a altura sai da soma deles;
+## este converge por laco ate 1,75, entao pode ser apertado quatro vezes mais.
+##
+## O que NAO e deliberado e o §9 falar de um so. Fica registrado aqui ate a
+## pipeline nova ter a propria declaracao de numeros livres — que e o buraco
+## que o revisor apontou e que este commit nao fecha.
 FOLGA_DA_ALTURA = 0.01
 ## Quanto a escala acumulada da arvore de nos pode fugir de 1. E aperto de
 ## proposito: o exportador do Blender escreve 1,0 exato, e qualquer outra
@@ -84,15 +93,36 @@ AMOSTRA_MINIMA = 12
 ANIMACOES_EXIGIDAS = {
 	"parado": (1.33, True),
 	"andando": (1.27, True),
-	"morrer": (1.82, False),
+	"morte": (1.82, False),
 }
+
+## Clipes que tem de terminar com o corpo no chao, e a fracao da altura acima
+## da qual o tronco nao pode parar.
+##
+## **Isto vivia so dentro do Blender, e o revisor adversarial provou o custo.**
+## Ele copiou o `.glb`, sobrescreveu o ultimo quaternion dos nove canais de
+## rotacao de `morte` com a identidade — cadaver de pe, pose de repouso — e
+## rodou `conferir_boneco`: aprovado, sem uma falha. O ramo de clipe "uma vez"
+## e `if not ciclo: continue`, entao NENHUM valor de rotacao dele era lido.
+##
+## Isso contradizia a decisao 24 em tantas palavras: *"o artefato e conferivel
+## sem a engine e sem o Blender"*. Era o mesmo vao que a rodada anterior fechou
+## para `ABERTURA_DO_BRACO`, reaberto no eixo da animacao.
+##
+## **E o teto e DERIVADO.** Um tronco deitado repousa a meia espessura do corpo
+## do chao: 0,433 / 2 = 0,217 m, que sobre 1,75 da 0,124 da altura. O teto e o
+## DOBRO disso, 0,25 — uma folga de duas vezes sobre a pose deitada, e ainda
+## assim menos de metade dos 0,656 em que o `peito` fica de pe (§1 de
+## `docs/11`). Medido, o clipe publicado fica em 0,133, e a pose ressuscitada
+## que o revisor injetou no `.glb` da 0,289.
+DEITADAS = {"morte": 0.25}
 
 ## O nome do mesmo verbo no original, para a duracao poder ser conferida contra
 ## o instantaneo do censo em vez de so contra o gerador.
 NOME_NO_ORIGINAL = {
 	"parado": "idle",
 	"andando": "walk",
-	"morrer": "death",
+	"morte": "death",
 }
 
 
@@ -276,6 +306,68 @@ def mundo_dos_nos(g: dict) -> dict:
 	        for i in range(len(g.get("nodes", [])))}
 
 
+def pose_no_fim(g: dict, b: bytes, animacao: str) -> dict:
+	"""`{osso: (x, y, z)}` no ULTIMO quadro da animacao, no espaco do mundo.
+
+	Le a rotacao final de cada canal do amostrador e compoe a hierarquia com
+	ela no lugar da rotacao de repouso. E o mesmo caminho de `mundo_dos_nos`,
+	com uma tabela de substituicao — escrito em separado de proposito: aquele
+	e usado por meia duzia de conferencias que falam da pose de REPOUSO, e
+	misturar as duas faria uma delas mudar de sentido sem ninguem notar.
+	"""
+	alvo = None
+	for anim in g.get("animations", []):
+		if anim.get("name") == animacao:
+			alvo = anim
+			break
+	if alvo is None:
+		return {}
+
+	girado = {}
+	movido = {}
+	for canal in alvo.get("channels", []):
+		caminho = canal.get("target", {}).get("path")
+		no = canal.get("target", {}).get("node")
+		if no is None:
+			continue
+		amostrador = alvo["samplers"][canal["sampler"]]
+		valores = ler_saida(g, b, amostrador["output"])
+		if not valores:
+			continue
+		if caminho == "rotation":
+			girado[no] = tuple(valores[-1])
+		elif caminho == "translation":
+			movido[no] = tuple(valores[-1])
+
+	pai = {}
+	for indice, no in enumerate(g.get("nodes", [])):
+		for filho in no.get("children", []) or []:
+			pai[filho] = indice
+	cache = {}
+
+	def transformacao(indice):
+		if indice in cache:
+			return cache[indice]
+		no = g["nodes"][indice]
+		t = movido.get(indice, tuple(no.get("translation") or (0.0, 0.0, 0.0)))
+		r = girado.get(indice, tuple(no.get("rotation") or (0.0, 0.0, 0.0, 1.0)))
+		e = tuple(no.get("scale") or (1.0, 1.0, 1.0))
+		acima = pai.get(indice)
+		if acima is None:
+			cache[indice] = (t, r, e)
+			return cache[indice]
+		pt, pr, pe = transformacao(acima)
+		local = tuple(t[k] * pe[k] for k in range(3))
+		virado = _quat_vezes_vetor(pr, local)
+		cache[indice] = (tuple(pt[k] + virado[k] for k in range(3)),
+		                 _quat_vezes_quat(pr, r),
+		                 tuple(pe[k] * e[k] for k in range(3)))
+		return cache[indice]
+
+	return {g["nodes"][i].get("name", "?"): transformacao(i)[0]
+	        for i in range(len(g.get("nodes", [])))}
+
+
 def escala_das_raizes(g: dict) -> float:
 	"""A escala acumulada MAIS LONGE de 1 em toda a arvore.
 
@@ -446,10 +538,19 @@ def _aresta_fura(p, q, tri) -> bool:
 ## o braco de 20 para 28 graus levou 78 pares a 10. Ver `ABERTURA_DO_BRACO`
 ## em `gerar_boneco.py`, que e onde a medicao esta.
 ##
-## A auto-intersecao fica dentro da malha e nao aparece; a pintura rasgada
-## aparece. Entao ela e aceita, com TETO: o numero e impresso a cada execucao e
-## crescer reprova. Defeito conhecido e limitado e diferente de defeito
-## ignorado.
+## A auto-intersecao fica dentro da malha e nao aparece. Entao ela e aceita,
+## com TETO: o numero e impresso a cada execucao e crescer reprova. Defeito
+## conhecido e limitado e diferente de defeito ignorado.
+##
+## **O que este paragrafo dizia e era falso:** que a pintura rasgada, ao
+## contrario da auto-intersecao, "aparece" — deixando entender que a versao
+## publicada nao a tem. Ela tem. Ver o comentario de `VOXELIZAR` em
+## `gerar_boneco.py` e a lista do que exige olho humano no `CLAUDE.md`.
+##
+## E o teto conta PARES, nunca LUGAR. Os 13 que sobram em `andando` estao no
+## quadril, nao na axila, e esses aparecem na tela. Contagem nao distingue os
+## dois sitios, e por duas versoes este comentario afirmou que o defeito era
+## "sempre no mesmo lugar, sempre em repouso" — falso nos dois termos.
 TETO_DE_AUTOINTERSECAO = 10
 
 ## Lado da celula da grade espacial, em metros. So triangulos que caem na mesma
@@ -714,6 +815,29 @@ def conferir(caminho: str) -> list:
 			falhas.append(
 				"a animacao `%s` e ciclo e NAO fecha: o ultimo quadro nao "
 				"repete o primeiro, entao ela salta ao emendar a volta" % nome)
+
+		# **E, para quem tem de morrer, o corpo termina no chao?** Ver
+		# `DEITADAS`. Isto le o `.glb`; a conferencia irma, dentro do gerador,
+		# mede a malha DEFORMADA e e mais fina. As duas existem porque uma
+		# delas nao roda na maquina de quem so tem o arquivo.
+		teto = DEITADAS.get(nome)
+		if teto is not None:
+			no_fim = pose_no_fim(g, b, nome)
+			if not no_fim:
+				falhas.append(
+					"nao consegui ler a pose final de `%s` — a conferencia de "
+					"que o corpo termina no chao ficou orfa" % nome)
+			elif "peito" not in no_fim:
+				falhas.append(
+					"o `.glb` nao tem o osso `peito` na pose final de `%s`"
+					% nome)
+			else:
+				fracao = no_fim["peito"][1] / ALTURA
+				if fracao > teto:
+					falhas.append(
+						"a animacao `%s` termina com o peito em %.3f da altura "
+						"e o teto e %.2f — o corpo nao caiu (em pe ele fica em "
+						"0,656)" % (nome, fracao, teto))
 
 	# --------------------------------------------------------- o esqueleto
 	nos = mundo_dos_nos(g)

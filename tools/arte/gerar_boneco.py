@@ -458,10 +458,19 @@ def criar_pele(ajuste_topo: float = 0.0, ajuste_base: float = 0.0,
 ## comparado na tela, a viseira vira máscara esfarrapada e a borda do tronco
 ## fica picotada.
 ##
-## **A auto-interseção fica DENTRO da malha e ninguém a vê; a pintura rasgada
-## está na cara do boneco.** Trocar defeito invisível por defeito visível não é
-## progresso. Ela continua medida e com teto — ver `TETO_DE_AUTOINTERSECAO` em
-## `conferir_boneco.py` —, então não pode crescer calada.
+## **A auto-interseção fica DENTRO da malha e ninguém a vê.** Trocar defeito
+## invisível por defeito visível não é progresso. Ela continua medida e com
+## teto — ver `TETO_DE_AUTOINTERSECAO` em `conferir_boneco.py` —, então não
+## pode crescer calada.
+##
+## **Mas o parágrafo acima já afirmou coisa falsa e vale corrigi-la aqui.** Ele
+## dizia que a pintura rasgada era o preço da voxelização, como se a versão
+## publicada não a tivesse. Ela tem: olhado no viewport, o boneco NÃO voxelizado
+## sai com a fronteira `roupa`/`pele` em degraus de face nos ombros, no peito e
+## na virilha, e o `rosto` é um retângulo chapado de bordas em escada. A
+## comparação que decidiu contra voxelizar media diferença de GRAU, não de
+## espécie — o defeito existe nos dois lados, e nenhum é medido por ferramenta
+## nenhuma. Está registrado em `CLAUDE.md`, na lista do que exige olho humano.
 VOXELIZAR = False
 LADO_DO_VOXEL = 0.022
 SOBRA_DA_REDUCAO = 0.35
@@ -1501,7 +1510,7 @@ ANIMACOES = {
 	# isometrica a queda para tras abre a silhueta em vez de encolher (item 7
 	# do §10); para a esquerda porque uma queda simetrica nao existe, e porque
 	# assimetria de proposito e o que uma tabela espelhada nao consegue dar.
-	"morrer": {
+	"morte": {
 		"ciclo": False,
 		"duracao": 1.82,
 		# A perna cede e o braco se debate. `cabeca` fica de fora: no
@@ -1516,7 +1525,7 @@ ANIMACOES = {
 		"passada": False,
 		"assentar": True,
 		# O teto de altura no ultimo quadro. Ver a conferencia de `deitado`.
-		"deitado": 0.70,
+		"deitado": True,
 		"chaves": [
 			# De pe. O golpe chega agora, sem recuo nenhum antes dele.
 			(0.000, pose()),
@@ -1524,42 +1533,41 @@ ANIMACOES = {
 			(0.055, pose(peito=(-16, 0, 0), cabeca=(-14, 0, 0),
 			             braco_D=(-20, -15, 0), braco_E=(-20, 15, 0))),
 			# Os joelhos cedem e o quadril despenca. A esquerda cede mais.
-			(0.220, pose(quadril=(-10, -3, 0), peito=(-6, 0, 0),
+			(0.220, pose(quadril=(-12, 0, 0), peito=(-6, 0, 0),
 			             cabeca=(4, 0, 0),
-			             coxa_D=(18, 0, 0), canela_D=(35, 0, 0),
-			             coxa_E=(22, 0, 0), canela_E=(45, 0, 0),
+			             coxa_D=(16, -2, 0), canela_D=(30, 0, 0),
+			             coxa_E=(20, 3, 0), canela_E=(40, 0, 0),
 			             braco_D=(-10, -25, 0), braco_E=(-14, 20, 0))),
-			# Tomba: o tronco passa do ponto de equilibrio.
-			#
-			# **A coxa contra-gira o quadril, e nao e escolha de estilo.** O
-			# quadril e a raiz do esqueleto: gira-lo leva as pernas junto. Sem
-			# a contra-rotacao o corpo dobra mas nao desce — medido, ele
-			# terminava com o ponto mais alto a 1,027 m, porque as pernas
-			# ficavam esticadas para baixo segurando o quadril no ar. Foi a
-			# conferencia de `deitado` que disse isso; nenhuma outra sabia.
-			(0.450, pose(quadril=(-38, -10, 0), peito=(6, 0, 0),
+			# Tomba para tras: o tronco passa do ponto de equilibrio.
+			(0.450, pose(quadril=(-42, 0, 0), peito=(6, 0, 0),
 			             cabeca=(10, 0, 0),
-			             coxa_D=(38, -5, 0), canela_D=(50, 0, 0),
-			             coxa_E=(46, 10, 0), canela_E=(62, 0, 0),
-			             braco_D=(20, -30, 0), braco_E=(10, 35, 0))),
-			# As costas batem no chao e as pernas se estendem sobre ele.
-			(0.700, pose(quadril=(-70, -16, 0), peito=(10, 0, 0),
-			             cabeca=(6, 0, 0),
-			             coxa_D=(55, -8, 0), canela_D=(35, 0, 0),
-			             coxa_E=(62, 14, 0), canela_E=(48, 0, 0),
-			             braco_D=(40, -20, 0), braco_E=(26, 28, 0))),
+			             coxa_D=(18, -4, 0), canela_D=(26, 0, 0),
+			             coxa_E=(22, 5, 0), canela_E=(34, 0, 0),
+			             braco_D=(0, -34, 0), braco_E=(0, 30, 0))),
+			# As costas batem no chao.
+			#
+			# **As pernas ESTICAM aqui, e isso e medido, nao estilo.** Joelho
+			# dobrado poe o calcanhar no chao e faz alavanca: com 8/12 graus o
+			# tronco para a 0,212 m do piso; com 4/6 ele para a 0,137. O corpo
+			# deitado apoia no tronco, nao nos pes.
+			(0.700, pose(quadril=(-76, 0, 0), peito=(-2, 0, 0),
+			             cabeca=(-6, 0, 0),
+			             coxa_D=(6, -4, 0), canela_D=(10, 0, 0),
+			             coxa_E=(9, 5, 0), canela_E=(14, 0, 0),
+			             braco_D=(0, -20, 0), braco_E=(0, 16, 0))),
 			# Um ultimo espasmo, pequeno — e ele e o que separa um corpo de um
 			# manequim caindo.
-			(0.880, pose(quadril=(-8, -80, 0), peito=(6, 0, 0),
-			             cabeca=(2, 0, 0),
-			             coxa_D=(20, -6, 0), canela_D=(30, 0, 0),
-			             coxa_E=(26, 12, 0), canela_E=(40, 0, 0),
-			             braco_D=(64, -4, 0), braco_E=(76, 2, 0))),
+			(0.880, pose(quadril=(-84, 0, 0), peito=(-3, 0, 0),
+			             cabeca=(-7, 0, 0),
+			             coxa_D=(4, -4, 0), canela_D=(7, 0, 0),
+			             coxa_E=(6, 5, 0), canela_E=(10, 0, 0),
+			             braco_D=(0, -19, 0), braco_E=(0, 15, 0))),
 			# Imovel.
-			(1.000, pose(quadril=(-10, -85, 0), peito=(4, 0, 0),
-			             coxa_D=(15, -6, 0), canela_D=(25, 0, 0),
-			             coxa_E=(20, 12, 0), canela_E=(35, 0, 0),
-			             braco_D=(70, 0, 0), braco_E=(82, 0, 0))),
+			(1.000, pose(quadril=(-85, 0, 0), peito=(-4, 0, 0),
+			             cabeca=(-8, 0, 0),
+			             coxa_D=(3, -4, 0), canela_D=(5, 0, 0),
+			             coxa_E=(5, 5, 0), canela_E=(8, 0, 0),
+			             braco_D=(0, -18, 0), braco_E=(0, 14, 0))),
 		],
 	},
 	"andando": {
@@ -1589,6 +1597,8 @@ ANIMACOES = {
 		"pes_plantados": False,
 		"sempre_um_pe_no_chao": True,
 		"passada": True,
+		# O quique tem teto aqui, e só aqui: ver a conferência dele.
+		"quique_com_teto": True,
 		# **O quadril assenta.** Sem isso, girar a perna enfia o pé no chão na
 		# passada e levanta o boneco no ar na troca.
 		"assentar": True,
@@ -1893,7 +1903,7 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	travessia = [0, 0]
 	## O ponto mais alto do corpo no ULTIMO quadro. Ver `deitado`.
 	altura_no_fim = [0.0]
-	## E o ponto mais alto de cada regiao, no mesmo quadro.
+	## E a FOLGA ate o chao de cada regiao, no mesmo quadro. Ver `deitado`.
 	alto_no_fim = {}
 	for quadro in range(0, ultimo + 1):
 		bpy.context.scene.frame_set(quadro)
@@ -1939,15 +1949,21 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		# vezes o que a medição em si custa.
 		if quadro == ultimo:
 			altura_no_fim[0] = max(p.z for p in pontos)
-			# **E de QUEM e cada altura**, porque "1,15 m" nao diz se o corpo
-			# ficou em pe, sentado ou de cabeca para baixo. Um teto sozinho
-			# reprova sem ensinar.
+			# **A FOLGA de cada regiao ate o chao**, e nao o topo dela.
+			#
+			# A primeira versao guardava o topo, e topo nao distingue "caiu no
+			# chao" de "levita na horizontal". Medido pelo revisor adversarial
+			# no clipe que eu tinha publicado: o tronco estava a 36 cm do piso,
+			# o corpo inteiro pendurado pela mao esquerda, e a conferencia
+			# aprovava — porque o topo do tronco ficava abaixo do teto do mesmo
+			# jeito. Eu tinha trocado a REGUA, nao consertado o corpo.
+			chao_do_quadro = min(p.z for p in pontos)
 			for ponto, quem in zip(pontos, dono):
 				if quem is None:
 					continue
 				regiao = _regiao_do_osso(quem)
-				alto_no_fim[regiao] = max(alto_no_fim.get(regiao, -9.9),
-				                          ponto.z)
+				folga = ponto.z - chao_do_quadro
+				alto_no_fim[regiao] = min(alto_no_fim.get(regiao, 9.9), folga)
 		temporaria.calc_loop_triangles()
 		quantos = len(conferir_boneco.auto_intersecoes(
 			[tuple(p) for p in pontos],
@@ -2133,7 +2149,7 @@ def criar_animacao(armature: bpy.types.Object, nome: str,
 	# passando, porque os outros ossos do clipe ainda se mexem.
 	#
 	# Conferencia que falha ABERTA, e a classe que este projeto mais persegue.
-	# Fecha com tres linhas, e passa a importar de verdade a partir do `morrer`,
+	# Fecha com tres linhas, e passa a importar de verdade a partir do `morte`,
 	# que e o primeiro clipe a escrever `quadril` numa pose.
 	conhecidos = {osso.name for osso in armature.pose.bones}
 	pedidos = set()
@@ -2182,6 +2198,10 @@ def main() -> int:
 	corpo, esqueleto, ajuste_base, ajuste_do_braco, fatores = convergir()
 	indices = criar_materiais(corpo)
 	pintar(corpo, indices, ajuste_base, ajuste_do_braco, fatores)
+	# A espessura do corpo em REPOUSO. Ela é o teto de `deitado`, e sai da
+	# malha em vez de ser escolhida — ver a conferência lá embaixo.
+	profundidade = (max(v.co.y for v in corpo.data.vertices)
+	                - min(v.co.y for v in corpo.data.vertices))
 	for nome, dados in ANIMACOES.items():
 		quadros = criar_animacao(esqueleto, nome, dados)
 		(amplitude, por_regiao, por_osso, lateral, chao, marcha,
@@ -2237,35 +2257,49 @@ def main() -> int:
 		## **O corpo terminou DEITADO?** Ver `deitado` em `ANIMACOES`.
 		##
 		## Existe porque "nao fecha ciclo" nao afirma nada: o ramo do
-		## conferidor para clipe de uma vez e um `continue`. Um `morrer` que
+		## conferidor para clipe de uma vez e um `continue`. Um `morte` que
 		## voltasse a pose de pe passaria por toda conferencia que existe — a
 		## duracao bate, os ossos articulam, o pe nao afunda. O que distingue
 		## morte de tremeliques e ONDE O CORPO PARA.
-		teto_final = dados.get("deitado")
-		if teto_final is not None:
-			print("[boneco]     altura no ultimo quadro: %.3f m (corpo inteiro)"
+		if dados.get("deitado"):
+			print("[boneco]     topo do corpo no ultimo quadro: %.3f m"
 			      % altura_no_fim)
-			for regiao in sorted(alto_no_fim, key=lambda r: -alto_no_fim[r]):
-				print("[boneco]       %-10s topo em %.3f m"
+			for regiao in sorted(alto_no_fim, key=lambda r: alto_no_fim[r]):
+				print("[boneco]       %-10s a %.3f m do chao"
 				      % (regiao, alto_no_fim[regiao]))
-			# **O que se exige e o TRONCO no chao, nao o corpo inteiro.**
+			# **O que se exige e o TRONCO ENCOSTANDO no chao.**
 			#
-			# A primeira versao media o ponto mais alto do corpo, e o teto era
-			# inalcancavel por um motivo que so a medicao mostrou: o braco de
-			# cima nao consegue deitar junto ao tronco sem atravessa-lo. Sao
-			# 497 pares de auto-intersecao ao dobra-lo para dentro, contra 10
-			# com ele estendido — o boneco nao tem articulacao de ombro, que e
-			# a mesma limitacao que `ABERTURA_DO_BRACO` existe para contornar.
+			# Nao o corpo inteiro: um braco estirado num cadaver e certo, e
+			# dobra-lo contra o tronco custa 497 pares de auto-intersecao
+			# contra 10 estendido, porque o boneco nao tem articulacao de
+			# ombro. E nao o TOPO do tronco: topo passa igual se o corpo
+			# levitar na horizontal, que foi exatamente o que a versao
+			# anterior publicou.
 			#
-			# E um braco estirado num cadaver e certo, nao errado. O que
-			# distingue morte de tropeco e o TRONCO estar no chao: em pe o
-			# peito fica a 1,15 m, e aqui ele tem de estar abaixo de 0,70.
-			no_tronco = max(alto_no_fim.get("peito", 0.0),
-			                alto_no_fim.get("quadril", 0.0))
+			# **E o teto e DERIVADO, nao escolhido.** Um tronco deitado esta a
+			# menos de meia espessura do corpo do chao — o resto e a curvatura
+			# da propria casca. A espessura e medida na malha em repouso, entao
+			# o teto acompanha o boneco em vez de ser um numero que eu acertei
+			# ate passar. Medido: espessura 0,433, teto 0,217, e o clipe fica
+			# em 0,137.
+			#
+			# **Falha FECHADA.** `alto_no_fim.get(regiao, 0.0)` devolvia zero
+			# para regiao ausente e zero passa em qualquer teto: bastava um
+			# osso mudar de nome para a conferencia aprovar calada.
+			faltando = [r for r in ("peito", "quadril") if r not in alto_no_fim]
+			if faltando:
+				raise RuntimeError(
+					"em `%s` nenhum vertice e governado por %s — a conferencia "
+					"de `deitado` ficou orfa" % (nome, ", ".join(faltando)))
+			teto_final = profundidade * 0.5
+			no_tronco = min(alto_no_fim["peito"], alto_no_fim["quadril"])
+			print("[boneco]     folga do tronco ate o chao: %.3f m "
+			      "(teto %.3f, meia espessura do corpo)"
+			      % (no_tronco, teto_final))
 			if no_tronco > teto_final:
 				raise RuntimeError(
-					"em `%s` o tronco termina com o topo a %.3f m e o teto e "
-					"%.2f — o corpo nao caiu, so dobrou"
+					"em `%s` o tronco para a %.3f m do chao e o teto e %.3f — "
+					"o corpo nao caiu, ficou suspenso pelos membros"
 					% (nome, no_tronco, teto_final))
 
 		for regiao, minimo in dados.get("balanca", {}).items():
@@ -2322,13 +2356,19 @@ def main() -> int:
 			# teto. Medido, o corpo subia e descia 7% da altura contra 4 a 5 cm
 			# de uma pessoa — 2,5 vezes demais, e em dente de serra.
 			#
-			# **Só vale para LOCOMOÇÃO**, e a marca disso é `passada`. O teto
-			# diz "o corpo cai e escala em vez de andar", que é uma frase sobre
-			# andar: num `morrer` o quadril DEVE despencar, e ele despenca
-			# 29 cm. Aplicá-lo ali seria a régua certa no clipe errado —
-			# obrigaria o cadáver a cair devagar para satisfazer uma medida de
-			# caminhada.
-			if dados.get("passada") and quique > QUIQUE_MAXIMO * ALTURA:
+			# **Cada clipe declara se o quique dele tem teto.**
+			#
+			# O teto diz "o corpo cai e escala em vez de andar", que é uma
+			# frase sobre andar: num `morte` o quadril DEVE despencar, e ele
+			# despenca 44 cm. Aplicá-lo ali é a régua certa no clipe errado.
+			#
+			# Mas a primeira tentativa pendurou o teto em `dados.get("passada")`
+			# — e `passada` já liga outras três conferências. Um `correndo`
+			# futuro que esquecesse essa chave perderia as quatro de uma vez,
+			# em silêncio. Achado do revisor adversarial, e ele tem razão: a
+			# porta estava no lugar errado. `deitado` mostra o desenho certo,
+			# que é cada clipe declarar o que vale para ele.
+			if dados.get("quique_com_teto") and quique > QUIQUE_MAXIMO * ALTURA:
 				raise RuntimeError(
 					"em `%s` o quadril sobe e desce %.4f m, %.1f%% da altura "
 					"(maximo %.1f%%) — o corpo cai e escala em vez de andar"

@@ -1765,6 +1765,140 @@ DE_ONDE_SAI_O_COMPRIMENTO = {
 }
 
 
+def _conferir_os_quadros_do_boneco(c: "Conferencia") -> None:
+    """O `CLAUDE.md` publica quantos quadros o gerador abre; eles têm que bater.
+
+    **Isto substitui uma afirmação que apodreceu três vezes.** O parágrafo
+    publicava o custo em SEGUNDOS — 3m35s quando eram 33 s, depois 33 s quando
+    eram 69 —, e tempo de execução não é conferível: depende da máquina. A
+    contagem de quadros é, e sai de `duracao * CADENCIA` das animações
+    declaradas.
+
+    Confere o total E a parcela de cada clipe. Só o total deixaria um clipe
+    encolher e outro crescer sem ninguém ver.
+    """
+    caminho = os.path.join(RAIZ, "tools", "arte", "gerar_boneco.py")
+    c.contar()
+    if not os.path.exists(caminho):
+        c.falhas.append(
+            "não achei `gerar_boneco.py` — a conferência dos quadros ficou órfã")
+        return
+    with open(caminho, encoding="utf-8") as arquivo:
+        fonte = arquivo.read()
+
+    cadencia = re.search(r"^CADENCIA = (\d+)$", fonte, re.M)
+    bloco = re.search(r"^ANIMACOES = \{(.*?)^\}", fonte, re.S | re.M)
+    c.contar()
+    if cadencia is None or bloco is None:
+        c.falhas.append(
+            "não achei `CADENCIA` ou `ANIMACOES` em `gerar_boneco.py` — a "
+            "conferência dos quadros ficou órfã")
+        return
+    passo = int(cadencia.group(1))
+    clipes = re.findall(r'^\t"(\w+)": \{(.*?)^\t\},', bloco.group(1), re.S | re.M)
+    c.contar()
+    if not clipes:
+        c.falhas.append("não consegui separar os clipes de `ANIMACOES`")
+        return
+
+    quadros = {}
+    for nome, corpo in clipes:
+        achado = re.search(r'"duracao": ([0-9.]+),', corpo)
+        c.contar()
+        if achado is None:
+            c.falhas.append("o clipe `%s` não declara `duracao`" % nome)
+            continue
+        # O gerador usa `round(instante * duracao * CADENCIA)` e o último
+        # instante é 1.0, então o índice do último quadro é esse arredondamento
+        # — e são `+1` quadros, porque o laço vai de 0 até ele.
+        quadros[nome] = int(round(float(achado.group(1)) * passo)) + 1
+
+    claude = ler("CLAUDE.md")
+    total = sum(quadros.values())
+    c.afirma("CLAUDE.md quadros abertos pelo gerador do boneco novo", claude,
+             r"hoje \*\*(\d+)\*\* \(`parado`", total)
+    for nome in sorted(quadros):
+        c.afirma("CLAUDE.md quadros de `%s`" % nome, claude,
+                 r"`%s` (\d+)[,)]" % nome, quadros[nome])
+
+
+def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
+    """Todo clipe de `gerar_boneco.py` tem nome que o JOGO sabe pedir?
+
+    **Este é o pior defeito que este repositório já registrou**, e o commit
+    `85e8d8f` é o memorial dele: o `.glb` era gerado, conferido e commitado, e
+    o jogo pedia oito nomes que não existiam nele. `Boneco.tocar` devolvia
+    `false` calado, e as quatro ferramentas ficavam verdes porque nenhuma
+    perguntava *o jogo consegue tocar isto?*.
+
+    Aconteceu de novo, no clipe seguinte: ele nasceu chamado `morrer` e o
+    vocabulário do jogo diz `morte`. `_conferir_o_vocabulario` existe e não
+    pegava, porque compara `TODOS` contra `gerar_personagem.py` — o OUTRO
+    boneco. O gerador novo não era comparado com nada.
+
+    Esta função fecha os dois sentidos: nome do gerador que o jogo não conhece
+    reprova, e — o mais fácil de esquecer — nome que o CONFERIDOR exige e o
+    gerador não produz também.
+    """
+    caminhos = {
+        "gerador": os.path.join(RAIZ, "tools", "arte", "gerar_boneco.py"),
+        "conferidor": os.path.join(RAIZ, "tools", "arte", "conferir_boneco.py"),
+        "vocabulario": os.path.join(
+            RAIZ, "scripts", "gameplay", "vocabulario_de_animacao.gd"),
+    }
+    textos = {}
+    for rotulo, caminho in caminhos.items():
+        c.contar()
+        if not os.path.exists(caminho):
+            c.falhas.append(
+                "não achei `%s` — a conferência dos nomes do boneco novo "
+                "ficou órfã" % caminho)
+            return
+        with open(caminho, encoding="utf-8") as arquivo:
+            textos[rotulo] = arquivo.read()
+
+    do_jogo = set(_vocabulario_do_jogo(textos["vocabulario"])["todos"])
+    c.contar()
+    if not do_jogo:
+        c.falhas.append(
+            "não consegui ler `TODOS` do vocabulário — a conferência dos "
+            "nomes do boneco novo ficou órfã")
+        return
+
+    bloco = re.search(r"^ANIMACOES = \{(.*?)^\}", textos["gerador"], re.S | re.M)
+    c.contar()
+    if bloco is None:
+        c.falhas.append(
+            "não achei `ANIMACOES` em `gerar_boneco.py` — a conferência dos "
+            "nomes ficou órfã")
+        return
+    do_gerador = set(re.findall(r'^\t"(\w+)": \{', bloco.group(1), re.M))
+    c.contar()
+    if not do_gerador:
+        c.falhas.append("`ANIMACOES` de `gerar_boneco.py` saiu vazia")
+        return
+
+    for nome in sorted(do_gerador):
+        c.contar()
+        if nome not in do_jogo:
+            c.falhas.append(
+                "`gerar_boneco.py` produz o clipe `%s` e o vocabulário do "
+                "jogo não conhece esse nome — `Boneco.tocar` devolveria "
+                "`false` calado, que é o defeito do commit 85e8d8f" % nome)
+
+    exigidos = set(re.findall(
+        r'^\t"(\w+)": \(', re.search(
+            r"^ANIMACOES_EXIGIDAS = \{(.*?)^\}", textos["conferidor"],
+            re.S | re.M).group(1), re.M))
+    c.contar()
+    if exigidos != do_gerador:
+        c.falhas.append(
+            "`gerar_boneco.ANIMACOES` produz %s e "
+            "`conferir_boneco.ANIMACOES_EXIGIDAS` cobra %s — um clipe fora de "
+            "uma das duas listas não é conferido por ninguém"
+            % (sorted(do_gerador), sorted(exigidos)))
+
+
 def _conferir_o_artefato_do_boneco(c: "Conferencia") -> None:
     """`arte/boneco.glb` veio do `tools/arte/gerar_boneco.py` commitado?
 
@@ -3761,6 +3895,8 @@ def main() -> int:
     _conferir_o_boneco_novo(c)
     _conferir_as_folgas_do_boneco(c)
     _conferir_o_artefato_do_boneco(c)
+    _conferir_os_nomes_do_boneco(c)
+    _conferir_os_quadros_do_boneco(c)
     _conferir_o_artefato(c)
     _conferir_que_a_arvore_nao_esta_mutada(c)
     _conferir_bytes_de_controle(c)

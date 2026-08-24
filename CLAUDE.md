@@ -290,12 +290,25 @@ validou a telegrafia, a carga de suprema e o ritmo do reset de auto-ataque
 
 1. **a perseguição da âncora e a corrente de combo** — as duas são sensação de
    jogo, e as sondas sabem que não quebrou, não que ficou bom;
-2. **os 25 clipes do boneco**, com Home e End. As sondas conferem que cada um
-   existe, dura o que a direção de arte manda, fecha o ciclo, mantém o pé no
-   chão e é tocado pelo evento certo. Nenhuma delas sabe se a silhueta diz o
-   que a animação é — que é o item 7 do §10, e o único que não se automatiza.
+2. **os 25 clipes de `arte/personagem.glb`**, com Home e End. As sondas
+   conferem que cada um existe, dura o que a direção de arte manda, fecha o
+   ciclo, mantém o pé no chão e é tocado pelo evento certo. Nenhuma delas sabe
+   se a silhueta diz o que a animação é — que é o item 7 do §10, e o único que
+   não se automatiza;
+3. **os três clipes de `arte/boneco.glb`** — `parado`, `andando` e `morte`. Ele
+   ainda não tem consumidor no jogo, então isto é olhar no Blender, não jogar.
+   Duas coisas que nenhuma ferramenta mede: **a pintura sai rasgada** em degraus
+   de face nos ombros, no peito e na virilha, e o `rosto` é um retângulo chapado
+   de bordas em escada; e **a mão entra na nádega** no quadro 5 do `andando`,
+   que são 13 dos pares de autointerseção que sobram.
 
 É a lista completa do que falta de olho humano; não há outra.
+
+**O item 3 nasceu de uma reprovação adversarial**, e a lição é sobre esta lista
+e não sobre o boneco: um clipe novo entrou no repositório e não entrou aqui,
+numa seção que afirma de si mesma ser completa. Lista que se declara completa e
+não é conferida por nada é a mesma classe de "documentação discordando de si
+mesma" que já custou quatro rodadas.
 
 **E ele não conseguiu testá-las.** Palavras dele: *"não sei se estou usando a
 mesma habilidade ou se são habilidades diferentes, tudo que vejo são formas"*.
@@ -511,18 +524,19 @@ o boneco novo — malha contínua por Skin Modifier, na proporção medida, com
 `parado`, `andando` e `morrer`. **Ele ainda não tem consumidor**: nada na camada de jogo
 o carrega, e ligá-lo é trabalho que não foi feito.
 
-`gerar_boneco.py` custa **33 s** (mediana de três execuções; 34,0 / 32,7 /
-31,6). Parte disso é o teto de travessia da casca, que abre a malha DEFORMADA
-em cada um dos **80** quadros das duas animações — `parado` 0..40 e `andando`
-0..38. Uma grade esparsa erra o pior quadro: duas grades de seis amostras
+`gerar_boneco.py` abre a malha DEFORMADA em **cada quadro de cada animação** —
+hoje **136** (`parado` 41, `morte` 56, `andando` 39) —, e é isso que domina o
+custo dele. Uma grade esparsa erra o pior quadro: duas grades de seis amostras
 erraram, uma minha e uma do revisor.
 
-Este número já foi publicado como **3m35s**, em três lugares, e era sete vezes
-o medido. O 3m35s foi real por um commit — quando a travessia vivia num
-segundo passe sobre os quadros — e sobreviveu à correção porque eu consertei a
-ocorrência que falava no passado e deixei as três que afirmavam no presente,
-incluindo a que dimensionava a fatia da suíte de mutação. É a mesma classe que
-eu tinha acabado de declarar ter pego em mim mesmo, um arquivo antes.
+**Este parágrafo não publica mais um tempo em segundos, e a razão é que o
+número apodreceu três vezes.** Ele disse 3m35s quando o medido era 33 s (sete
+vezes), depois 33 s quando o medido era 69 s (duas vezes, porque o clipe novo
+entrou e ninguém remediu). Nas três, o número sobreviveu porque tempo de
+execução não é conferível por máquina — depende da máquina. **A contagem de
+quadros é**, e `tools/conferir_numeros.py` a confere contra as durações
+declaradas no gerador. Trocar a afirmação frágil pela verificável é o que este
+projeto faz quando um número erra duas vezes; eu tinha deixado passar.
 
 **E o `andando` está autorado para 0,40 m/s.** O gerador mede a passada e imprime
 a velocidade que ela implica: `pe_D` recua 0,514 m em 19 quadros a 30/s, o que
