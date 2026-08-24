@@ -1,0 +1,1155 @@
+# -*- coding: utf-8 -*-
+"""O boneco de teste: UMA pele contínua, gerada a partir das medidas.
+
+Rodar:
+    "C:\\Program Files\\Blender Foundation\\Blender 5.2\\blender.exe" ^
+        --background --python tools/arte/gerar_boneco.py
+
+## Por que este arquivo existe, e por que ele não conserta o anterior
+
+O gerador anterior montava **um sólido fechado por osso** — dezessete caixas e
+prismas independentes, cada um grudado num osso. Medido em repouso, oito pares
+de peças se cruzavam sem serem vizinhas, e a mão ficava enterrada dentro da
+coxa. Palavras do usuário ao ver na tela: *"várias peças dele entra uma dentro
+da outra, até com ele parado"*.
+
+Aquilo não era defeito de implementação. Partes rígidas são uma técnica real —
+Minecraft, Roblox, os jogos de LEGO —, mas ela exige proporções escolhidas PARA
+ela, com as peças passando por fora umas das outras. As nossas proporções vêm
+de `docs/11-direcao-de-arte.md`, medidas em 27 campeões do original, que são
+malhas contínuas: ombro estreito e coxa grossa pressupõem carne que se funde no
+ombro e no quadril. Rebatidas em blocos, essas mesmas medidas obrigam a colisão.
+
+E `docs/01-visao-e-escopo.md` declara o alvo: **visual chibi cartunizado**.
+Chibi é pele contínua. Bloco rígido é outra estética.
+
+Por isso este arquivo começa do zero em vez de remendar o outro: a diferença
+não é de forma das peças, é de **não haver peças**.
+
+## Como uma pele contínua é gerada por script
+
+Pelo **Skin Modifier**. A entrada é um esqueleto de ARESTAS — vértices ligados
+por linhas, seguindo os ossos —, e cada vértice carrega um RAIO. O modificador
+costura uma superfície fechada em volta disso, e as junções entre membro e
+tronco saem contínuas porque os dois compartilham o vértice do ombro.
+
+Depois vem `Subdivision`, que arredonda. Nenhuma das duas etapas é uma escolha
+estética minha: são as duas ferramentas que o Blender tem para exatamente este
+trabalho, e a contagem de polígonos é controlada pelo nível da subdivisão.
+
+## O que ele NÃO faz
+
+Não gera animação. As animações entram uma a uma, depois, e só as que têm
+consumidor no jogo — a regra do usuário em 24/08/2026: nada de ataque, nada de
+pulo, e nada que ficaria órfão hoje, como cortar árvore e minerar.
+"""
+
+from __future__ import annotations
+
+import math
+import os
+import sys
+
+import bpy
+from mathutils import Vector
+
+# O conferidor vive ao lado, e o Blender nao poe o diretorio do script no
+# caminho de importacao.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import conferir_boneco
+
+# --------------------------------------------------------------------------
+# As medidas. Todas de `docs/11-direcao-de-arte.md`, medidas em 27 campeões.
+# --------------------------------------------------------------------------
+
+ALTURA = 1.75
+
+## Altura de cada junta, como fração da altura total.
+PROPORCAO = {
+	"tornozelo": 0.093,
+	"joelho": 0.283,
+	"quadril": 0.485,
+	"peito": 0.656,
+	"pescoco": 0.763,
+	"ombro": 0.725,
+	"vao_dos_ombros": 0.175,
+	"vao_dos_quadris": 0.129,
+	"vao_das_maos": 0.629,
+	"envergadura": 0.895,
+}
+
+## Espessura sobre COMPRIMENTO do osso, por região: `(mediana, mínimo, máximo)`.
+##
+## Medida em `m_BonesAABB` dos 27 campeões: a caixa dos vértices que cada osso
+## influencia. É razão e não valor absoluto porque o skinning suave faz a caixa
+## de um osso invadir a do vizinho — por ali a coxa dava 0,266 da altura, o que
+## poria duas coxas em 0,53 num quadril de 0,33, geometricamente impossível.
+##
+## **A mediana e a faixa moram no mesmo lugar de propósito.** Elas já estiveram
+## em dois dicionários, e dois lugares para a mesma medida é um deles ficar para
+## trás — é a regra que o `CLAUDE.md` repete e que este projeto já pagou.
+##
+## `cabeca`, `peito` e `quadril` estão aqui porque foram medidas e porque a
+## conferência do artefato as usa; o gerador NÃO deriva raio delas. A cabeça
+## converge pela largura, e o tronco sai do vão dos ombros e do dos quadris —
+## ver `_esqueleto_de_arestas`.
+FAIXA_DA_ESBELTEZ = {
+	"cabeca": (0.778, 0.508, 0.988),
+	"peito": (0.779, 0.474, 0.985),
+	"quadril": (0.676, 0.482, 0.812),
+	"braco": (0.758, 0.544, 0.941),
+	"antebraco": (0.716, 0.413, 0.942),
+	"mao": (0.752, 0.525, 0.951),
+	"coxa": (0.575, 0.435, 0.936),
+	"canela": (0.494, 0.349, 0.857),
+	"pe": (0.672, 0.532, 0.823),
+}
+
+## A mediana de cada região, derivada da faixa. Um lugar só.
+ESBELTEZ = {nome: faixa[0] for nome, faixa in FAIXA_DA_ESBELTEZ.items()}
+
+
+Y_TORNOZELO = PROPORCAO["tornozelo"] * ALTURA
+Y_JOELHO = PROPORCAO["joelho"] * ALTURA
+Y_QUADRIL = PROPORCAO["quadril"] * ALTURA
+Y_PEITO = PROPORCAO["peito"] * ALTURA
+Y_PESCOCO = PROPORCAO["pescoco"] * ALTURA
+Y_OMBRO = PROPORCAO["ombro"] * ALTURA
+Y_TOPO = ALTURA
+
+X_OMBRO = PROPORCAO["vao_dos_ombros"] * ALTURA * 0.5
+X_QUADRIL = PROPORCAO["vao_dos_quadris"] * ALTURA * 0.5
+
+## Do ombro ao PULSO sai do vão das mãos; do pulso à ponta, da envergadura.
+## São dois ossos e uma mão, e não um braço comprido — publicar só a
+## envergadura já deixou um boneco acertar o número com antebraço esticado e
+## nenhuma mão.
+ATE_O_PULSO = (PROPORCAO["vao_das_maos"] - PROPORCAO["vao_dos_ombros"]) * ALTURA * 0.5
+COMPRIMENTO_DA_MAO = (PROPORCAO["envergadura"] - PROPORCAO["vao_das_maos"]) * ALTURA * 0.5
+## Onde o cotovelo cai ao longo do braço. **Não sai do original**: lá ombro,
+## cotovelo e mão ficam na mesma altura na pose T, então a medição não separa os
+## dois ossos. 0,47 é a proporção de um braço humano, e é um dos poucos números
+## deste arquivo sem origem medida.
+FRACAO_ATE_O_COTOVELO = 0.47
+
+## O pé, como fração da altura. **Era 0,24 em metro absoluto**, o que fazia o
+## sapato não acompanhar uma mudança de `ALTURA` — o único comprimento do corpo
+## que não escalava com o resto. 0,137 × 1,75 dá os mesmos 0,24 de antes.
+COMPRIMENTO_DO_PE = 0.137 * ALTURA
+
+## Quanto o braço abre para fora do corpo, em graus.
+##
+## **Geométrico, não estético.** Com o braço caindo reto do ombro, a mão ocupa o
+## mesmo espaço da coxa: ombro a 0,153 do eixo, coxa indo até 0,215, mão de
+## 0,066 a 0,241. Para a mão passar por fora com o braço vertical, o centro dela
+## teria que estar a 0,30 — o dobro do vão dos ombros, que é medido.
+##
+## Numa pele contínua o preço de errar isso é pior do que em peças soltas: em
+## vez de a mão ATRAVESSAR a coxa, ela FUNDE com ela, e o boneco sai com o braço
+## grudado na perna. Vinte graus é o mínimo que separa as duas.
+ABERTURA_DO_BRACO = 20.0
+
+
+def _no_braco(lado: float, distancia: float) -> Vector:
+	"""Um ponto da corrente do braço, a `distancia` do ombro ao longo dela."""
+	seno = math.sin(math.radians(ABERTURA_DO_BRACO))
+	cosseno = math.cos(math.radians(ABERTURA_DO_BRACO))
+	return Vector((lado * (X_OMBRO + distancia * seno),
+	               0.0, Y_OMBRO - distancia * cosseno))
+
+
+def _raio(regiao: str, comprimento: float, fatores: dict = None) -> float:
+	"""Metade da espessura da região — é isso que o Skin Modifier pede.
+
+	`fatores` corrige o encolhimento da subdivisão, e vem de `convergir`. O raio
+	do Skin Modifier é meia-largura da GAIOLA de controle, e Catmull-Clark puxa
+	a superfície para dentro dela: sem correção o corpo sai sistematicamente
+	magro — medido, a coxa 23% e o pé 28% abaixo do declarado.
+	"""
+	fator = (fatores or {}).get(regiao, 1.0)
+	return ESBELTEZ[regiao] * comprimento * 0.5 * fator
+
+
+# --------------------------------------------------------------------------
+# O esqueleto de arestas, que é a entrada do Skin Modifier.
+#
+# `(nome, posicao, pai, raio)`. O pai é o nome de outro nó, ou None para a
+# raiz. Cada par pai→filho vira uma ARESTA, e é em volta das arestas que a pele
+# é costurada.
+# --------------------------------------------------------------------------
+
+COMPRIMENTO_DA_COXA = Y_QUADRIL - Y_JOELHO
+COMPRIMENTO_DA_CANELA = Y_JOELHO - Y_TORNOZELO
+COMPRIMENTO_DO_BRACO = ATE_O_PULSO * FRACAO_ATE_O_COTOVELO
+COMPRIMENTO_DO_ANTEBRACO = ATE_O_PULSO - COMPRIMENTO_DO_BRACO
+COMPRIMENTO_DA_CABECA = Y_TOPO - Y_PESCOCO
+
+## A cabeça é uma bola de raio igual a meia altura dela — 0,237 da altura do
+## corpo, medido em 27 campeões. É o achado nº 1 do §1 de `docs/11`: a cabeça
+## do original é 23,7% da altura contra 17,7% de um humano, um terço maior.
+RAIO_DA_CABECA = COMPRIMENTO_DA_CABECA * 0.5
+
+## O pescoço, em fração do vão dos ombros. Fino o bastante para a cabeça ler
+## como peça própria, grosso o bastante para não sumir na subdivisão.
+RAIO_DO_PESCOCO = X_OMBRO * 0.34
+
+## O punho estrangula e a mão infla, em fração do raio da mão. São o que
+## transforma o braço de salsicha em braço com ponta.
+ESTREITAMENTO_DO_PULSO = 0.45
+ENGROSSAMENTO_DA_MAO = 1.35
+
+
+def _esqueleto_de_arestas(ajuste_topo: float = 0.0,
+                          ajuste_base: float = 0.0,
+                          fator_da_cabeca: float = 1.0,
+                          ajuste_do_braco: float = 0.0,
+                          fatores: dict = None) -> list:
+	"""Os nós da linha do corpo, com o raio de cada um.
+
+	**O tronco não deriva da esbeltez, e a exclusão é medida.** Nós cortamos o
+	tronco em dois trechos curtos; no original as caixas de influência de `Hips`
+	e `Chest` cobrem o tronco inteiro, então dividir espessura por um
+	comprimento que significa outra coisa mede a nossa segmentação e não a forma
+	deles — por esse caminho o peito dava 1,78 vez a esbeltez do original.
+
+	A largura do tronco sai de onde ela é medida de verdade: o vão dos ombros e
+	o dos quadris.
+	"""
+	nos = []
+
+	# O tronco, de baixo para cima. A raiz é o quadril.
+	nos.append(("quadril", Vector((0.0, 0.0, Y_QUADRIL)), None, X_QUADRIL * 1.15))
+	nos.append(("peito", Vector((0.0, 0.0, Y_PEITO)), "quadril", X_OMBRO * 0.95))
+	# **O pescoço é FINO de propósito.** Ele é o que separa a cabeça do tronco;
+	# com o raio do peito, os dois viram uma massa só e o boneco fica encapuzado
+	# — foi o que a primeira versão desta pele produziu.
+	# **O nó do pescoço sobe para DENTRO da bola da cabeça, e some.**
+	#
+	# Deixado na base do pescoço, ele fica 14 cm abaixo do centro da cabeça, e o
+	# Skin Modifier interpola o raio ao longo dessa distância: de 0,052 a 0,194
+	# em 14 cm é um CONE. Medido em 27 anéis, o ponto mais largo saía 9,3 cm
+	# acima do centro e a malha ficava 37% mais estreita que uma esfera na base
+	# — na tela, uma lâmpada. Pôr uma segunda bola em cima arredondou o topo e
+	# não desfez o cone, porque o cone estava embaixo.
+	#
+	# Com o nó dentro da esfera, a transição acontece dentro da massa da cabeça
+	# e não aparece. O personagem fica sem pescoço visível, que é o que chibi é:
+	# `docs/01` pede *"chibi cartunizado"*, e cabeça grande apoiada direto no
+	# ombro é a forma canônica dele.
+	nos.append(("pescoco", Vector((0.0, 0.0, Y_PESCOCO)), "peito",
+	            RAIO_DO_PESCOCO))
+	# **A cabeça fica no CENTRO dela, não no topo do corpo.** O Skin Modifier
+	# costura uma bola de `raio` em volta do nó, então um nó em `Y_TOPO` põe
+	# metade da cabeça acima da altura declarada. Centrada, o topo da bola cai
+	# exatamente em 1,75.
+	#
+	# E o raio sai da ALTURA da cabeça, não da esbeltez. Os dois números medem
+	# coisas diferentes: a esbeltez responde "quão grosso é o osso", e aqui a
+	# cabeça não é um osso — é a massa que carrega a leitura de longe. O §1 de
+	# `docs/11` mede `altura_da_cabeca / altura = 0,237`, e é o primeiro dos
+	# três achados que fazem o olhar do original: *a cabeça é grande*.
+	# **A cabeça são DOIS nós, e o motivo foi medido.** Com um nó só ela é a
+	# ponta da corrente, e o Skin Modifier fecha a ponta com uma tampa: o
+	# resultado é um funil — cone subindo do pescoço e domo achatado em cima.
+	# Medido em 27 anéis, o ponto mais largo ficava 9,3 cm ACIMA do centro, e a
+	# malha era 37% mais estreita que uma esfera em z=1,43 e 39% mais larga em
+	# z=1,74. Na tela lê como lâmpada.
+	#
+	# Dois nós do mesmo raio fazem uma cápsula, que é redonda nos dois extremos.
+	# A conferência antiga não podia pegar isso: ela comparava a largura MÁXIMA
+	# com o alvo, e dois extremos não distinguem uma bola de um cone.
+	# **A BASE da cabeça é ancorada e só o TOPO se move.**
+	#
+	# Enquanto `ajuste_topo` transladava a cabeça inteira, cada volta da
+	# convergência reabria o vão entre o pescoço e a bola, e o Skin Modifier
+	# interpolava o raio ao longo dele: um cone de 9 cm. Medido por anel, o
+	# ponto mais largo ficava a 72–84% da altura da cabeça — lâmpada, não bola.
+	#
+	# Com a base presa logo acima do pescoço, o vão não pode crescer: a
+	# transição do fino para o grosso acontece sempre nos mesmos 6 cm, e o
+	# ajuste de altura vira alongamento do topo, que é onde ele não estraga a
+	# leitura.
+	raio_da_cabeca = RAIO_DA_CABECA * fator_da_cabeca
+	base_da_cabeca = Y_PESCOCO + COMPRIMENTO_DA_CABECA * 0.14
+	nos.append(("cabeca", Vector((0.0, 0.0, base_da_cabeca)), "pescoco",
+	            raio_da_cabeca))
+	nos.append(("cabeca_topo",
+	            Vector((0.0, 0.0, Y_TOPO - raio_da_cabeca * 0.5 + ajuste_topo)),
+	            "cabeca", raio_da_cabeca))
+
+	for lado, sufixo in ((1.0, "D"), (-1.0, "E")):
+		# O braço nasce no PEITO, e isto já esteve errado: preso ao pescoço, o
+		# ombro subia até a altura da cabeça e a bola da cabeça fundia com os
+		# dois braços — na tela saía um corpo encapuzado, sem cabeça.
+		#
+		# O ombro fica em 0,725 da altura e o pescoço em 0,763; são 6,6 cm de
+		# diferença, e numa pele contínua 6,6 cm é a diferença entre "cabeça
+		# apoiada no pescoço" e "cabeça derretida no ombro".
+		nos.append(("ombro_%s" % sufixo, _no_braco(lado, 0.0), "peito",
+		            _raio("braco", COMPRIMENTO_DO_BRACO, fatores)))
+		nos.append(("cotovelo_%s" % sufixo, _no_braco(lado, COMPRIMENTO_DO_BRACO),
+		            "ombro_%s" % sufixo,
+		            _raio("antebraco", COMPRIMENTO_DO_ANTEBRACO, fatores)))
+		# **Punho FINO e mão GORDA.** Medido, a versão anterior era uma
+		# salsicha de raio constante 0,069 com um inchaço de 12% na ponta: sem
+		# cotovelo, sem pulso e sem mão. O achado nº 3 do §1 de `docs/11` é
+		# *"mão grande dá ao gesto uma ponta que o olho segue de longe"*, e sem
+		# o estreitamento do punho não há ponta nenhuma para seguir.
+		nos.append(("pulso_%s" % sufixo, _no_braco(lado, ATE_O_PULSO),
+		            "cotovelo_%s" % sufixo,
+		            _raio("mao", COMPRIMENTO_DA_MAO, fatores) * ESTREITAMENTO_DO_PULSO))
+		nos.append(("mao_%s" % sufixo,
+		            _no_braco(lado, ATE_O_PULSO
+		                      + COMPRIMENTO_DA_MAO * 0.55 + ajuste_do_braco),
+		            "pulso_%s" % sufixo,
+		            _raio("mao", COMPRIMENTO_DA_MAO, fatores) * ENGROSSAMENTO_DA_MAO))
+
+		# A perna, do quadril para baixo.
+		nos.append(("virilha_%s" % sufixo,
+		            Vector((lado * X_QUADRIL, 0.0, Y_QUADRIL)), "quadril",
+		            _raio("coxa", COMPRIMENTO_DA_COXA, fatores)))
+		nos.append(("joelho_%s" % sufixo,
+		            Vector((lado * X_QUADRIL, 0.0, Y_JOELHO)), "virilha_%s" % sufixo,
+		            _raio("canela", COMPRIMENTO_DA_CANELA, fatores)))
+		nos.append(("tornozelo_%s" % sufixo,
+		            Vector((lado * X_QUADRIL, 0.0, Y_TORNOZELO)),
+		            "joelho_%s" % sufixo, _raio("canela", COMPRIMENTO_DA_CANELA, fatores) * 0.8))
+		# O pé aponta para -Y, que é a frente no Blender.
+		nos.append(("pe_%s" % sufixo,
+		            Vector((lado * X_QUADRIL, -COMPRIMENTO_DO_PE,
+		                    Y_TORNOZELO * 0.7 + ajuste_base)),
+		            "tornozelo_%s" % sufixo, _raio("pe", COMPRIMENTO_DO_PE, fatores)))
+
+	return nos
+
+
+## Níveis de subdivisão. Dois já lê como curva na câmera isométrica, que está a
+## metros de distância; mais que isso é vértice gasto num boneco de teste.
+SUBDIVISOES = 2
+
+
+def limpar_cena() -> None:
+	bpy.ops.object.select_all(action="SELECT")
+	bpy.ops.object.delete(use_global=False)
+	for bloco in (bpy.data.meshes, bpy.data.armatures, bpy.data.actions,
+	              bpy.data.materials):
+		for item in list(bloco):
+			bloco.remove(item)
+
+
+def criar_pele(ajuste_topo: float = 0.0, ajuste_base: float = 0.0,
+               fator_da_cabeca: float = 1.0, ajuste_do_braco: float = 0.0,
+               fatores: dict = None) -> bpy.types.Object:
+	"""A pele contínua, a partir do esqueleto de arestas.
+
+	`ajuste_topo` sobe o nó da cabeça e `ajuste_base` desce o do pé. São a
+	compensação do encolhimento da subdivisão, e quem os calcula é `convergir`.
+	"""
+	nos = _esqueleto_de_arestas(ajuste_topo, ajuste_base, fator_da_cabeca,
+	                            ajuste_do_braco, fatores)
+	indice_de = {nome: i for i, (nome, _p, _pai, _r) in enumerate(nos)}
+	vertices = [posicao for _n, posicao, _pai, _r in nos]
+	arestas = [(indice_de[pai], i)
+	           for i, (_n, _p, pai, _r) in enumerate(nos) if pai is not None]
+
+	malha = bpy.data.meshes.new("Pele")
+	malha.from_pydata([tuple(v) for v in vertices], arestas, [])
+	malha.update()
+	corpo = bpy.data.objects.new("Corpo", malha)
+	bpy.context.collection.objects.link(corpo)
+	bpy.context.view_layer.objects.active = corpo
+	corpo.select_set(True)
+
+	pele = corpo.modifiers.new(name="pele", type="SKIN")
+	# Sem isto o modificador arredonda as pontas e o pé vira uma bola.
+	pele.use_smooth_shade = True
+
+	# O raio por vértice. `skin_vertices` só existe depois que o modificador
+	# entra, e é uma camada da MALHA, não do modificador.
+	camada = corpo.data.skin_vertices[0].data
+	for i, (_n, _p, _pai, raio) in enumerate(nos):
+		camada[i].radius = (raio, raio)
+	# A raiz da pele tem que ser declarada, senão o modificador escolhe uma
+	# sozinho e a topologia sai imprevisível.
+	camada[indice_de["quadril"]].use_root = True
+
+	suave = corpo.modifiers.new(name="suave", type="SUBSURF")
+	suave.levels = SUBDIVISOES
+	suave.render_levels = SUBDIVISOES
+	return corpo
+
+
+def aplicar(corpo: bpy.types.Object) -> tuple:
+	"""Aplica pele e subdivisão. Devolve `(base, topo)` do que saiu."""
+	bpy.context.view_layer.objects.active = corpo
+	for modificador in list(corpo.modifiers):
+		bpy.ops.object.modifier_apply(modifier=modificador.name)
+	alturas = [v.co.z for v in corpo.data.vertices]
+	return min(alturas), max(alturas)
+
+
+## Quantas vezes tentar acertar, e com que folga parar.
+TENTATIVAS = 240
+FOLGA_DA_ALTURA = 0.002
+
+## Quanto de cada correção é aplicado por volta. Ver `convergir`.
+AMORTECIMENTO = 0.5
+
+## A espessura corrige mais forte, e o motivo é acoplamento.
+##
+## O raio no MEIO de um osso é puxado pelos raios dos dois nós das pontas, e
+## cada ponta pertence a outra região: o meio do braço depende do nó do ombro e
+## do nó do cotovelo. Com meio passo, o erro caía 1,2% por volta e o teto
+## chegava antes do alvo — medido, 0,18 virava 0,068 em quarenta voltas e
+## continuava caindo.
+##
+## **E 0,9 DIVERGE.** Medido: com nove décimos de correção por volta o laço
+## caminhou até a volta 97 e explodiu — topo 3,19 m, base -2,46. A guarda de
+## divergência pegou, que é para isso que ela existe.
+##
+## Meio passo é estável e monotônico; o preço é volta, e volta é barata: cada
+## uma custa dois décimos de segundo. O teto é generoso de propósito.
+AMORTECIMENTO_DA_ESPESSURA = 0.5
+FOLGA_DA_CABECA = 0.006
+
+## Onde a cabeça começa, para medi-la. É o pescoço, e não um número escolhido:
+## tudo acima da base do pescoço é cabeça, que é a definição que o §1 de
+## `docs/11` usa — e a definição importa mais que o número, porque medindo do
+## crânio a mesma população dá 4,93 cabeças de altura em vez de 4,22.
+BASE_DA_CABECA = Y_PESCOCO
+
+## A largura que a cabeça tem que ter.
+##
+## A altura dela é medida — 0,237 da altura do corpo. A razão entre altura e
+## largura também: 1,065 nas 28 cabeças do original, que é quase uma bola. Daí
+## a largura sai por divisão, e não por escolha.
+LARGURA_DA_CABECA = (Y_TOPO - Y_PESCOCO) / 1.065
+
+## Do ombro à ponta do braço. Sai da envergadura menos o vão dos ombros, por
+## dois — o mesmo caminho que `docs/11` usa, e o mesmo que o conferidor mede.
+ALCANCE_DO_BRACO = (PROPORCAO["envergadura"]
+                    - PROPORCAO["vao_dos_ombros"]) * ALTURA * 0.5
+FOLGA_DO_BRACO = 0.004
+
+
+def convergir() -> tuple:
+	"""Gera o corpo até ele medir 1,75 m com o pé no chão.
+
+	**Esta função existe no lugar de uma normalização por escala, e a diferença
+	é a lição da iteração anterior.**
+
+	A subdivisão de Catmull-Clark não move os nós do esqueleto de arestas: ela
+	puxa a SUPERFÍCIE para dentro, em direção à malha de controle. Ou seja, o
+	quadril, o joelho e o ombro continuam exatamente onde a direção de arte os
+	declara; o que encolhe são as pontas — o alto da cabeça e a sola do pé.
+
+	Esticar o corpo inteiro para recuperar a altura, que foi a primeira
+	tentativa, conserta o número e ESTRAGA a anatomia: tudo que estava na
+	posição declarada sai dela. O sintoma foi o esqueleto ficando 27 cm mais
+	alto que a pele, e a deformação do braço destruída.
+
+	Aqui só as pontas se movem, e elas se movem por medição: gera, mede o que
+	faltou, corrige, repete. O número de voltas é impresso a cada execução — e
+	não afirmado aqui, porque ele muda a cada alvo novo que entra no laço —, e há teto
+	para não girar para sempre se a geometria mudar de comportamento.
+	"""
+	ajuste_topo = 0.0
+	ajuste_base = 0.0
+	fator_da_cabeca = 1.0
+	ajuste_do_braco = 0.0
+	fatores = {}
+	anteriores = []
+	for volta in range(TENTATIVAS):
+		limpar_cena()
+		corpo = criar_pele(ajuste_topo, ajuste_base, fator_da_cabeca,
+		                   ajuste_do_braco, fatores)
+		bpy.context.view_layer.update()
+		base, topo = aplicar(corpo)
+		limpar_soltos(corpo)
+		cabeca = _largura_da_cabeca(corpo)
+		braco = _alcance_do_braco(corpo)
+		entregue = _esbeltez_entregue(corpo, _ossos(ajuste_base, ajuste_do_braco),
+		                              fatores)
+		gorda = max((_fora_da_faixa(r, entregue[r]) for r in entregue),
+		            default=1.0)
+		if (abs(topo - ALTURA) <= FOLGA_DA_ALTURA
+				and abs(base) <= FOLGA_DA_ALTURA
+				and abs(cabeca - LARGURA_DA_CABECA) <= FOLGA_DA_CABECA
+				and abs(braco - ALCANCE_DO_BRACO) <= FOLGA_DO_BRACO
+				and gorda <= 0.0):
+			print("[boneco] convergiu em %d volta(s): topo %.4f  base %.4f  "
+			      "cabeca %.3f (alvo %.3f)  braco %.3f (alvo %.3f)"
+			      % (volta + 1, topo, base, cabeca, LARGURA_DA_CABECA,
+			         braco, ALCANCE_DO_BRACO))
+			for regiao in sorted(entregue):
+				faixa = FAIXA_DA_ESBELTEZ[regiao]
+				print("[boneco]   esbeltez %-10s %.3f  (faixa %.3f a %.3f)"
+				      % (regiao, entregue[regiao], faixa[1], faixa[2]))
+			return corpo, ajuste_base, ajuste_do_braco, fatores
+		# **Todas as correções são AMORTECIDAS, e isso não é zelo.**
+		#
+		# As quatro se puxam: engordar a cabeça também a levanta, e empurrar a
+		# mão para fora move a ponta mais do que o empurrão, porque a bola da
+		# mão se estende além do nó. Com correção cheia nas quatro ao mesmo
+		# tempo o laço DIVERGE — medido, em doze voltas o topo foi de 1,75 para
+		# 144,6 e a base para -142,4. Não oscilou: explodiu.
+		#
+		# Meio passo por volta troca velocidade por estabilidade, e velocidade
+		# aqui não vale nada: são cinco a oito voltas de dez segundos.
+		print("[boneco]   volta %2d: topo %8.4f  base %8.4f  cabeca %7.4f  "
+		      "braco %7.4f  esbeltez erra %.4f em %s"
+		      % (volta + 1, topo, base, cabeca, braco, gorda,
+		         max(entregue, key=lambda r: _fora_da_faixa(r, entregue[r]))
+		         if entregue else "?"))
+		# **Divergir é falha imediata, e não quarenta voltas de lixo.** Um laço
+		# que se afasta do alvo não vai voltar sozinho, e as quarenta linhas de
+		# número crescendo escondem a volta em que ele virou.
+		# **Medida imóvel enquanto o ajuste se move é defeito, não paciência.**
+		# Se o braço não reage a três correções seguidas, quem está sendo medido
+		# não é o braço; continuar até o teto só produz quarenta linhas iguais.
+		anteriores.append(braco)
+		# **Parado LONGE do alvo é defeito; parado EM CIMA dele é sucesso.**
+		# A primeira versão desta guarda não distinguia os dois e abortava a
+		# geração no momento em que o braço acertava 0,6300 e ficava lá — que é
+		# exatamente o que se quer que aconteça.
+		longe = abs(braco - ALCANCE_DO_BRACO) > FOLGA_DO_BRACO
+		if (longe and len(anteriores) > 3
+				and len(set("%.5f" % v for v in anteriores[-4:])) == 1):
+			raise RuntimeError(
+				"o alcance do braco ficou parado em %.4f, longe do alvo %.4f, "
+				"por 4 voltas enquanto o ajuste mudava — a medida esta lendo "
+				"outra parte do corpo" % (braco, ALCANCE_DO_BRACO)
+			)
+		if topo > ALTURA * 2.0 or base < -ALTURA or braco > ALTURA:
+			raise RuntimeError(
+				"a convergencia DIVERGIU na volta %d — topo %.3f, base %.3f, "
+				"braco %.3f. Alguma medicao esta lendo a parte errada do corpo."
+				% (volta + 1, topo, base, braco)
+			)
+		ajuste_topo += AMORTECIMENTO * (ALTURA - topo)
+		ajuste_base += AMORTECIMENTO * (0.0 - base)
+		# A envergadura também encolhe, e só em Z era metade da conta: a versão
+		# anterior compensava topo e base e nunca a ponta do braço. Medida, a
+		# envergadura saía 0,807 da altura contra um PISO de 0,808 nos 27
+		# campeões — fora da faixa inteira do elenco.
+		if braco <= 0.001:
+			raise RuntimeError(
+				"nao achei o braco para medir o alcance — a malha nao tem "
+				"vertice alem do ombro, e somar a correcao cega faria o laco "
+				"fugir em vez de fechar"
+			)
+		ajuste_do_braco += AMORTECIMENTO * (ALCANCE_DO_BRACO - braco)
+		if cabeca > 0.001:
+			fator_da_cabeca *= 1.0 + AMORTECIMENTO * (
+				LARGURA_DA_CABECA / cabeca - 1.0)
+		for regiao, valor in entregue.items():
+			# Corrige só quem está FORA, e em direção à borda mais próxima.
+			# Empurrar quem já está dentro em direção à mediana é o que fazia
+			# uma região sair para a outra entrar.
+			if valor <= 0.001 or _fora_da_faixa(regiao, valor) <= 0.0:
+				continue
+			_mediana, minimo, maximo = FAIXA_DA_ESBELTEZ[regiao]
+			alvo = minimo if valor < minimo else maximo
+			fatores[regiao] = fatores.get(regiao, 1.0) * (
+				1.0 + AMORTECIMENTO_DA_ESPESSURA * (alvo / valor - 1.0))
+	raise RuntimeError(
+		"o corpo nao convergiu em %d voltas — topo %.4f, base %.4f, cabeca "
+		"%.4f, braco %.4f" % (TENTATIVAS, topo, base, cabeca, braco)
+	)
+
+
+def _alcance_do_braco(corpo: bpy.types.Object) -> float:
+	"""Do ombro à ponta do braço, MEDIDO AO LONGO DO EIXO DELE.
+
+	**Filtro por caixa não serve, e as duas tentativas anteriores provaram
+	isso.** Cortar por `x > X_OMBRO` põe a cabeça na conta, porque a cabeça
+	deste boneco é mais larga que o vão dos ombros — 0,386 contra 0,306, que é
+	o achado nº 1 do §1 de `docs/11` funcionando. Acrescentar `z < Y_OMBRO` põe
+	a PERNA na conta: o pé fica a 1,2 m do ombro e passa nos dois cortes.
+	Medido, a função devolvia 1,2035 onde o alvo é 0,63, e o laço empurrava a
+	mão para dentro do corpo, voltas 5 a 40, até o topo chegar a 114 mil metros.
+
+	O braço é um cilindro em volta de um eixo conhecido. Projetar no eixo e
+	descartar o que está longe dele exclui perna, tronco e cabeça por
+	construção, em vez de por uma lista de exceções que a próxima mudança de
+	forma invalida.
+	"""
+	ombro = _no_braco(1.0, 0.0)
+	eixo = (_no_braco(1.0, 1.0) - ombro).normalized()
+	alcance = 0.0
+	for vertice in corpo.data.vertices:
+		relativo = vertice.co - ombro
+		ao_longo = relativo.dot(eixo)
+		if ao_longo <= 0.0:
+			continue
+		if (relativo - eixo * ao_longo).length > RAIO_DO_TUBO_DO_BRACO:
+			continue
+		alcance = max(alcance, ao_longo)
+	return alcance
+
+
+## Até que distância do eixo do braço um vértice ainda conta como braço.
+##
+## **Medido, e a margem é estreita — está declarado aqui porque é.** A mão é a
+## peça mais grossa da corrente e chega a 0,118 do eixo. A coxa, que é o
+## vizinho mais próximo, passa a 0,172. São 5,4 cm de separação entre os dois
+## grupos, e o corte fica no meio.
+##
+## Com 0,20 a coxa entrava: a medida do braço travava em 0,6598 e não se mexia
+## em quarenta voltas, porque o máximo vinha da perna e não da mão. Número
+## imóvel enquanto o ajuste muda é a assinatura de uma medida que está lendo a
+## parte errada do corpo — e é isso que a guarda `anteriores`, dentro de
+## `convergir`, passou a acusar.
+RAIO_DO_TUBO_DO_BRACO = 0.145
+
+
+def limpar_soltos(corpo: bpy.types.Object) -> int:
+	"""Apaga vértices sem aresta e sem face, e diz quantos eram.
+
+	O Skin Modifier deixa restos degenerados exatamente nas junções — medidos,
+	cinco: três no pescoço e dois nos ombros, nas coordenadas dos raios daquelas
+	junções. Eles não aparecem na tela, recebem peso do `bone heat` e iriam para
+	o `.glb`. Vértice solto num arquivo de personagem é lixo que atravessa o
+	pipeline inteiro sem ninguém ver.
+	"""
+	usados = set()
+	for aresta in corpo.data.edges:
+		usados.update(aresta.vertices)
+	for face in corpo.data.polygons:
+		usados.update(face.vertices)
+	soltos = [v.index for v in corpo.data.vertices if v.index not in usados]
+	if not soltos:
+		return 0
+	import bmesh
+	malha = bmesh.new()
+	malha.from_mesh(corpo.data)
+	malha.verts.ensure_lookup_table()
+	bmesh.ops.delete(malha, geom=[malha.verts[i] for i in soltos], context="VERTS")
+	malha.to_mesh(corpo.data)
+	malha.free()
+	corpo.data.update()
+	return len(soltos)
+
+
+## As regiões cuja espessura entregue é medida e corrigida.
+##
+## Tronco e cabeça ficam de fora: o tronco porque a nossa segmentação não é
+## comparável à do original (ver `_esqueleto_de_arestas`), e a cabeça porque ela
+## já converge pela largura.
+OSSO_DA_REGIAO = {
+	"braco": "braco_D", "antebraco": "antebraco_D", "mao": "mao_D",
+	"coxa": "coxa_D", "canela": "canela_D", "pe": "pe_D",
+}
+## O alvo da espessura é a FAIXA, e não a mediana — ver `FAIXA_DA_ESBELTEZ`.
+##
+## Perseguir a mediana não fecha: o raio no meio de um osso é puxado pelos nós
+## das duas pontas, que pertencem a outras regiões, e o sistema satura. Medido,
+## o erro do braço estacionou em 0,148 e não se moveu em duzentas voltas — mais
+## correção só o fez divergir.
+##
+## E era o alvo errado desde o começo. Os 27 campeões variam muito: o antebraço
+## vai de 0,413 a 0,942, mais do que o dobro. Exigir que o nosso corpo acerte a
+## mediana de uma população tão espalhada é exigir precisão que a própria
+## referência não tem. É o mesmo critério que `docs/11` usa para proporção, onde
+## a tolerância é derivada da faixa.
+
+
+def _fora_da_faixa(regiao: str, valor: float) -> float:
+	"""Quanto o valor passou da borda da faixa. Zero quando está dentro."""
+	_mediana, minimo, maximo = FAIXA_DA_ESBELTEZ[regiao]
+	if valor < minimo:
+		return minimo - valor
+	if valor > maximo:
+		return valor - maximo
+	return 0.0
+## Até quantos raios declarados um vértice ainda conta como daquela peça. Dois
+## engloba a peça inteira com folga e exclui o vizinho — a outra coxa, por
+## exemplo, passa a 1,4 raio do eixo desta.
+CERCO_DA_PECA = 1.2
+
+
+def _esbeltez_entregue(corpo: bpy.types.Object, ossos: list,
+                       fatores: dict) -> dict:
+	"""A espessura que a malha REALMENTE tem, por região, sobre o comprimento.
+
+	**Medida no meio do osso, e não na peça inteira.** Perto das juntas a
+	superfície incha para encontrar o vizinho, e incluir isso mediria a junta em
+	vez do membro. O trecho central é onde a peça é ela mesma.
+
+	Este número não existia, e a falta tinha preço: `convergir` corrigia altura,
+	cabeça e alcance do braço, e nunca a grossura. Medido pelo conferidor do
+	projeto, cinco das seis regiões reprovavam — a coxa 23% e o pé 28% mais
+	finos que o declarado, num arquivo cujo argumento inteiro é "as medidas vêm
+	dos 27 campeões".
+	"""
+	por_nome = {nome: (cabeca, cauda) for nome, cabeca, cauda, _p in ossos}
+	saida = {}
+	for regiao, osso in OSSO_DA_REGIAO.items():
+		if osso not in por_nome:
+			continue
+		cabeca, cauda = por_nome[osso]
+		eixo = cauda - cabeca
+		comprimento = eixo.length
+		if comprimento <= 0.0:
+			continue
+		direcao = eixo / comprimento
+		# **O cerco sai do ALVO, e não do raio corrigido.** Feito com o raio
+		# corrente, a janela de medição cresce junto com o que ela mede: o
+		# cerco engorda, passa a incluir a peça vizinha, a medida sobe, o fator
+		# encolhe, o cerco encolhe. Medido, o erro oscilou entre 0,08 e 0,38
+		# por vinte voltas sem fechar. Janela que depende do medido não é
+		# janela, é realimentação.
+		cerco = ESBELTEZ[regiao] * comprimento * 0.5 * CERCO_DA_PECA
+		maior = 0.0
+		for vertice in corpo.data.vertices:
+			relativo = vertice.co - cabeca
+			ao_longo = relativo.dot(direcao) / comprimento
+			if not 0.3 <= ao_longo <= 0.7:
+				continue
+			perpendicular = (relativo - direcao * (ao_longo * comprimento)).length
+			if perpendicular > cerco:
+				continue
+			maior = max(maior, perpendicular)
+		if maior > 0.0:
+			saida[regiao] = 2.0 * maior / comprimento
+	return saida
+
+
+def _largura_da_cabeca(corpo: bpy.types.Object) -> float:
+	"""A maior largura acima da base do pescoço."""
+	acima = [v.co for v in corpo.data.vertices if v.co.z >= BASE_DA_CABECA]
+	if not acima:
+		return 0.0
+	return max(p.x for p in acima) - min(p.x for p in acima)
+
+
+def perfil(corpo: bpy.types.Object, quantas: int = 14) -> list:
+	"""A LARGURA do corpo a cada altura — a silhueta, em números.
+
+	Existe porque "a cabeça não está lendo" é uma frase, e frase não se compara
+	com a direção de arte. A largura por faixa diz onde está a massa, e é ela
+	que responde se a cabeça é maior que o ombro — que é o achado nº 1 do §1 de
+	`docs/11`, e o que separa chibi de boneco genérico.
+	"""
+	pontos = [v.co for v in corpo.data.vertices]
+	saida = []
+	for i in range(quantas):
+		de = ALTURA * i / quantas
+		ate = ALTURA * (i + 1) / quantas
+		faixa = [p for p in pontos if de <= p.z < ate]
+		if not faixa:
+			saida.append((de, ate, 0.0))
+			continue
+		saida.append((de, ate,
+		              max(p.x for p in faixa) - min(p.x for p in faixa)))
+	return saida
+
+
+## `(nome, cabeça, cauda, pai)`. Os nomes são os mesmos do gerador anterior,
+## porque quem os lê é a camada de jogo e ela não deve saber que o corpo mudou.
+def _ossos(ajuste_base: float = 0.0, ajuste_do_braco: float = 0.0) -> list:
+	return [
+		("quadril", Vector((0.0, 0.0, Y_QUADRIL)), Vector((0.0, 0.0, Y_PEITO)), None),
+		("peito", Vector((0.0, 0.0, Y_PEITO)), Vector((0.0, 0.0, Y_PESCOCO)), "quadril"),
+		("cabeca", Vector((0.0, 0.0, Y_PESCOCO)), Vector((0.0, 0.0, Y_TOPO)), "peito"),
+	] + [
+		osso
+		for lado, sufixo in ((1.0, "D"), (-1.0, "E"))
+		for osso in (
+			("braco_" + sufixo, _no_braco(lado, 0.0),
+			 _no_braco(lado, COMPRIMENTO_DO_BRACO), "peito"),
+			("antebraco_" + sufixo, _no_braco(lado, COMPRIMENTO_DO_BRACO),
+			 _no_braco(lado, ATE_O_PULSO), "braco_" + sufixo),
+			# **A cauda cai no NÓ da malha, não no fim teórico do osso.** Medido
+			# com `closest_point_on_mesh`, a cauda da mão ficava 76,9 mm FORA da
+			# pele e a do pé 51,1 mm — o pé inteiro girava em torno de um eixo
+			# acima do dedo. As cabeças de osso estavam todas certas, e foi só
+			# isso que a versão anterior conferiu.
+			("mao_" + sufixo, _no_braco(lado, ATE_O_PULSO),
+			 _no_braco(lado, ATE_O_PULSO + COMPRIMENTO_DA_MAO * 0.55
+			           + ajuste_do_braco),
+			 "antebraco_" + sufixo),
+			("coxa_" + sufixo, Vector((lado * X_QUADRIL, 0.0, Y_QUADRIL)),
+			 Vector((lado * X_QUADRIL, 0.0, Y_JOELHO)), "quadril"),
+			("canela_" + sufixo, Vector((lado * X_QUADRIL, 0.0, Y_JOELHO)),
+			 Vector((lado * X_QUADRIL, 0.0, Y_TORNOZELO)), "coxa_" + sufixo),
+			("pe_" + sufixo, Vector((lado * X_QUADRIL, 0.0, Y_TORNOZELO)),
+			 Vector((lado * X_QUADRIL, -COMPRIMENTO_DO_PE,
+			         Y_TORNOZELO * 0.7 + ajuste_base)),
+			 "canela_" + sufixo),
+		)
+	]
+
+
+def _dentro_da_pele(corpo: bpy.types.Object, ponto: Vector) -> bool:
+	"""O ponto está DENTRO da casca? Por paridade de raio.
+
+	`closest_point_on_mesh` não responde isto: ela devolve a distância até a
+	superfície, e um ponto no meio do quadril está a 10 cm dela justamente por
+	estar bem dentro. Usá-la para decidir dentro/fora acusa o corpo inteiro.
+	"""
+	cruzamentos = 0
+	origem = ponto.copy()
+	for _ in range(64):
+		alcancou, batida, _normal, _indice = corpo.ray_cast(
+			origem, Vector((0.0, 0.0, 1.0)))
+		if not alcancou:
+			break
+		cruzamentos += 1
+		origem = batida + Vector((0.0, 0.0, 1e-4))
+	return cruzamentos % 2 == 1
+
+
+## Quantos passos dar ao puxar uma cauda para dentro, e o quanto sobra de folga.
+PASSOS_PARA_DENTRO = 12
+
+
+def _cauda_dentro(corpo: bpy.types.Object, cabeca: Vector, cauda: Vector) -> Vector:
+	"""Recua a cauda em direção à cabeça do osso até ela ficar dentro da pele.
+
+	**Um osso tem que estar dentro da carne que ele deforma.** Medido, cinco
+	caudas ficavam de fora — as duas mãos, os dois pés e a cabeça —, e o pé era
+	o pior: o osso corria reto em `z = 0,163` enquanto a malha do pé ocupava
+	`z 0,014` a `0,125`, ou seja, o pé girava em torno de um eixo acima do dedo
+	inteiro.
+
+	A causa não é descuido, é a própria convergência: ela empurra o nó da malha
+	para fora até a SUPERFÍCIE alcançar o alvo, e a superfície fica para dentro
+	do nó. Então o nó, que é onde a cauda estava, sobra do lado de fora.
+
+	Recuar em vez de escolher um fator: fator escolhido a olho é número mágico,
+	e ele mudaria junto com o nível da subdivisão sem ninguém perceber.
+	"""
+	for passo in range(PASSOS_PARA_DENTRO):
+		candidata = cabeca.lerp(cauda, 1.0 - passo / float(PASSOS_PARA_DENTRO))
+		if _dentro_da_pele(corpo, candidata):
+			return candidata
+	return cabeca.lerp(cauda, 0.5)
+
+
+def criar_esqueleto(corpo: bpy.types.Object, ajuste_base: float = 0.0,
+                    ajuste_do_braco: float = 0.0) -> bpy.types.Object:
+	"""O esqueleto, nas posições que a direção de arte declara.
+
+	Sem transformação nenhuma, e isso é consequência de `convergir`: como só as
+	pontas do corpo se movem, a anatomia interna fica onde `PROPORCAO` a põe, e
+	o rig pode ser escrito direto a partir dela.
+	"""
+	dados = bpy.data.armatures.new("Esqueleto")
+	objeto = bpy.data.objects.new("Esqueleto", dados)
+	bpy.context.collection.objects.link(objeto)
+	bpy.context.view_layer.objects.active = objeto
+	bpy.ops.object.mode_set(mode="EDIT")
+	for nome, cabeca, cauda, pai in _ossos(ajuste_base, ajuste_do_braco):
+		osso = dados.edit_bones.new(nome)
+		osso.head = cabeca
+		osso.tail = _cauda_dentro(corpo, cabeca, cauda)
+		if pai is not None:
+			osso.parent = dados.edit_bones[pai]
+			# Sem `use_connect`: braço e perna partem de um ponto que não é a
+			# cauda do pai, e conectá-los os arrastaria para o lugar errado.
+			osso.use_connect = False
+	bpy.ops.object.mode_set(mode="OBJECT")
+	return objeto
+
+
+def vestir(corpo: bpy.types.Object, esqueleto: bpy.types.Object) -> None:
+	"""Prende a pele ao esqueleto com PESOS AUTOMÁTICOS.
+
+	Pesos automáticos e não peso 1 por osso, e a diferença é o ponto desta
+	versão: com peso 1 rígido, cada vértice acompanha um osso só e a superfície
+	RASGA na dobra. Numa pele contínua o cotovelo tem que amassar, não partir —
+	é para isso que existe deformação suave.
+	"""
+	bpy.ops.object.select_all(action="DESELECT")
+	corpo.select_set(True)
+	esqueleto.select_set(True)
+	bpy.context.view_layer.objects.active = esqueleto
+	bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+
+
+
+# --------------------------------------------------------------------------
+# Cor e rosto
+# --------------------------------------------------------------------------
+
+## Uma cor por região. **O contraste é de VALOR, não de matiz.**
+##
+## Numa silhueta contínua o olho não tem quina para separar braço de tronco: se
+## os dois tiverem o mesmo brilho, o braço some dentro do corpo. Foi o que
+## aconteceu no boneco anterior, e a peça que dava para seguir era a única com
+## cor própria — a mão.
+##
+## Valores aproximados (0,30·R + 0,59·G + 0,11·B): sapato 0,17, rosto 0,11,
+## membro 0,23, roupa 0,44, pele 0,74, mão 0,60.
+CORES = {
+	"pele": (0.85, 0.72, 0.60, 1.0),
+	"roupa": (0.35, 0.45, 0.62, 1.0),
+	"membro": (0.17, 0.21, 0.31, 1.0),
+	"mao": (0.90, 0.52, 0.22, 1.0),
+	# O sapato precisa se separar do MEMBRO, e os dois eram quase o mesmo
+	# brilho — 0,17 contra 0,23. Clareando a bota, o pé ganha silhueta própria
+	# no fim de uma perna escura.
+	"sapato": (0.55, 0.50, 0.44, 1.0),
+	"rosto": (0.10, 0.11, 0.14, 1.0),
+}
+
+## Que região pinta cada osso.
+MATERIAL_DO_OSSO = {
+	"quadril": "roupa", "peito": "roupa", "cabeca": "pele",
+	"braco_D": "membro", "antebraco_D": "membro", "mao_D": "mao",
+	"braco_E": "membro", "antebraco_E": "membro", "mao_E": "mao",
+	"coxa_D": "membro", "canela_D": "membro", "pe_D": "sapato",
+	"coxa_E": "membro", "canela_E": "membro", "pe_E": "sapato",
+}
+
+## A grossura de cada osso, para a pintura saber a quantos raios dele um ponto
+## está. Sai das mesmas medidas que dão os raios da malha — um lugar só.
+def _raio_do_osso(fatores: dict = None) -> dict:
+	"""A grossura de cada osso, para a pintura saber a quantos raios dele um
+	ponto está. Sai das mesmas medidas que dão os raios da malha — um lugar só.
+
+	É função e não dicionário de módulo porque os raios passaram a depender dos
+	fatores de correção da subdivisão, que só existem depois de `convergir`.
+	"""
+	return {
+		"quadril": X_QUADRIL * 1.15,
+		"peito": X_OMBRO * 0.95,
+		"cabeca": RAIO_DA_CABECA,
+		"braco_D": _raio("braco", COMPRIMENTO_DO_BRACO, fatores),
+		"braco_E": _raio("braco", COMPRIMENTO_DO_BRACO, fatores),
+		"antebraco_D": _raio("antebraco", COMPRIMENTO_DO_ANTEBRACO, fatores),
+		"antebraco_E": _raio("antebraco", COMPRIMENTO_DO_ANTEBRACO, fatores),
+		"mao_D": _raio("mao", COMPRIMENTO_DA_MAO, fatores) * ENGROSSAMENTO_DA_MAO,
+		"mao_E": _raio("mao", COMPRIMENTO_DA_MAO, fatores) * ENGROSSAMENTO_DA_MAO,
+		"coxa_D": _raio("coxa", COMPRIMENTO_DA_COXA, fatores),
+		"coxa_E": _raio("coxa", COMPRIMENTO_DA_COXA, fatores),
+		"canela_D": _raio("canela", COMPRIMENTO_DA_CANELA, fatores),
+		"canela_E": _raio("canela", COMPRIMENTO_DA_CANELA, fatores),
+		"pe_D": _raio("pe", COMPRIMENTO_DO_PE, fatores),
+		"pe_E": _raio("pe", COMPRIMENTO_DO_PE, fatores),
+	}
+
+## A ordem em que os materiais entram na malha. Fixa, e não a de iteração de um
+## dicionário: `material_index` é um número, e um número que muda de significado
+## entre execuções produz um boneco diferente do mesmo código.
+ORDEM_DAS_CORES = ["pele", "roupa", "membro", "mao", "sapato", "rosto"]
+
+
+def criar_materiais(corpo: bpy.types.Object) -> dict:
+	indices = {}
+	for indice, nome in enumerate(ORDEM_DAS_CORES):
+		material = bpy.data.materials.new(nome)
+		# **A cor vai no NÓ, e é ela que o `.glb` carrega.**
+		#
+		# Este bloco já esteve escrito ao contrário, com `use_nodes = False` e
+		# um comentário afirmando que o exportador lia `diffuse_color`. É falso,
+		# e o preço foi medido: as seis cores saíram do exportador como o cinza
+		# padrão `[0.8, 0.8, 0.8, 1]`, todas iguais. O boneco que o jogo
+		# receberia era monocromático — inclusive o rosto, que existe justamente
+		# para o corpo ter frente.
+		#
+		# E o defeito era INVISÍVEL pelo caminho que eu usava para conferir:
+		# `diffuse_color` pinta a viewport, então todo screenshot do Blender
+		# mostrava o boneco colorido enquanto o arquivo saía cinza. Olhar a tela
+		# do Blender não é olhar o artefato.
+		material.use_nodes = True
+		bsdf = material.node_tree.nodes.get("Principled BSDF")
+		if bsdf is not None:
+			bsdf.inputs["Base Color"].default_value = CORES[nome]
+			# Sem brilho: a Fase 1 não tem luz decente, e specular lê como
+			# sujeira.
+			if "Roughness" in bsdf.inputs:
+				bsdf.inputs["Roughness"].default_value = 0.9
+		# E a cor de viewport também, que é o que o render Workbench da prévia
+		# lê. As duas, porque são dois consumidores diferentes.
+		material.diffuse_color = CORES[nome]
+		corpo.data.materials.append(material)
+		indices[nome] = indice
+	return indices
+
+
+def _distancia_ao_osso(ponto: Vector, cabeca: Vector, cauda: Vector) -> float:
+	"""Distância de um ponto ao SEGMENTO do osso, não à reta dele."""
+	eixo = cauda - cabeca
+	comprimento = eixo.length_squared
+	if comprimento <= 0.0:
+		return (ponto - cabeca).length
+	t = max(0.0, min(1.0, (ponto - cabeca).dot(eixo) / comprimento))
+	return (ponto - (cabeca + eixo * t)).length
+
+
+def pintar(corpo: bpy.types.Object, indices: dict,
+           ajuste_base: float = 0.0, ajuste_do_braco: float = 0.0,
+           fatores: dict = None) -> None:
+	"""Cada face recebe a cor do osso mais PRÓXIMO dela.
+
+	A malha é contínua e não tem peças, então não há de onde herdar cor.
+
+	**Por distância, e não por peso.** A primeira versão perguntava qual osso
+	dominava os vértices da face, e o resultado tinha a fronteira serrilhada:
+	os pesos automáticos sangram entre ossos vizinhos, e perto da divisa a face
+	troca de dono a cada polígono. Na tela saía um babador de bordas picotadas
+	no meio do peito.
+
+	Distância ao segmento do osso é uma função contínua do espaço, então a
+	divisa entre duas cores é uma curva lisa por construção — não porque os
+	números deram certo.
+	"""
+	ossos = _ossos(ajuste_base, ajuste_do_braco)
+	raios = _raio_do_osso(fatores)
+	for face in corpo.data.polygons:
+		centro = face.center
+		melhor, perto = None, None
+		for nome, cabeca, cauda, _pai in ossos:
+			# **Dividido pela GROSSURA do osso.** Distância crua não serve: o
+			# osso do peito é uma linha fina no eixo do corpo, e os ossos dos
+			# braços passam por fora, perto da superfície do peito. Em
+			# distância pura o braço reivindica quase todo o tronco, e sobra
+			# uma tira picotada de roupa no meio — foi o babador que apareceu
+			# na tela.
+			#
+			# Dividir pela grossura mede "a quantos raios deste osso eu estou",
+			# que é o que separa carne de vizinho: o tronco é gordo e alcança
+			# longe, o braço é fino e alcança perto.
+			distancia = (_distancia_ao_osso(centro, cabeca, cauda)
+			             / raios[nome])
+			if perto is None or distancia < perto:
+				melhor, perto = nome, distancia
+		face.material_index = indices[MATERIAL_DO_OSSO.get(melhor, "roupa")]
+
+
+## Quanto da frente da cabeça vira rosto, em fração do raio dela.
+FUNDO_DO_ROSTO = 0.55
+## E a partir de que altura da cabeça, para o rosto não descer no queixo.
+ALTURA_DO_ROSTO = 0.25
+
+
+def pintar_rosto(corpo: bpy.types.Object, indices: dict) -> int:
+	"""Pinta a frente da cabeça, e devolve quantas faces pegou.
+
+	**Isto não é enfeite: é o que dá FRENTE ao corpo.** A malha é simétrica em
+	Y tirando os pés, então sem o rosto não há como o olho — nem a sonda — saber
+	para que lado o personagem olha. `tools/sondar_campeoes.gd` reprova o
+	boneco quando o material `rosto` não existe, e essa conferência nasceu de o
+	personagem ter andado de costas por 25 animações sem nada acusar.
+
+	A frente do Blender é **-Y**. A conversão para o -Z da Godot é feita na
+	engine, por `Boneco.giro_do_modelo`.
+	"""
+	acima = [v.co for v in corpo.data.vertices if v.co.z >= Y_PESCOCO]
+	if not acima:
+		return 0
+	topo = max(p.z for p in acima)
+	base = min(p.z for p in acima)
+	raio = max(abs(p.y) for p in acima)
+	pintadas = 0
+	for face in corpo.data.polygons:
+		centro = face.center
+		if centro.z < base + (topo - base) * ALTURA_DO_ROSTO:
+			continue
+		if centro.z > topo - (topo - base) * 0.12:
+			continue
+		if centro.y > -raio * FUNDO_DO_ROSTO:
+			continue
+		face.material_index = indices["rosto"]
+		pintadas += 1
+	return pintadas
+
+
+def exportar(caminho: str) -> None:
+	"""Grava o `.glb`.
+
+	**O gerador anterior desta sessão não fazia isto**, e foi o achado nº 1 do
+	validador: ele imprimia, devolvia zero, e o jogo continuava carregando o
+	arquivo antigo. Gerar sem gravar é a lição 5 do `CLAUDE.md` na forma
+	literal — verde por não ter mudado nada.
+
+	Grava em `arte/boneco.glb`, e NÃO em `arte/personagem.glb`, que é o que o
+	jogo carrega. Enquanto este corpo não tiver animação, publicá-lo no lugar do
+	outro faria `Boneco._montar_modelo` avisar que carregou sem `AnimationPlayer`
+	e tiraria do jogo os 25 clipes que já funcionam. Um artefato novo não
+	substitui um que funciona só por ser mais novo.
+	"""
+	os.makedirs(os.path.dirname(caminho), exist_ok=True)
+	bpy.ops.export_scene.gltf(
+		filepath=caminho,
+		export_format="GLB",
+		# Ligadas desde ja: quando as animacoes entrarem, elas saem no arquivo
+		# sem ninguem precisar lembrar de mexer aqui.
+		export_animations=True,
+		export_animation_mode="ACTIONS",
+		export_apply=False,
+		export_yup=True,
+		# **Os ossos de ponta precisam existir no arquivo.** O glTF nao guarda
+		# "cauda de osso": ele guarda uma arvore, e a cauda de um osso e a
+		# cabeca do filho. Sem folha, `mao_D` e `pe_D` saem sem filho e nenhuma
+		# ferramenta que leia so o `.glb` consegue medir o comprimento deles —
+		# `conferir_boneco.py` reprovava com "nao achei o osso".
+		export_leaf_bone=True,
+	)
+
+
+
+def main() -> int:
+	corpo, ajuste_base, ajuste_do_braco, fatores = convergir()
+	esqueleto = criar_esqueleto(corpo, ajuste_base, ajuste_do_braco)
+	vestir(corpo, esqueleto)
+	indices = criar_materiais(corpo)
+	pintar(corpo, indices, ajuste_base, ajuste_do_braco, fatores)
+	rosto = pintar_rosto(corpo, indices)
+	print("[boneco] rosto: %d faces pintadas" % rosto)
+	if rosto == 0:
+		raise RuntimeError(
+			"nenhuma face virou rosto — sem ele o corpo nao tem frente, e "
+			"`sondar_campeoes.gd` reprova o `.glb`"
+		)
+
+	pontos = [v.co for v in corpo.data.vertices]
+	print("[boneco] %d vertices" % len(pontos))
+	print("[boneco] altura %.3f m   largura %.3f   profundidade %.3f" % (
+		max(p.z for p in pontos) - min(p.z for p in pontos),
+		max(p.x for p in pontos) - min(p.x for p in pontos),
+		max(p.y for p in pontos) - min(p.y for p in pontos)))
+	print("[boneco] -- silhueta: largura por faixa de altura --")
+	for de, ate, largura in perfil(corpo):
+		barra = "#" * int(largura * 60)
+		print("[boneco]   %.2f-%.2f m  %.3f  %s" % (de, ate, largura, barra))
+
+	raiz = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+	destino = os.path.join(raiz, "arte", "boneco.glb")
+
+	# **Exporta para um nome provisório e só publica se passar.**
+	#
+	# Escrevendo direto no lugar definitivo, toda execução reprovada deixaria um
+	# boneco ruim no disco — e no outro gerador deste projeto foi exatamente
+	# assim que um artefato defeituoso chegou a ser commitado. Reprovar não pode
+	# publicar nada.
+	provisorio = os.path.join(os.path.dirname(destino), "boneco.novo.glb")
+	exportar(provisorio)
+
+	# O conferidor é Python puro — não importa `bpy` —, então roda aqui dentro
+	# sem subprocesso e sem depender de qual interpretador está no caminho.
+	falhas = conferir_boneco.conferir(provisorio)
+	if falhas:
+		os.remove(provisorio)
+		print("[boneco] REPROVADO, %d motivo(s):" % len(falhas))
+		for falha in falhas:
+			print("[boneco]   - %s" % falha)
+		print("[boneco] nada foi publicado — %s continua como estava" % destino)
+		return 1
+	os.replace(provisorio, destino)
+	print("[boneco] gravado: %s (%.0f KB)" % (
+		destino, os.path.getsize(destino) / 1024))
+
+	# **E o `.blend` também sai daqui.** Ele existia ao lado do `.glb` gravado
+	# por outro caminho, e ninguém sabia de qual versão do código ele vinha.
+	blend = os.path.join(raiz, "arte", "fonte", "boneco.blend")
+	os.makedirs(os.path.dirname(blend), exist_ok=True)
+	bpy.ops.wm.save_as_mainfile(filepath=blend)
+	print("[boneco] para abrir e olhar: %s" % blend)
+	return 0
+
+
+if __name__ == "__main__":
+	sys.exit(main())
