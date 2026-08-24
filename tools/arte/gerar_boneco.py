@@ -1311,15 +1311,42 @@ ANIMACOES = {
 	"parado": {
 		"ciclo": True,
 		"duracao": 1.33,
-		# **A respiração mora no peito, nos ombros e na cabeça — não no
-		# quadril.** Levantar o quadril tira os dois pés do chão, porque as
-		# pernas são rígidas e não há joelho dobrando para compensar.
+		# As regiões que esta animação TEM que mover, e elas são as que o
+		# jogador VÊ. Sem isto, o piso de amplitude olha só o máximo do corpo —
+		# que é sempre a extremidade mais distante do pivô — e aprova um corpo
+		# em que só a ponta se mexe: medido, uma perna levantada o clipe inteiro
+		# publicava os mesmos 0,123 m.
+		"movem": ["cabeca", "mao"],
+		"pes_plantados": True,
+		# **Quem carrega a leitura é a CABEÇA e a MÃO, não o peito.**
 		#
-		# E ela precisa ser VISÍVEL. O boneco anterior girava o peito 2,5 graus
-		# e a cabeça 1,5, e o corpo inteiro se deslocava 12 cm em dois
-		# segundos: na câmera isométrica lia como estátua. Aqui o peito vai a 6
-		# graus e o braço a 7, que é o dobro do que o olho precisa para dizer
-		# "isto está vivo" sem virar dança.
+		# Este comentário já afirmou o contrário, e a afirmação foi medida e
+		# desmentida. O que ele dizia: que o boneco anterior girava o peito 2,5
+		# graus e a cabeça 1,5, e que aqui o peito ia a 6 e o braço a 7, "o
+		# dobro do que o olho precisa". Medido nos dois arquivos:
+		#
+		#   peito      4,50° -> 6,00°   (+33%, não o dobro)
+		#   cabeça     2,50° -> 4,50°
+		#   braço      7,81° -> 7,81°   IDÊNTICO
+		#   amplitude  0,116 m -> 0,123 m   (+6%)
+		#
+		# Os "2,5 e 1,5" eram o valor da segunda CHAVE, lido como se fosse a
+		# excursão. E o braço — que é quem produz os 0,123 m publicados como
+		# prova de vida — não mudou nada em relação ao clipe que o comentário
+		# chamava de estátua. Os 12 cm citados como prova de estátua e os 12,3
+		# publicados como prova de vida são o mesmo número.
+		#
+		# O que de fato mudou foi a DURAÇÃO: 2,00 s para 1,33 s, a mediana
+		# medida. A mesma excursão em dois terços do tempo.
+		#
+		# E na câmera do jogo — personagem a 43 px de altura — o peito se move
+		# 0,44 px. É sub-pixel: ninguém o vê. Quem se vê são as duas mãos, a
+		# 3,0 px, e a cabeça, a 2,3. Por isso `movem` lista cabeça e mão, e não
+		# peito: exigir movimento de uma região invisível seria exigir
+		# exagero para satisfazer uma régua.
+		#
+		# O quadril continua parado de propósito: as pernas são rígidas, sem
+		# joelho dobrando para compensar, e levantá-lo tira os dois pés do chão.
 		"chaves": [
 			(0.0, pose(peito=(3, 0, 0), cabeca=(2, 0, 0),
 			           braco_D=(2, -3, 0), braco_E=(2, 3, 0))),
@@ -1349,9 +1376,20 @@ AMPLITUDE_MINIMA = 0.05
 FOLGA_DO_CHAO = 0.015
 
 
+def _regiao_do_osso(nome: str) -> str:
+	"""`braco_D` e `braco_E` são a mesma região. Derivado, não tabelado.
+
+	Uma segunda tabela de nomes é um segundo lugar para ficar desatualizado, e
+	este arquivo já declara a correspondência em `OSSO_DA_REGIAO`.
+	"""
+	if nome.endswith("_D") or nome.endswith("_E"):
+		return nome[:-2]
+	return nome
+
+
 def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
                    nome: str, ultimo: int) -> tuple:
-	"""`(amplitude, chão mínimo, chão máximo)` da animação, quadro a quadro.
+	"""`(amplitude, amplitude por região, altura de cada pé por quadro)`.
 
 	Mede no corpo DEFORMADO — `evaluated_get` é o que aplica o esqueleto. Ler
 	`corpo.data.vertices` direto devolve a malha em repouso, e uma conferência
@@ -1364,14 +1402,34 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	if hasattr(armature.animation_data, "action_slot") and acao.slots:
 		armature.animation_data.action_slot = acao.slots[0]
 
+	# De quem é cada vértice, pelo peso. É o mesmo termo que a esbeltez usa.
+	grupos = {g.index: g.name for g in corpo.vertex_groups}
+	dono = []
+	for vertice in corpo.data.vertices:
+		melhor, peso = None, 0.0
+		for atribuicao in vertice.groups:
+			if atribuicao.weight > peso:
+				peso, melhor = atribuicao.weight, grupos.get(atribuicao.group)
+		dono.append(melhor)
+
 	menor = maior = None
-	chao = []
+	# **O chão é medido POR PÉ, e não no corpo inteiro.**
+	#
+	# `min(z)` de todos os vértices responde "algum ponto do corpo toca o
+	# chão", que não é o que o item 5 do §10 promete. Medido: uma coxa a -30
+	# graus o clipe inteiro — o pé direito no ar do começo ao fim — saía com
+	# `chao +0,0009 a +0,0009` e era publicado. E os próximos clipes são
+	# `andando` e `correndo`, que são exatamente aqueles em que um pé de cada
+	# vez sai do chão.
+	chao = {"pe_D": [], "pe_E": []}
 	for quadro in range(0, ultimo + 1):
 		bpy.context.scene.frame_set(quadro)
 		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
 		temporaria = avaliado.to_mesh()
 		pontos = [avaliado.matrix_world @ v.co for v in temporaria.vertices]
-		chao.append(min(p.z for p in pontos))
+		for nome in chao:
+			alturas = [p.z for p, d in zip(pontos, dono) if d == nome]
+			chao[nome].append(min(alturas) if alturas else 0.0)
 		if menor is None:
 			menor = [p.copy() for p in pontos]
 			maior = [p.copy() for p in pontos]
@@ -1382,11 +1440,26 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 					maior[indice][eixo] = max(maior[indice][eixo], ponto[eixo])
 		avaliado.to_mesh_clear()
 	bpy.context.scene.frame_set(0)
+
+	# **A amplitude POR REGIÃO, e não só o máximo do corpo.**
+	#
+	# O máximo global é sempre a extremidade mais distante do pivô — no
+	# `parado`, a mão. Medido, apagar peito e cabeça inteiros deixaria o número
+	# publicado idêntico: uma perna levantada o clipe todo saiu com os mesmos
+	# 0,123 m. O piso global pega "nada se mexeu"; é cego a "só a ponta se
+	# mexeu", que é o defeito de uma respiração que morreu.
+	por_regiao = {}
+	for indice, nome in enumerate(dono):
+		if nome is None:
+			continue
+		regiao = _regiao_do_osso(nome)
+		por_regiao[regiao] = max(
+			por_regiao.get(regiao, 0.0), (maior[indice] - menor[indice]).length)
 	amplitude = max((maior[i] - menor[i]).length for i in range(len(menor)))
-	return amplitude, min(chao), max(chao)
+	return amplitude, por_regiao, chao
 
 
-def criar_animacao(armature: bpy.types.Object, nome: str, dados: dict) -> None:
+def criar_animacao(armature: bpy.types.Object, nome: str, dados: dict) -> int:
 	"""Uma ação com as chaves declaradas, interpolada em Bézier.
 
 	`AUTO_CLAMPED` e não `AUTO`: a alça automática do Blender ultrapassa a chave
@@ -1443,21 +1516,39 @@ def main() -> int:
 	pintar(corpo, indices, ajuste_base, ajuste_do_braco, fatores)
 	for nome, dados in ANIMACOES.items():
 		quadros = criar_animacao(esqueleto, nome, dados)
-		amplitude, chao_min, chao_max = medir_animacao(
+		amplitude, por_regiao, chao = medir_animacao(
 			esqueleto, corpo, nome, quadros)
-		print("[boneco] animacao `%s`: %.2f s, %d quadros, amplitude %.3f m, "
-		      "chao %+.4f a %+.4f"
-		      % (nome, dados["duracao"], quadros, amplitude, chao_min, chao_max))
+		# **A duração impressa é a MEDIDA, não a declarada.** Ela já imprimiu
+		# "1,33 s" com o arquivo saindo em 1,667 — mentindo sobre exatamente o
+		# número que o gerador diz ter aprendido a passar adiante.
+		cadencia = (bpy.context.scene.render.fps
+		            / bpy.context.scene.render.fps_base)
+		print("[boneco] animacao `%s`: %.3f s medidos (%.2f declarados), "
+		      "%d quadros a %.0f/s, amplitude %.3f m"
+		      % (nome, quadros / cadencia, dados["duracao"], quadros,
+		         cadencia, amplitude))
+		for regiao in sorted(por_regiao):
+			print("[boneco]     %-10s anda %.4f m" % (regiao, por_regiao[regiao]))
+
+		for regiao in dados.get("movem", ()):
+			andou = por_regiao.get(regiao, 0.0)
+			if andou < AMPLITUDE_MINIMA:
+				raise RuntimeError(
+					"em `%s` a regiao `%s` anda %.4f m e o piso e %.3f — a "
+					"animacao existe, mas a parte que ela deveria mover nao "
+					"se move" % (nome, regiao, andou, AMPLITUDE_MINIMA))
 		if amplitude < AMPLITUDE_MINIMA:
 			raise RuntimeError(
 				"a animacao `%s` desloca %.3f m e o piso e %.3f — abaixo disso "
 				"ela nao e animacao, e um corpo parado com chaves"
 				% (nome, amplitude, AMPLITUDE_MINIMA))
-		if dados.get("no_chao", True) and (chao_min < -FOLGA_DO_CHAO
-		                                   or chao_max > FOLGA_DO_CHAO):
-			raise RuntimeError(
-				"a animacao `%s` tira o pe do chao: %+.4f a %+.4f, folga %.3f"
-				% (nome, chao_min, chao_max, FOLGA_DO_CHAO))
+		for pe, alturas in sorted(chao.items()):
+			fora = max(abs(a) for a in alturas)
+			print("[boneco]     %s: sai %.4f m do chao" % (pe, fora))
+			if dados.get("pes_plantados", True) and fora > FOLGA_DO_CHAO:
+				raise RuntimeError(
+					"em `%s` o `%s` sai %.4f m do chao e a folga e %.3f"
+					% (nome, pe, fora, FOLGA_DO_CHAO))
 
 	rosto = pintar_rosto(corpo, indices)
 	print("[boneco] rosto: %d faces pintadas" % rosto)

@@ -80,6 +80,32 @@ AMOSTRA_MINIMA = 12
 ANIMACOES_EXIGIDAS = {
 	"parado": (1.33, True),
 }
+
+## O nome do mesmo verbo no original, para a duracao poder ser conferida contra
+## o instantaneo do censo em vez de so contra o gerador.
+NOME_NO_ORIGINAL = {
+	"parado": "idle",
+}
+
+
+def _ritmo_do_instantaneo() -> dict:
+	"""`verbo do original -> mediana medida`, de `data/direcao-de-arte.json`.
+
+	**A ordem la e `[minimo, mediana, maximo]`**, e nao `[mediana, min, max]`
+	como nas outras secoes — `censo_do_original.py` monta a de animacao com
+	`v[0], median(v), v[-1]`. Ler na ordem errada da uma duracao errada sem nada
+	acusar, e este projeto ja leu.
+	"""
+	caminho = os.path.join(RAIZ, "data", "direcao-de-arte.json")
+	try:
+		dados = json.loads(io.open(caminho, encoding="utf-8").read())
+	except (OSError, ValueError):
+		return {}
+	saida = {}
+	for verbo, faixa in (dados.get("ritmo", {}).get("universais", {})).items():
+		if isinstance(faixa, list) and len(faixa) == 3:
+			saida[verbo] = faixa[1]
+	return saida
 FOLGA_DA_DURACAO = 0.05
 ## Quanto duas quaternioes podem diferir e ainda contar como a mesma pose.
 FOLGA_DO_CICLO = 0.002
@@ -228,15 +254,26 @@ def ler_escalares(g: dict, b: bytes, indice: int) -> list:
 	        for i in range(acesso["count"])]
 
 
-def ler_quaternios(g: dict, b: bytes, indice: int) -> list:
-	"""A saida de um amostrador de rotacao."""
+## Quantos floats tem cada tipo de saida de amostrador.
+LARGURA_DO_TIPO = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
+
+
+def ler_saida(g: dict, b: bytes, indice: int) -> list:
+	"""A saida de um amostrador, seja rotacao, translacao ou escala.
+
+	**Le qualquer tipo, e isso nao e generalidade gratuita.** A versao anterior
+	so lia `VEC4` e devolvia vazio para o resto; quem chamava tratava vazio como
+	"nada a conferir", e um ciclo de translacao que saltava na emenda passava.
+	"""
 	acesso = g["accessors"][indice]
-	if acesso.get("type") != "VEC4":
+	largura = LARGURA_DO_TIPO.get(acesso.get("type"))
+	if largura is None:
 		return []
 	vista = g["bufferViews"][acesso["bufferView"]]
 	base = vista.get("byteOffset", 0) + acesso.get("byteOffset", 0)
-	passo = vista.get("byteStride") or 16
-	return [struct.unpack_from("<4f", b, base + i * passo)
+	passo = vista.get("byteStride") or 4 * largura
+	formato = "<%df" % largura
+	return [struct.unpack_from(formato, b, base + i * passo)
 	        for i in range(acesso["count"])]
 
 
@@ -495,7 +532,27 @@ def conferir(caminho: str) -> list:
 	# faz isso e o gerador, dentro do Blender — a divisao esta declarada porque
 	# uma conferencia que so existe de um lado e uma que ninguem confere.
 	animacoes = {a.get("name"): a for a in g.get("animations", [])}
+	# **Nos DOIS sentidos.** Animacao no arquivo que nao esta na lista entra sem
+	# conferencia nenhuma: medido, um `andando` de 4,20 s — contra uma faixa de
+	# 1,07 a 1,60 — com o ciclo saltando 22 graus na emenda foi publicado sem um
+	# aviso, so por nao ter sido lembrado aqui. Conferencia que percorre o que
+	# ela conhece aprova por ausencia.
+	sobrando = sorted(set(animacoes) - set(ANIMACOES_EXIGIDAS))
+	if sobrando:
+		falhas.append(
+			"o `.glb` tem animacao que ninguem confere: %s — acrescente em "
+			"`ANIMACOES_EXIGIDAS` com a duracao medida" % ", ".join(sobrando))
+	medido = _ritmo_do_instantaneo()
 	for nome, (duracao, ciclo) in sorted(ANIMACOES_EXIGIDAS.items()):
+		# **A duracao declarada tem que bater com o censo, e nao so com o
+		# gerador.** Ela esta copiada a mao em dois arquivos; sem esta linha, os
+		# dois podem ficar para tras juntos e continuar verdes.
+		do_original = medido.get(NOME_NO_ORIGINAL.get(nome, ""))
+		if do_original is not None and abs(do_original - duracao) > 0.005:
+			falhas.append(
+				"`%s` esta declarada com %.2f s e o censo mediu %.2f no "
+				"original — `data/direcao-de-arte.json` e a origem"
+				% (nome, duracao, do_original))
 		if nome not in animacoes:
 			falhas.append("falta a animacao `%s` no `.glb`" % nome)
 			continue
@@ -511,13 +568,17 @@ def conferir(caminho: str) -> list:
 				fim = max(fim, tempos[-1])
 			if not ciclo:
 				continue
-			valores = ler_quaternios(g, b, amostrador["output"])
+			# **Rotacao E translacao.** A primeira versao so lia VEC4 e devolvia
+			# lista vazia para o resto, deixando `fecha` intacto: medido, um
+			# `quadril.location` saltando 10 cm na emenda foi publicado sem uma
+			# palavra. E translacao nao e hipotetica — e ela que carrega o quique
+			# da caminhada e o voo da corrida, que sao os proximos clipes.
+			valores = ler_saida(g, b, amostrador["output"])
 			if len(valores) >= 2:
-				# **O ultimo quadro tem que repetir o primeiro**, senao o ciclo
-				# salta ao emendar a volta. Item 3 da lista de checagem do §10
-				# de `docs/11`.
+				# O ultimo quadro tem que repetir o primeiro, senao o ciclo
+				# salta ao emendar a volta. Item 3 do §10 de `docs/11`.
 				if max(abs(valores[0][k] - valores[-1][k])
-				       for k in range(4)) > FOLGA_DO_CICLO:
+				       for k in range(len(valores[0]))) > FOLGA_DO_CICLO:
 					fecha = False
 		if abs(fim - duracao) > FOLGA_DA_DURACAO:
 			falhas.append(

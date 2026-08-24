@@ -458,10 +458,18 @@ trocá-lo por 0,5 abria todas as tolerâncias de uma vez.
    1,40 s, e comece por 1,00 s.
 3. **Ciclo ou uma vez?** Se é ciclo, o último quadro repete o primeiro.
 4. **Tem antecipação?** Sem recuo antes do golpe, o gesto lê como teleporte.
-   **A exceção é a reação:** quem leva dano não antecipa nada — o susto é a
-   informação, e antecipar faria o personagem parecer que sabia que ia
-   apanhar. Numa reação o tempo se inverte: instantâneo na entrada, lento na
-   saída.
+
+   **Duas exceções, e as duas por ausência de ação.** A primeira é a
+   **reação**: quem leva dano não antecipa nada — o susto é a informação, e
+   antecipar faria o personagem parecer que sabia que ia apanhar. Numa reação o
+   tempo se inverte: instantâneo na entrada, lento na saída.
+
+   A segunda é o **ciclo de repouso ou de locomoção**. Antecipação existe para
+   tornar legível a TRANSIÇÃO para uma ação; um laço que se repete não tem
+   ação para anunciar, e pôr recuo nele produz um tique. `parado`, `andando`,
+   `correndo` e as montarias não levam antecipação, e a ausência não é
+   descuido. A exceção foi escrita depois de o primeiro clipe criado sob esta
+   lista — `parado` — ser revisado contra um item que não o cobria.
 5. **O pé encosta no chão?** A conferência mede, com tolerância de 1,5 cm;
    não confie no olho.
 6. **Tem variante direcional?** Se tiver, ela dura o mesmo que o gesto.
