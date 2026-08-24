@@ -52,6 +52,37 @@ enum Gesto {
 ## Quanto o salto sobe, em metros.
 @export var altura_do_salto: float = 0.7
 
+@export_group("Andaime de teste")
+## Clipes do ataque básico, alternados a cada golpe.
+##
+## O auto-ataque era a única ação do jogo sem gesto nenhum — o personagem
+## batia e não mexia um dedo. São dois porque o original alterna, e alternar é
+## o que faz uma sequência de golpes parecer sequência e não repetição.
+@export var clipes_de_ataque: PackedStringArray = PackedStringArray([
+	"swing", "swing2",
+])
+
+## Clipe do deslocamento, tocado quando o corpo é de fato empurrado.
+##
+## Disparar no APERTO da tecla não bastava: entre conjurar e sair do lugar há a
+## janela de conjuração, e a animação terminava antes de o personagem se mexer.
+## Quem sabe a hora certa é o próprio deslocamento.
+@export var clipe_de_deslocamento: String = "shieldrush"
+
+## Que clipe do esqueleto externo toca em cada gesto de habilidade.
+##
+## **É dado, não código** — a regra 5 do `CLAUDE.md`. Os nomes de agora são os
+## do Leo, porque é o único personagem com esqueleto importado; outro campeão
+## troca a tabela, não o script. Gesto sem clipe aqui simplesmente não anima,
+## que é melhor do que animar errado.
+@export var clipes_por_gesto: Dictionary = {
+	Gesto.ESTOCADA: "swing",
+	Gesto.GIRO: "comboslash",
+	Gesto.SALTO: "shieldrush",
+	Gesto.ERGUER: "shieldthrow",
+	Gesto.PREPARO: "shieldwall",
+}
+
 ## O corpo articulado, quando existe. Com ele, o gesto move BRAÇO e PERNA;
 ## sem ele, move a malha inteira — que foi o que travou o teste do usuário,
 ## porque mover o corpo todo lê como empurrão e não como golpe.
@@ -64,8 +95,16 @@ var _gesto: Gesto = Gesto.ESTOCADA
 var _restante: float = 0.0
 var _total: float = 0.0
 
+var _golpe: int = 0
+
 func _ready() -> void:
 	_boneco = _achar_boneco()
+	var combatente: Node = _achar_irmao("Combatant")
+	if combatente != null:
+		if combatente.has_signal("atacou"):
+			combatente.connect("atacou", _ao_atacar)
+		if combatente.has_signal("displaced"):
+			combatente.connect("displaced", _ao_deslocar)
 	_malha = _achar_malha()
 	if _boneco != null:
 		_malha = _boneco
@@ -78,6 +117,37 @@ func _ready() -> void:
 	_caster = _achar_caster()
 	if _caster != null:
 		_caster.cast_attempted.connect(_ao_conjurar)
+
+## O golpe básico saiu: o corpo bate.
+func _ao_atacar() -> void:
+	if _boneco != null and _boneco.animador() != null:
+		if clipes_de_ataque.size() > 0:
+			var clipe: String = clipes_de_ataque[_golpe % clipes_de_ataque.size()]
+			_golpe += 1
+			_boneco.tocar(clipe, true)
+		return
+	# Sem esqueleto, o ataque usa o mesmo gesto de estocada das habilidades.
+	_gesto = Gesto.ESTOCADA
+	_total = duracao
+	_restante = _total
+
+
+## O corpo foi deslocado: a animação de investida acompanha o deslocamento em
+## vez de acontecer antes dele.
+func _ao_deslocar(_offset: Vector3) -> void:
+	if _boneco != null and _boneco.animador() != null and clipe_de_deslocamento != "":
+		_boneco.tocar(clipe_de_deslocamento, true)
+
+
+func _achar_irmao(classe: String) -> Node:
+	var host: Node = get_parent()
+	if host == null:
+		return null
+	for filho: Node in host.get_children():
+		if filho.get_class() == classe or filho.name == classe:
+			return filho
+	return null
+
 
 ## Verdadeiro enquanto um gesto de conjuração está em curso.
 ##
@@ -111,6 +181,13 @@ func _ao_conjurar(
 
 	var saiu: Ability = result.ability if result.ability != null else pedida
 	_gesto = Gesto.PREPARO if result.started() else _gesto_para(saiu)
+	# Com esqueleto, o gesto vira CLIPE. O nome sai do mesmo `_gesto` que o
+	# corpo de caixas usa, para os dois caminhos concordarem sobre o que a
+	# habilidade parece.
+	if _boneco != null and _boneco.animador() != null:
+		var clipe: String = String(clipes_por_gesto.get(_gesto, ""))
+		if clipe != "":
+			_boneco.tocar(clipe, true)
 	# O gesto de uma conjuração com tempo dura o tempo dela: é ele que avisa
 	# que algo vem vindo, e avisar por um terço de segundo não avisa nada.
 	_total = maxf(saiu.cast_time if result.started() else duracao, 0.05)
@@ -160,6 +237,12 @@ func _peso(t: float) -> float:
 
 func _aplicar(t: float) -> void:
 	var peso: float = _peso(t)
+	# **Com esqueleto, quem desenha o golpe é o clipe** — `_ao_conjurar` já o
+	# disparou. Empurrar o nó por cima seria desenhar duas vezes: o personagem
+	# faria a estocada do original E deslizaria junto, que foi exatamente o
+	# "boneco se tremendo de lado" que o usuário reportou.
+	if _boneco != null and _boneco.animador() != null:
+		return
 	# Com membros, o gesto move BRAÇO e PERNA. Sem eles — malha externa
 	# inteiriça, sem esqueleto —, move o corpo todo, que é o que dá para fazer.
 	if _boneco != null and _boneco.tem_membros():

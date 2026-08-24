@@ -77,7 +77,7 @@ FORA_DA_PROPORCAO = {"Bella"}
 ## e esquece-lo desloca em um TODOS os ossos acima do peito — o que faz a mao,
 ## o pe e o braco cairem na mesma altura sem nenhum erro aparecer. Foi essa
 ## repeticao impossivel que denunciou; a lista certa ja tinha sido paga em
-## `import_local/extrair_leo.py`.
+## um extrator que ja existiu neste projeto e foi removido com os assets.
 OSSOS_HUMANOS = [
 	"Hips", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg",
 	"LeftFoot", "RightFoot", "Spine", "Chest", "UpperChest", "Neck", "Head",

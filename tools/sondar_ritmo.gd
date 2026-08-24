@@ -467,7 +467,7 @@ func _conferir_gesto(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
 	# gesto perfeito de braço.
 	#
 	# Mas o corpo pode ser uma malha externa inteiriça (o andaime de
-	# `import_local/`, que não tem esqueleto), e aí o gesto move o corpo todo.
+	# malha externa sem esqueleto), e aí o gesto move o corpo todo.
 	# A sonda tem que passar nos DOIS casos: no repositório limpo há o boneco
 	# de caixas, e na máquina de quem importou há a malha.
 	var com_membros: bool = boneco.tem_membros()

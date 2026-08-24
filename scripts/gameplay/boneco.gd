@@ -31,26 +31,28 @@ extends Node3D
 @export_group("Andaime de teste")
 ## Malhas a carregar em vez de montar o boneco de caixas, se existirem.
 ##
-## **É andaime, e some sem deixar rastro.** Apontam para `import_local/`, que o
-## `.gitignore` recusa inteira: são assets extraídos da instalação local do
-## Royal Crown para o desenvolvedor conseguir testar vendo um personagem, e não
-## vão para o build — a regra de `docs/01` continua valendo, e o caminho
-## definitivo é Meshy + Mixamo na Fase 6.
+## **A lista nasce VAZIA, e isso é o estado normal.** Ela já apontou para uma
+## pasta de andaime com malhas extraídas da instalação do Royal Crown, para o
+## desenvolvedor conseguir testar vendo um personagem. Aquilo era declarado
+## como temporário e foi removido: não resolveu o problema, e o caminho nosso é
+## `arte/personagem.glb`, gerado por `tools/arte/gerar_personagem.py` a partir
+## de `docs/11-direcao-de-arte.md`.
 ##
-## Quem clona o repositório não tem a pasta, e cai no boneco de caixas sem
-## precisar mexer em nada. É por isso que a lista é de CAMINHOS e não de
-## recursos: um `@export var PackedScene` quebraria a cena para quem não os
-## tem.
-@export var malhas_externas: PackedStringArray = PackedStringArray([
-	"res://import_local/Violet_Body.obj",
-	"res://import_local/Violet_Head.obj",
-])
-## Correção de eixo: as malhas do original são Z-up e olham para +Z; a Godot é
-## Y-up e olha para -Z. Sem o giro em Y o personagem anda de costas — foi o que
-## aconteceu na primeira versão.
+## Continua sendo uma lista de CAMINHOS e não de recursos: um
+## `@export var PackedScene` quebraria a cena de quem não tem o arquivo, e o
+## ponto de um andaime é sumir sem deixar rastro.
+@export var malhas_externas: PackedStringArray = PackedStringArray()
+## Correção de eixo, para malha que precisar.
+##
+## Malha vinda de ferramenta Z-up olhando para +Z anda de costas sem o giro —
+## já aconteceu. O que sai do nosso gerador **não** precisa: ele exporta em
+## Y-up olhando para -Z, que é a frente da Godot.
 @export var giro_externo_graus: Vector3 = Vector3(-90.0, 180.0, 0.0)
 ## Quanto multiplicar a malha externa para ela ficar na altura declarada.
 @export var escala_externa: float = 1.25
+## Caminhos que já vêm no sistema de eixos da Godot e não levam giro nem escala.
+@export var externas_ja_corrigidas: PackedStringArray = PackedStringArray()
+@export var pes_abaixo_do_centro: float = 1.0
 
 @export_group("Cores")
 @export var cor_corpo: Color = Color(0.55, 0.60, 0.70)
@@ -71,6 +73,12 @@ var perna_esquerda: Node3D
 ## Guardadas para o gesto poder voltar ao repouso sem recalcular nada.
 var _repouso: Dictionary = {}
 
+## O tocador de animação da malha externa, quando ela tem esqueleto.
+var _animador: AnimationPlayer = null
+
+## O esqueleto da malha externa, quando ela tem um.
+var _esqueleto: Skeleton3D = null
+
 ## Verdadeiro quando o corpo tem membros animáveis. Falso quando é uma malha
 ## externa inteiriça — e aí o gesto move o corpo todo, que é o que dá para
 ## fazer sem esqueleto.
@@ -83,33 +91,114 @@ func _ready() -> void:
 	_montar()
 
 ## Carrega as malhas do andaime, se existirem. Devolve se alguma entrou.
+##
+## Para no PRIMEIRO caminho que existir. Carregar os dois personagens de uma vez
+## empilharia Leo e Violet no mesmo lugar.
 func _montar_externas() -> bool:
-	var entrou: bool = false
 	for caminho: String in malhas_externas:
 		if not ResourceLoader.exists(caminho):
 			continue
+		var corrigida: bool = externas_ja_corrigidas.has(caminho)
+		var giro: Vector3 = Vector3.ZERO if corrigida else giro_externo_graus
+		var escala: float = 1.0 if corrigida else escala_externa
 		var recurso: Resource = load(caminho)
-		var malha: Mesh = recurso as Mesh
-		if malha == null and recurso is PackedScene:
-			# A Godot importa `.obj` como cena quando há mais de um material.
-			var cena: Node = (recurso as PackedScene).instantiate()
+
+		if recurso is PackedScene:
+			# `.glb` sempre vira cena; `.obj` também, quando tem mais de um
+			# material.
+			var cena: Node3D = (recurso as PackedScene).instantiate() as Node3D
 			add_child(cena)
-			(cena as Node3D).rotation_degrees = giro_externo_graus
-			(cena as Node3D).scale = Vector3.ONE * escala_externa
-			entrou = true
-			continue
+			cena.rotation_degrees = giro
+			cena.scale = Vector3.ONE * escala
+			cena.position = Vector3(0.0, -pes_abaixo_do_centro, 0.0)
+			_animador = _achar_animador(cena)
+			_esqueleto = _achar_esqueleto(cena)
+			return true
+
+		var malha: Mesh = recurso as Mesh
 		if malha == null:
 			continue
 		var no := MeshInstance3D.new()
 		no.mesh = malha
-		no.rotation_degrees = giro_externo_graus
-		no.scale = Vector3.ONE * escala_externa
+		no.rotation_degrees = giro
+		no.scale = Vector3.ONE * escala
 		# A malha nasce com os pés na origem local; o corpo do jogo tem o
 		# centro na cintura, daí o meio passo para baixo.
-		no.position = Vector3(0.0, -altura * 0.5, 0.0)
+		no.position = Vector3(0.0, -pes_abaixo_do_centro, 0.0)
 		add_child(no)
-		entrou = true
-	return entrou
+		return true
+	return false
+
+
+## O esqueleto da malha externa, quando ela tem um.
+func esqueleto() -> Skeleton3D:
+	return _esqueleto
+
+
+## Pontos NO MUNDO que resumem o que o corpo está fazendo agora.
+##
+## Existe para a sonda medir movimento sem enumerar propriedade — a armadilha
+## que o `CLAUDE.md` registra como a que mais rendeu achado por rodada. Os três
+## corpos possíveis mexem coisas diferentes: o de caixas gira `rotation` de
+## membro, a malha inteiriça mexe `position` e `rotation` do nó, e o esqueleto
+## mexe pose de osso. Nenhum desses nomes aparece aqui: os três viram ponto no
+## mundo, e "o corpo se mexeu" passa a ser uma medida só.
+func pontos() -> PackedVector3Array:
+	var saida := PackedVector3Array()
+	if _esqueleto != null:
+		var base: Transform3D = _esqueleto.global_transform
+		for i in range(_esqueleto.get_bone_count()):
+			saida.append(base * _esqueleto.get_bone_global_pose(i).origin)
+		return saida
+	if tem_membros():
+		for membro: Node3D in membros():
+			saida.append(membro.global_transform * Vector3.ZERO)
+			saida.append(membro.global_transform * Vector3(0.0, -0.3, 0.0))
+		return saida
+	# Malha inteiriça: quatro pontos bastam para que GIRAR o corpo também
+	# apareça como movimento, e não só deslocá-lo.
+	var t: Transform3D = global_transform
+	for canto: Vector3 in [
+		Vector3.ZERO, Vector3(0.3, 0.0, 0.0),
+		Vector3(0.0, 0.3, 0.0), Vector3(0.0, 0.0, 0.3),
+	]:
+		saida.append(t * canto)
+	return saida
+
+
+func _achar_esqueleto(no: Node) -> Skeleton3D:
+	if no is Skeleton3D:
+		return no as Skeleton3D
+	for filho: Node in no.get_children():
+		var achado: Skeleton3D = _achar_esqueleto(filho)
+		if achado != null:
+			return achado
+	return null
+
+
+func _achar_animador(no: Node) -> AnimationPlayer:
+	if no is AnimationPlayer:
+		return no as AnimationPlayer
+	for filho: Node in no.get_children():
+		var achado: AnimationPlayer = _achar_animador(filho)
+		if achado != null:
+			return achado
+	return null
+
+
+## O `AnimationPlayer` da malha externa, ou nulo quando o corpo é o de caixas.
+func animador() -> AnimationPlayer:
+	return _animador
+
+
+## Toca um clipe pelo nome, se ele existir. Devolve se tocou.
+func tocar(nome: String, tocar_de_novo: bool = false) -> bool:
+	if _animador == null or not _animador.has_animation(nome):
+		return false
+	if not tocar_de_novo and _animador.current_animation == nome:
+		return true
+	_animador.play(nome)
+	return true
 
 func _montar() -> void:
 	var h: float = altura

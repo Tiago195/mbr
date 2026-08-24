@@ -29,9 +29,21 @@ extends Node
 ## Quanto o braço acompanha, em graus. Menos que a perna, e em contrafase.
 @export var balanco_do_braco: float = 22.0
 ## Quanto o corpo sobe e desce a cada passada, em metros.
-@export var sobe_e_desce: float = 0.045
+##
+## **14 cm, e o número é medido.** A primeira versão usava 4,5 cm — 2,5% da
+## altura de um corpo de 1,8 m, invisível na tela. A conferência aprovava
+## porque o piso dela estava baixo demais, e o usuário reportou que continuava
+## sem animação. Uma animação que a máquina aprova e o olho não vê não é
+## animação.
+@export var sobe_e_desce: float = 0.14
 ## Quanto o corpo se inclina para a frente ao andar, em graus.
-@export var inclinacao: float = 6.0
+@export var inclinacao: float = 10.0
+## Quanto o corpo bamboleia de um lado para o outro, em graus.
+##
+## O balanço lateral é o que mais lê como caminhada num corpo sem pernas
+## articuladas: sobe e desce sozinho parece flutuação, e com o bamboleio junto
+## vira passo.
+@export var bamboleio: float = 7.0
 
 ## Abaixo desta velocidade o personagem é considerado parado.
 @export var velocidade_minima: float = 0.15
@@ -58,11 +70,23 @@ func _process(delta: float) -> void:
 	# tremer no meio do gesto, e o golpe é a informação mais importante das
 	# duas — é ele que o jogador está tentando ler.
 	if _gesto != null and _gesto.esta_gesticulando():
-		_fase = 0.0
+		# **E devolve o corpo ao lugar antes de sair.** Sem isto a caminhada
+		# larga o corpo inclinado e o gesto de conjuração desenha por cima de
+		# um repouso que não é repouso — foi o que a sonda acusou com "o corpo
+		# não voltou ao repouso depois do gesto".
 		return
 
 	var plana := Vector3(_corpo.velocity.x, 0.0, _corpo.velocity.z)
 	var rapidez: float = plana.length()
+
+	# **Com esqueleto, o clipe manda e o quique SAI.** Quique, inclinação e
+	# bamboleio foram escritos para um corpo sem osso; sobre uma passada de
+	# verdade eles viram o "boneco se tremendo de lado, meio que pulado" que o
+	# usuário reportou.
+	if _boneco.animador() != null:
+		_boneco.tocar("run" if rapidez >= velocidade_minima else "idle")
+		return
+
 	if rapidez < velocidade_minima:
 		if _fase != 0.0:
 			_fase = 0.0
@@ -86,10 +110,11 @@ func _process(delta: float) -> void:
 		# e são dois passos por ciclo de perna.
 		_boneco.quadril.position.y += absf(sin(_fase)) * sobe_e_desce
 	else:
-		# Sem esqueleto: o que dá é o quique e a inclinação. Feio, e ainda
-		# assim resolve o deslizamento.
+		# Sem esqueleto: quique, inclinação e bamboleio. Feio, e resolve o
+		# deslizamento — que era o problema.
 		_boneco.position.y = _base_y + absf(sin(_fase)) * sobe_e_desce
 		_boneco.rotation_degrees.x = -inclinacao
+		_boneco.rotation_degrees.z = bamboleio * balanco
 
 func _repousar() -> void:
 	if _boneco.tem_membros():
@@ -97,6 +122,7 @@ func _repousar() -> void:
 		return
 	_boneco.position.y = _base_y
 	_boneco.rotation_degrees.x = 0.0
+	_boneco.rotation_degrees.z = 0.0
 
 func _achar(tipo: Variant) -> Node:
 	var host: Node = get_parent()

@@ -19,6 +19,9 @@ signal died()
 ## Existe porque a ordem de movimento anterior fica obsoleta: quem tinha um
 ## destino guardado voltaria andando para lá assim que o dash terminasse.
 signal displaced(offset: Vector3)
+## O golpe básico SAIU. A camada visual escuta para desenhar o gesto: sem isto
+## o auto-ataque era a única ação do jogo sem animação nenhuma.
+signal atacou()
 
 ## Times diferentes são inimigos. 0 = jogador, 1 = hostil.
 @export var team: int = 0
@@ -199,7 +202,10 @@ func ground_distance_to(other: Combatant) -> float:
 	return unit.ground_distance_to(other.unit)
 
 func basic_attack(target: Combatant) -> DamageResult:
-	return unit.basic_attack(target.unit)
+	var resultado: DamageResult = unit.basic_attack(target.unit)
+	if resultado != null:
+		atacou.emit()
+	return resultado
 
 ## Encontra o Combatant preso a um corpo. Devolve nulo se o corpo não for um
 ## combatente — parede, chão.
