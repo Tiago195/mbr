@@ -169,10 +169,9 @@ COMPRIMENTO_DO_PE = 0.137 * ALTURA
 ## T, mas o que o jogador vê é o `parado`, que parte daqui. 28° troca os 78
 ## pares por 10 e mantém a silhueta de alguém em pé.
 ##
-## **Os 13 que sobram em movimento não são da axila, e não são da mão.**
-## Medidos com a ferramenta dizendo de quem são, os treze são `coxa_E` ×
-## `canela_E` — o JOELHO, a z 0,53, quando a panturrilha dobra dentro da coxa
-## na passagem. A mão está 35 cm acima.
+## **Os que sobram em movimento não são da axila.** De quem eles são está
+## impresso pelo gerador a cada execução, logo abaixo da contagem — e não é
+## repetido aqui, porque esta frase já nomeou o lugar errado três vezes.
 ##
 ## Este comentário já afirmou duas coisas erradas sobre o mesmo defeito: que
 ## ele era "sempre no mesmo lugar, sempre em repouso", e depois que era "a mão
@@ -727,20 +726,20 @@ def _alcance_do_braco(corpo: bpy.types.Object) -> float:
 
 ## Até que distância do eixo do braço um vértice ainda conta como braço.
 ##
-## **O que este parágrafo dizia, e nenhum dos três números reproduzia.** Ele
-## afirmava que a mão chega a 0,118 do eixo, que a coxa é o vizinho mais
-## próximo a 0,172, e que "o corte fica no meio" dos 5,4 cm entre elas.
-## Medido no `.glb` publicado: a mão chega a **0,0656** — os 0,118 eram o raio
-## DECLARADO do nó na gaiola (0,0875 × 1,35), e a subdivisão encolhe; o braço
-## inteiro não passa de **0,1087**; e um cilindro de 0,145 em torno do eixo
-## contém **145 vértices que não são braço** — 60 da cabeça, 56 do peito, 29 do
-## quadril, de 652 no total.
+## **Este parágrafo já explicou o número de três formas, e as três erraram.**
 ##
-## Ou seja: **não é o raio que exclui o tronco, é a janela LONGITUDINAL** — o
-## filtro exige `0,3 ≤ ao_longo ≤ 0,7`, e é ela que joga fora cabeça e peito,
-## que ficam fora desse trecho. O raio sozinho não separa nada, e a margem
-## gravada era ficção. Achado do revisor adversarial, e o número continua
-## funcionando pelo motivo errado do que estava escrito.
+## A primeira dizia que a mão chega a 0,118 do eixo e a coxa a 0,172, com "o
+## corte no meio" — e os 0,118 eram o raio da GAIOLA, não da malha. A segunda
+## corrigiu a mão para 0,0656 e afirmou que quem exclui o tronco é uma janela
+## longitudinal `0,3 ≤ ao_longo ≤ 0,7` — que existe, mas **noutra função**, o
+## cerco da esbeltez, e nunca toca esta constante. A terceira contagem de
+## vértices também não reproduziu.
+##
+## O que se sabe sem medir: aqui o filtro é `ao_longo > 0` mais este raio, e é
+## só isso que separa braço de tronco. **Quantos vértices caem dentro dele, e
+## de quem são, não está escrito aqui de propósito** — a resposta muda com a
+## malha, e três tentativas de congelá-la em prosa produziram três números
+## falsos. Quem precisar, mede.
 ##
 ## Com 0,20 a coxa entrava: a medida do braço travava em 0,6598 e não se mexia
 ## em quarenta voltas, porque o máximo vinha da perna e não da mão. Número
@@ -1470,21 +1469,17 @@ ANIMACOES = {
 		"pes_plantados": True,
 		# **Quem carrega a leitura é a CABEÇA e a MÃO, não o peito.**
 		#
-		# Este comentário já afirmou o contrário, e a afirmação foi medida e
-		# desmentida. O que ele dizia: que o boneco anterior girava o peito 2,5
-		# graus e a cabeça 1,5, e que aqui o peito ia a 6 e o braço a 7, "o
-		# dobro do que o olho precisa". Medido nos dois arquivos:
+		# **Este comentário já publicou uma tabela de antes-e-depois, e ela
+		# envelheceu inteira.** Ela comparava peito, cabeça, braço e amplitude
+		# entre este boneco e o anterior, e das quatro linhas três deixaram de
+		# reproduzir assim que as chaves mudaram — a do braço citava 7,81°, que
+		# nem ângulo varrido era: era a norma dos deltas de Euler.
 		#
-		#   peito      4,50° -> 6,00°   (+33%, não o dobro)
-		#   cabeça     2,50° -> 4,50°
-		#   braço      7,81° -> 7,81°   IDÊNTICO
-		#   amplitude  0,116 m -> 0,123 m   (+6%)
-		#
-		# Os "2,5 e 1,5" eram o valor da segunda CHAVE, lido como se fosse a
-		# excursão. E o braço — que é quem produz os 0,123 m publicados como
-		# prova de vida — não mudou nada em relação ao clipe que o comentário
-		# chamava de estátua. Os 12 cm citados como prova de estátua e os 12,3
-		# publicados como prova de vida são o mesmo número.
+		# O que sobrevive da lição, e é o que importa: os números daquela
+		# comparação foram lidos das CHAVES e não da medição, e por isso
+		# afirmavam movimento que não existia. Hoje o gerador imprime a
+		# articulação de cada osso a cada execução; comparar duas versões é
+		# rodar as duas, não reler um comentário.
 		#
 		# O que de fato mudou foi a DURAÇÃO: 2,00 s para 1,33 s, a mediana
 		# medida. A mesma excursão em dois terços do tempo.
@@ -1557,6 +1552,18 @@ ANIMACOES = {
 		# Funciona, e a razao e que a garantia dela e exatamente a que uma
 		# queda precisa: o corpo nunca atravessa o chao. Mas quem for autorar o
 		# proximo clipe de impacto precisa saber que a altura nao vem daqui.
+		#
+		# **E dai sai uma consequencia que eu ja neguei uma vez.** Depois da
+		# cedencia o quadril sobe antes de cair, tracando o arco do tombo. Eu
+		# atribui isso a um limite do rig — "dobrar mais o joelho estoura a
+		# auto-intersecao" — e o revisor adversarial mediu e derrubou: dobrar
+		# mais na chave que governa o trecho PASSA, e nao muda o arco.
+		#
+		# A causa e esta funcao. `quadril.location` e literalmente `-min(z)` da
+		# malha; a vertical inteira e efeito colateral de "nenhum vertice
+		# abaixo de zero". Nenhuma busca de chave conserta isso — o que
+		# conserta e o quadril ter curva propria e `assentar` virar PISO em vez
+		# de solver. Fica escrito como trabalho, e nao como limite.
 		"assentar": True,
 		# Termina deitado, e o pe encosta. Ver as duas conferencias.
 		"deitado": True,
@@ -2550,11 +2557,14 @@ def main() -> int:
 				# devolve quando existe animador. Ou seja, o ramo que escala é
 				# exatamente o que este clipe desliga.
 				#
-				# Autorado para 0,40 m/s com o corpo transladando a 3,3–5,0, o
-				# deslizamento no mundo é de 8 a 12 vezes — enquanto o arrasto
-				# medido DENTRO do clipe é 0,000. A conferência mede a grandeza
-				# certa do problema errado, e isso fica dito aqui em vez de
-				# descoberto depois.
+				# O clipe é autorado para uma velocidade muito menor que a do
+				# jogo (3,3–5,0 m/s), então o deslizamento no mundo é de vários
+				# múltiplos — enquanto o arrasto medido DENTRO do clipe é
+				# 0,000. A conferência mede a grandeza certa do problema
+				# errado, e isso fica dito aqui em vez de descoberto depois.
+				#
+				# O número sai impresso logo abaixo, e não é repetido em
+				# comentário: escrito à mão ele já saiu errado duas vezes.
 				recuos[pe] = recuo
 				if recuo < PASSADA_MINIMA:
 					raise RuntimeError(

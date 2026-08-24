@@ -203,6 +203,31 @@ MUTACOES = [
      [("gerador", "(1.000, pose(quadril=(-85, 0, 0), peito=(-4, 0, 0),",
        "(1.000, pose(quadril=(0, 0, 0), peito=(-4, 0, 0),")]),
 
+    # --- so o conferidor do ARTEFATO pode pegar estas duas ---
+    #
+    # **As conferencias de artefato nasceram sem mutacao, duas rodadas
+    # seguidas**, e o revisor adversarial apontou as duas vezes. A
+    # dificuldade e real: as conferencias do GERADOR rodam antes e matam a
+    # mutacao primeiro, e `_gerar()` so olha a marca de sucesso no stdout —
+    # o arnes nao sabe QUAL delas matou. Mutacao sobredeterminada credita a
+    # defesa errada, que ja foi achado aqui.
+    #
+    # A saida e desligar a do gerador NA MESMA mutacao. O que sobra de pe e
+    # so a do artefato, e se ela nao morder, a mutacao escapa.
+    ("os bracos param, e o gerador deixa de olhar",
+     [("gerador", "\t\t\t\tif girou < ARTICULACAO_MINIMA:",
+       "\t\t\t\tif False:"),
+      ("gerador",
+       "\t\tbraco_D, antebraco_D = em(bracos, instante)\n"
+       "\t\tbraco_E, antebraco_E = em(bracos, instante + 0.5)",
+       "\t\tbraco_D, antebraco_D = 10.0, -20.0\n"
+       "\t\tbraco_E, antebraco_E = 10.0, -20.0")]),
+    ("o morto fica de pe, e o gerador deixa de olhar",
+     [("gerador", "\t\t\tif inclinacao < INCLINACAO_DE_DEITADO:",
+       "\t\t\tif False:"),
+      ("gerador", "(1.000, pose(quadril=(-85, 0, 0), peito=(-4, 0, 0),",
+       "(1.000, pose(quadril=(0, 0, 0), peito=(-4, 0, 0),")]),
+
     # --- o conferidor: quebrar a CONFERENCIA tambem tem que reprovar ---
     # Tirar `rosto` so de `CORES` nao desliga a conferencia: a presenca dele
     # continua exigida por outra. Defesa em profundidade e boa — a mutacao e

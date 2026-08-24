@@ -1747,6 +1747,14 @@ def _quantas_mutacoes(caminho: str) -> int:
 ## De que medida de `data/direcao-de-arte.json` sai cada número do conferidor
 ## do boneco novo. `PROPORCAO_EXIGIDA` e `VAOS_EXIGIDOS` guardam ossos e vãos;
 ## o JSON guarda juntas. A correspondência é escrita uma vez, aqui.
+## Os quinze ossos do boneco novo, para `movem` (que fala de REGIAO) poder ser
+## comparado com `ARTICULACAO_EXIGIDA` (que fala de OSSO).
+OSSOS_DO_BONECO = (
+    "quadril", "peito", "cabeca",
+    "braco_D", "antebraco_D", "mao_D", "braco_E", "antebraco_E", "mao_E",
+    "coxa_D", "canela_D", "pe_D", "coxa_E", "canela_E", "pe_E",
+)
+
 DE_ONDE_SAI_A_PROPORCAO = {
     "pe_D": "tornozelo",
     "canela_D": "joelho",
@@ -2018,6 +2026,66 @@ def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
             "clipe fora de uma das duas listas tem a queda conferida por "
             "ninguem" % (sorted(deitados_do_gerador),
                          sorted(deitados_do_conferidor)))
+
+    # **E `ARTICULACAO_EXIGIDA`, que espelha `movem` e nao estava amarrada.**
+    #
+    # Ela e a conferencia central da rodada passada e falhava ABERTA no sentido
+    # que importa: clipe novo sem linha reprova, mas LINHA QUE ENCOLHE nao.
+    # Medido pelo revisor adversarial, reduzindo as 25 exigencias a tres e
+    # congelando 14 dos 15 ossos do `andando` dentro do `.glb`: um boneco
+    # deslizando arrastando uma coxa passava nas duas ferramentas.
+    #
+    # E o argumento e o mesmo que fechou `ciclo` e `deitado` nos dois commits
+    # anteriores — duas listas que descrevem a mesma coisa em arquivos
+    # diferentes, sem nada obrigando-as a concordar. Escrevi a terceira
+    # sabendo disso.
+    #
+    # `movem` guarda REGIAO (`coxa`) e a exigida guarda OSSO (`coxa_D`), entao
+    # a comparacao expande a regiao pelos ossos que existem na malha.
+    lados = {}
+    for regiao in re.findall(r'^\t"(\w+)": \{', bloco.group(1), re.M):
+        pass
+    movem_do_gerador = {}
+    for nome, corpo_do_clipe in re.findall(
+            r'^\t"(\w+)": \{(.*?)^\t\},', bloco.group(1), re.S | re.M):
+        achado = re.search(r'"movem": \[(.*?)\]', corpo_do_clipe, re.S)
+        if achado is None:
+            continue
+        movem_do_gerador[nome] = set(re.findall(r'"(\w+)"', achado.group(1)))
+
+    exigida = {}
+    trecho = re.search(r"^ARTICULACAO_EXIGIDA = \{(.*?)^\}",
+                       textos["conferidor"], re.S | re.M)
+    c.contar()
+    if trecho is None:
+        c.falhas.append(
+            "nao achei `ARTICULACAO_EXIGIDA` em `conferir_boneco.py` — a "
+            "amarracao dela com `movem` ficou orfa")
+    else:
+        for nome, lista in re.findall(
+                r'"(\w+)": \((.*?)\),\n', trecho.group(1), re.S):
+            exigida[nome] = set(re.findall(r'"(\w+)"', lista))
+        c.contar()
+        if set(exigida) != set(movem_do_gerador):
+            c.falhas.append(
+                "`movem` cobre %s e `ARTICULACAO_EXIGIDA` cobre %s"
+                % (sorted(movem_do_gerador), sorted(exigida)))
+        else:
+            for nome in sorted(movem_do_gerador):
+                # Cada regiao de `movem` vira os ossos dela: `coxa` ->
+                # `coxa_D`, `coxa_E`; `cabeca` -> `cabeca`.
+                esperado = set()
+                for regiao in movem_do_gerador[nome]:
+                    pares = {o for o in OSSOS_DO_BONECO
+                             if o == regiao or o[:-2] == regiao}
+                    esperado |= pares or {regiao}
+                c.contar()
+                if exigida[nome] != esperado:
+                    c.falhas.append(
+                        "em `%s` o gerador manda mover %s e o conferidor cobra "
+                        "%s — a lista que encolhe no conferidor deixa de "
+                        "conferir o que o gerador promete"
+                        % (nome, sorted(esperado), sorted(exigida[nome])))
 
     exigidos = set(re.findall(
         r'^\t"(\w+)": \(', re.search(

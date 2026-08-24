@@ -297,10 +297,15 @@ validou a telegrafia, a carga de suprema e o ritmo do reset de auto-ataque
    não se automatiza;
 3. **os três clipes de `arte/boneco.glb`** — `parado`, `andando` e `morte`. Ele
    ainda não tem consumidor no jogo, então isto é olhar no Blender, não jogar.
-   Duas coisas que nenhuma ferramenta mede: **a pintura sai rasgada** em degraus
-   de face nos ombros, no peito e na virilha, e o `rosto` é um retângulo chapado
-   de bordas em escada; e **a mão entra na nádega** no quadro 5 do `andando`,
-   que são 13 dos pares de autointerseção que sobram.
+   O que nenhuma ferramenta mede: **a pintura sai rasgada** em degraus de face
+   nos ombros, no peito e na virilha, e o `rosto` é um retângulo chapado de
+   bordas em escada.
+
+   A casca também se atravessa em movimento, mas **isso a ferramenta mede e
+   nomeia** — rode o gerador e leia as linhas `N entre <osso>, <osso>`. Este
+   item já mandou olhar o lugar errado: dizia "a mão entra na nádega" quando o
+   defeito é o joelho, 35 cm abaixo. Uma lista que manda olhar aponta para onde
+   a ferramenta disser, não para onde a memória achar.
 
 É a lista completa do que falta de olho humano; não há outra.
 
@@ -366,8 +371,8 @@ Três achados que valem além da arte:
 `tools/arte/conferir_personagem.py` reprova o boneco quando ele sai da direção
 — e o gerador o chama sozinho ao terminar —, e `tools/conferir_numeros.py`
 reprova quando documento e código discordam, mediana E faixa.
-**101 mutações, 101 pegas** — 17 no boneco, 58 na concordância e
-26 no boneco novo.
+**103 mutações, 103 pegas** — 17 no boneco, 58 na concordância e
+28 no boneco novo.
 
 **E isto foi REPROVADO DUAS VEZES por um validador adversarial**, com 17 e 12
 achados. A segunda rodada achou o pior de todos, e era de processo: **o `.glb`
@@ -538,11 +543,17 @@ quadros é**, e `tools/conferir_numeros.py` a confere contra as durações
 declaradas no gerador. Trocar a afirmação frágil pela verificável é o que este
 projeto faz quando um número erra duas vezes; eu tinha deixado passar.
 
-**E o `andando` está autorado para 0,40 m/s.** O gerador mede a passada e imprime
-a velocidade que ela implica: `pe_D` recua 0,514 m em 19 quadros a 30/s, o que
-dá 0,406 m/s. O jogo translada o personagem a **3,3 a 5,0 m/s**. Ligado como
-está, o ciclo deslizaria 8 a 12 vezes — pior que o `gesto_de_caminhada.gd`
-procedural, que existe justamente porque o usuário reclamou de deslizamento.
+**E o `andando` está autorado para uma velocidade muito menor que a do jogo.**
+O gerador mede a passada e imprime a velocidade que ela implica — a linha
+`-> o ciclo implica X m/s`, com as duas parcelas ao lado. O jogo translada o
+personagem a **3,3 a 5,0 m/s** (`player.gd`). Ligado como está, o ciclo
+deslizaria vários múltiplos — pior que o `gesto_de_caminhada.gd` procedural,
+que existe justamente porque o usuário reclamou de deslizamento.
+
+O número não é repetido aqui de propósito: **ele já foi publicado errado duas
+vezes** — 0,406 m/s, que era o recuo de UM pé dividido pelo ciclo inteiro, com
+uma aritmética que nem a esse valor levava. Quem quiser o número roda o
+gerador.
 
 Não é bug hoje, porque `arte/boneco.glb` não tem consumidor. Vira bug no minuto
 em que tiver. **E não há nada no repositório que resolva:** `grep -rn
@@ -561,15 +572,16 @@ foram achados por um revisor adversarial abrindo o `.glb` e olhando, que é a
   deixaria *"a viseira em farrapo e a borda do tronco picotada"*. A versão **não**
   voxelizada tem as duas coisas, então aquela comparação media diferença de
   grau, não de espécie;
-- **o joelho esquerdo se atravessa** no quadro 5 do `andando` — a panturrilha
-  entra na coxa na passagem. São os 13 pares que sobram depois de abrir o
-  braço, e são de um sítio diferente do da axila.
+- **a casca se atravessa em movimento**, e o gerador imprime onde: rode
+  `gerar_boneco.py` e leia as linhas `N entre <osso>, <osso>` logo abaixo de
+  cada `travessia da casca`.
 
-Este segundo item **já foi escrito errado duas vezes**: primeiro como "sempre
-no mesmo lugar, sempre em repouso", depois como "a mão recuada entra na
-nádega". Medido, a mão está 35 cm acima do sítio real. Enquanto a ferramenta
-contava pares e o comentário nomeava o lugar, o nome errava — hoje o gerador
-imprime os donos a cada execução, e não há afirmação a envelhecer.
+Este segundo item **já foi escrito errado três vezes** — "sempre no mesmo
+lugar, sempre em repouso", depois "no quadril", depois "a mão recuada entra na
+nádega" — e a terceira sobreviveu em dois arquivos ao commit que existia para
+corrigi-la. Por isso ele não nomeia mais nada: enquanto a ferramenta contava
+pares e a prosa nomeava o lugar, o nome errava. **A prosa não sabe; a
+ferramenta sabe.**
 
 Nenhum dos dois é medido por ferramenta nenhuma. A autointerseção tem CONTAGEM
 com teto e nunca LUGAR — e foi por confiar na contagem que o comentário dela
@@ -590,7 +602,7 @@ py tools/mutar_direcao.py
 py tools/arte/mutar_gerar_boneco.py
 ```
 
-**101 mutações, 101 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
+**103 mutações, 103 pegas.** Elas mexem nos arquivos e restauram no fim, **os dois
 artefatos inclusive** — restaurar só o código-fonte já deixou um `.glb`
 commitado vindo de uma mutação, e restaurar só o `.glb` deixou o `.blend`.
 **Rodar uma de cada vez:** elas mutam os mesmos arquivos, e sobrepô-las
