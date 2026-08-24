@@ -1298,6 +1298,62 @@ def pose(**ossos) -> dict:
 	return ossos
 
 
+def _ciclo_de_pernas(pernas: list, bracos: list, tronco: list) -> list:
+	"""Monta um ciclo de locomoção a partir de UM lado.
+
+	`pernas` é `(instante, coxa, canela)` da direita; `bracos` é
+	`(instante, braço, antebraço)` da direita; `tronco` é
+	`(instante, peito, cabeça)`. O lado esquerdo é o direito defasado em meio
+	ciclo, e o braço direito acompanha a perna ESQUERDA.
+
+	**Existe para o espelho não ser escrito duas vezes.** A primeira versão da
+	caminhada tinha os dois lados à mão e saiu com os joelhos invertidos — a
+	perna que sustentava dobrada e a que passava esticada, o inverso do que uma
+	perna faz. Um sinal errado em dezesseis números é fácil; num só, não.
+	"""
+	def em(tabela, instante):
+		"""O valor da tabela no instante, INTERPOLANDO e fechando a volta.
+
+		Cada tabela tem a resolução que ela precisa: a perna precisa de oito
+		instantes para o joelho não esticar cedo, o braço e o tronco precisam de
+		quatro. Exigir chave exata obrigaria a mais fina a ditar as outras, e
+		obrigaria a escrever à mão valores que a interpolação dá de graça.
+		"""
+		alvo = instante % 1.0
+		pontos = sorted(tabela)
+		# A volta fecha: depois do último instante vem o primeiro, mais um
+		# ciclo. Sem isto, tudo entre 0,875 e 1,0 ficaria sem entrada.
+		primeiro = pontos[0]
+		pontos = pontos + [(primeiro[0] + 1.0,) + tuple(primeiro[1:])]
+		for indice in range(len(pontos) - 1):
+			antes, depois = pontos[indice], pontos[indice + 1]
+			if antes[0] - 1e-9 <= alvo <= depois[0] + 1e-9:
+				vao = depois[0] - antes[0]
+				peso = 0.0 if vao <= 0.0 else (alvo - antes[0]) / vao
+				return [a + (d - a) * peso
+				        for a, d in zip(antes[1:], depois[1:])]
+		raise KeyError("o instante %.3f caiu fora da tabela" % alvo)
+
+	instantes = sorted({q for q, *_ in pernas} | {q for q, *_ in bracos}
+	                   | {q for q, *_ in tronco})
+	chaves = []
+	for instante in instantes + [1.0]:
+		coxa_D, canela_D = em(pernas, instante)
+		coxa_E, canela_E = em(pernas, instante + 0.5)
+		# O braço acompanha a perna do lado oposto: o braço direito vai com a
+		# perna esquerda, e por isso ele lê a tabela defasada.
+		braco_D, antebraco_D = em(bracos, instante)
+		braco_E, antebraco_E = em(bracos, instante + 0.5)
+		peito, cabeca = em(tronco, instante)
+		chaves.append((instante, pose(
+			coxa_D=(coxa_D, 0, 0), canela_D=(canela_D, 0, 0),
+			coxa_E=(coxa_E, 0, 0), canela_E=(canela_E, 0, 0),
+			braco_D=(braco_D, -4, 0), antebraco_D=(antebraco_D, 0, 0),
+			braco_E=(braco_E, 4, 0), antebraco_E=(antebraco_E, 0, 0),
+			peito=(peito, 0, 0), cabeca=(cabeca, 0, 0))))
+	return chaves
+
+
 ## As animações, uma por verbo do jogo.
 ##
 ## **Só entram verbos com CONSUMIDOR.** Regra do usuário em 24/08/2026: nada de
@@ -1373,6 +1429,7 @@ ANIMACOES = {
 		# salto, e salto é justamente o que o usuário mandou não construir.
 		"pes_plantados": False,
 		"sempre_um_pe_no_chao": True,
+		"passada": True,
 		# **O quadril assenta.** Sem isso, girar a perna enfia o pé no chão na
 		# passada e levanta o boneco no ar na troca.
 		"assentar": True,
@@ -1382,38 +1439,51 @@ ANIMACOES = {
 		# Braço e perna do MESMO lado vão em sentidos opostos: é o que o corpo
 		# faz para não girar em torno do próprio eixo, e é o que separa uma
 		# caminhada de um boneco de corda.
-		"chaves": [
-			(0.0, pose(
-				coxa_D=(-22, 0, 0), canela_D=(6, 0, 0),
-				coxa_E=(18, 0, 0), canela_E=(20, 0, 0),
-				braco_D=(16, -4, 0), antebraco_D=(-12, 0, 0),
-				braco_E=(-16, 4, 0), antebraco_E=(-12, 0, 0),
-				peito=(3, 0, 0), cabeca=(-2, 0, 0))),
-			(0.25, pose(
-				coxa_D=(-4, 0, 0), canela_D=(4, 0, 0),
-				coxa_E=(-2, 0, 0), canela_E=(34, 0, 0),
-				braco_D=(3, -4, 0), antebraco_D=(-14, 0, 0),
-				braco_E=(-3, 4, 0), antebraco_E=(-14, 0, 0),
-				peito=(4, 0, 0), cabeca=(-3, 0, 0))),
-			(0.5, pose(
-				coxa_D=(18, 0, 0), canela_D=(20, 0, 0),
-				coxa_E=(-22, 0, 0), canela_E=(6, 0, 0),
-				braco_D=(-16, -4, 0), antebraco_D=(-12, 0, 0),
-				braco_E=(16, 4, 0), antebraco_E=(-12, 0, 0),
-				peito=(3, 0, 0), cabeca=(-2, 0, 0))),
-			(0.75, pose(
-				coxa_D=(-2, 0, 0), canela_D=(34, 0, 0),
-				coxa_E=(-4, 0, 0), canela_E=(4, 0, 0),
-				braco_D=(-3, -4, 0), antebraco_D=(-14, 0, 0),
-				braco_E=(3, 4, 0), antebraco_E=(-14, 0, 0),
-				peito=(4, 0, 0), cabeca=(-3, 0, 0))),
-			(1.0, pose(
-				coxa_D=(-22, 0, 0), canela_D=(6, 0, 0),
-				coxa_E=(18, 0, 0), canela_E=(20, 0, 0),
-				braco_D=(16, -4, 0), antebraco_D=(-12, 0, 0),
-				braco_E=(-16, 4, 0), antebraco_E=(-12, 0, 0),
-				peito=(3, 0, 0), cabeca=(-2, 0, 0))),
-		],
+		# **A perna de apoio fica RETA e a que balança dobra MUITO.**
+		#
+		# A primeira versão tinha o contrário — joelho dobrado na perna que
+		# sustenta e quase reto na que passa — e o preço foi medido: a perna que
+		# balançava roçava o chão indo para a frente, e o pé apoiado arrastava
+		# 0,424 m no sentido do movimento. O corpo patinava.
+		#
+		# Perna reta sustenta o corpo alto; joelho dobrado tira o pé do caminho.
+		# É por isso que o joelho existe.
+		#
+		# **E são OITO instantes, não quatro.** Com quatro, o joelho esticava
+		# cedo demais na volta: medido quadro a quadro, o pé que balançava
+		# voltava a tocar o chão no quadro 32 de 38 — 16% antes do contato — e
+		# arrastava 0,301 m para a frente. O joelho precisa continuar dobrado
+		# até quase o fim do balanço, e isso é um instante que não existia.
+		#
+		# O ciclo é gerado por `_ciclo_de_pernas`, que constrói a perna esquerda
+		# defasando a direita em meio ciclo. Escrever os dois lados à mão é
+		# escrever duas vezes a chance de errar um sinal — e foi assim que a
+		# primeira versão saiu com os joelhos invertidos.
+		"chaves": _ciclo_de_pernas(
+			# (instante, coxa, canela) da perna DIREITA. A esquerda sai daqui.
+			[
+				(0.000, -24, 2),    # contato: à frente, esticada
+				(0.125, -16, 10),   # recebe o peso
+				(0.250, -2, 2),     # passagem: vertical, sustentando
+				(0.375, 10, 4),     # empurra
+				(0.500, 20, 10),    # desprende
+				(0.625, 6, 70),     # levanta: joelho no máximo
+				(0.750, -10, 62),   # passa por cima, ainda dobrado
+				(0.875, -22, 34),   # estende, mas SEM tocar
+			],
+			# (instante, braço, antebraço) do braço DIREITO. Ele acompanha a
+			# perna do lado OPOSTO — é o que impede o corpo de girar sobre o
+			# próprio eixo, e o que separa uma caminhada de um boneco de corda.
+			[
+				(0.000, 16, -12), (0.250, 3, -14),
+				(0.500, -16, -12), (0.750, -3, -14),
+			],
+			# E o tronco, que sobe e desce duas vezes por ciclo.
+			[
+				(0.000, 3, -2), (0.250, 4, -3),
+				(0.500, 3, -2), (0.750, 4, -3),
+			],
+		),
 	},
 }
 
@@ -1434,6 +1504,52 @@ AMPLITUDE_MINIMA = 0.05
 ## Quanto o pé pode sair do chão numa animação que não é de pulo.
 FOLGA_DO_CHAO = 0.015
 
+## Quantos vértices precisam estar no chão para ele contar como chão. Ver
+## `assentar`.
+AMOSTRA_DO_CHAO = 12
+
+## Quanto o pé apoiado pode andar PARA A FRENTE enquanto está no chão.
+##
+## **Este é o defeito clássico de caminhada, e nada aqui o media.** Num ciclo
+## que anda no lugar, o pé apoiado tem que recuar de forma monótona uma
+## passada inteira — é esse recuo que a translação do jogo cancela. Se ele
+## volta para a frente com a sola no chão, o personagem patina.
+##
+## Medido no primeiro clipe: o pé recuava 0,301 m e depois arrastava 0,316 m
+## PARA A FRENTE, líquido de -0,015 m por ciclo. O corpo andava no lugar de
+## verdade — e `gesto_de_caminhada.gd` existe porque o usuário reclamou de
+## deslizamento.
+DESLIZE_PARA_A_FRENTE = 0.01
+
+
+## O quanto o pé apoiado tem que recuar, em metros. Uma passada curta ainda é
+## passada; nenhuma é andar no lugar.
+PASSADA_MINIMA = 0.15
+
+## Quanto os dois pés podem diferir em quadros apoiados, em fração. Uma
+## caminhada é simétrica no tempo; uma manqueira não é.
+DESEQUILIBRIO = 0.25
+
+
+def _passada(alturas: list, posicoes: list) -> tuple:
+	"""`(recuo, arrasto para a frente)` do pé enquanto ele está no chão.
+
+	A frente é -Y, então recuar é Y crescer. O que se mede é a soma dos passos
+	em cada sentido dentro das janelas de apoio — e não o total, porque um pé
+	que vai e volta tem total zero e desliza o caminho inteiro.
+	"""
+	recuo = 0.0
+	avanco = 0.0
+	for indice in range(1, len(alturas)):
+		if alturas[indice] > FOLGA_DO_CHAO or alturas[indice - 1] > FOLGA_DO_CHAO:
+			continue
+		passo = posicoes[indice] - posicoes[indice - 1]
+		if passo >= 0.0:
+			recuo += passo
+		else:
+			avanco += -passo
+	return recuo, avanco
+
 
 def _regiao_do_osso(nome: str) -> str:
 	"""`braco_D` e `braco_E` são a mesma região. Derivado, não tabelado.
@@ -1448,7 +1564,7 @@ def _regiao_do_osso(nome: str) -> str:
 
 def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
                    nome: str, ultimo: int) -> tuple:
-	"""`(amplitude, amplitude por região, altura de cada pé por quadro)`.
+	"""`(amplitude, amplitude por região, altura e posição de cada pé)`.
 
 	Mede no corpo DEFORMADO — `evaluated_get` é o que aplica o esqueleto. Ler
 	`corpo.data.vertices` direto devolve a malha em repouso, e uma conferência
@@ -1481,14 +1597,19 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 	# `andando` e `correndo`, que são exatamente aqueles em que um pé de cada
 	# vez sai do chão.
 	chao = {"pe_D": [], "pe_E": []}
+	## Onde cada pé está em Y, quadro a quadro. A frente é -Y.
+	marcha = {"pe_D": [], "pe_E": []}
 	for quadro in range(0, ultimo + 1):
 		bpy.context.scene.frame_set(quadro)
 		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
 		temporaria = avaliado.to_mesh()
 		pontos = [avaliado.matrix_world @ v.co for v in temporaria.vertices]
 		for nome in chao:
-			alturas = [p.z for p, d in zip(pontos, dono) if d == nome]
-			chao[nome].append(min(alturas) if alturas else 0.0)
+			meus = [p for p, d in zip(pontos, dono) if d == nome]
+			chao[nome].append(min(p.z for p in meus) if meus else 0.0)
+			# E onde ele está, para a conferência de deslize. A frente é -Y.
+			marcha[nome].append(
+				sum(p.y for p in meus) / len(meus) if meus else 0.0)
 		if menor is None:
 			menor = [p.copy() for p in pontos]
 			maior = [p.copy() for p in pontos]
@@ -1515,7 +1636,7 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 		por_regiao[regiao] = max(
 			por_regiao.get(regiao, 0.0), (maior[indice] - menor[indice]).length)
 	amplitude = max((maior[i] - menor[i]).length for i in range(len(menor)))
-	return amplitude, por_regiao, chao
+	return amplitude, por_regiao, chao, marcha
 
 
 def assentar(armature: bpy.types.Object, ultimo: int) -> None:
@@ -1552,9 +1673,21 @@ def assentar(armature: bpy.types.Object, ultimo: int) -> None:
 		bpy.context.view_layer.update()
 		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
 		temporaria = avaliado.to_mesh()
-		menor = min((avaliado.matrix_world @ v.co).z
-		            for v in temporaria.vertices)
+		alturas = sorted((avaliado.matrix_world @ v.co).z
+		                 for v in temporaria.vertices)
 		avaliado.to_mesh_clear()
+		# **O chão é o k-ésimo ponto mais baixo, e não o primeiro.**
+		#
+		# Decidido pelo mínimo, `assentar` repousa num único vértice: medido,
+		# há 1 a 2 vértices dentro de 1 mm do fundo. Afundar UM deles em 15 cm
+		# — mantendo as arestas, então `limpar_soltos` não o vê — levantava o
+		# corpo inteiro 15 cm e fazia o pé direito flutuar o ciclo todo, sem
+		# nada acusar.
+		#
+		# `conferir_boneco.py` já tinha aprendido isto e escrito
+		# `AMOSTRA_MINIMA = 12`: medida decidida por punhado de pontos mede o
+		# acaso. `assentar` nasceu com amostra de um.
+		menor = alturas[min(AMOSTRA_DO_CHAO, len(alturas)) - 1]
 		quadril.location = (0.0, -menor, 0.0)
 		quadril.keyframe_insert("location", frame=quadro)
 	bpy.context.scene.frame_set(0)
@@ -1620,7 +1753,7 @@ def main() -> int:
 	pintar(corpo, indices, ajuste_base, ajuste_do_braco, fatores)
 	for nome, dados in ANIMACOES.items():
 		quadros = criar_animacao(esqueleto, nome, dados)
-		amplitude, por_regiao, chao = medir_animacao(
+		amplitude, por_regiao, chao, marcha = medir_animacao(
 			esqueleto, corpo, nome, quadros)
 		# **A duração impressa é a MEDIDA, não a declarada.** Ela já imprimiu
 		# "1,33 s" com o arquivo saindo em 1,667 — mentindo sobre exatamente o
@@ -1653,6 +1786,37 @@ def main() -> int:
 				raise RuntimeError(
 					"em `%s` o `%s` sai %.4f m do chao e a folga e %.3f"
 					% (nome, pe, fora, FOLGA_DO_CHAO))
+		if dados.get("passada"):
+			for pe in sorted(chao):
+				recuo, avanco = _passada(chao[pe], marcha[pe])
+				print("[boneco]     %s apoiado: recua %.3f m, arrasta %.3f para "
+				      "a frente" % (pe, recuo, avanco))
+				# **O pé apoiado tem que EMPURRAR o chão para trás.** Se ele
+				# volta para a frente com a sola no chão, o personagem patina —
+				# e o clipe anterior fazia exatamente isso, 0,316 m.
+				if avanco > DESLIZE_PARA_A_FRENTE:
+					raise RuntimeError(
+						"em `%s` o `%s` arrasta %.3f m para a frente com a sola "
+						"no chao (maximo %.3f) — isso e deslizamento"
+						% (nome, pe, avanco, DESLIZE_PARA_A_FRENTE))
+				if recuo < PASSADA_MINIMA:
+					raise RuntimeError(
+						"em `%s` o `%s` recua so %.3f m apoiado (minimo %.3f) — "
+						"sem recuo nao ha passada, o corpo anda no lugar"
+						% (nome, pe, recuo, PASSADA_MINIMA))
+			# **As duas pernas fazem a mesma coisa, defasadas.** `movem` usa o
+			# maximo por regiao e os dois lados caem no mesmo numero: medido,
+			# congelar a perna esquerda inteira publicava como caminhada.
+			apoios = {pe: sum(1 for a in chao[pe] if a <= FOLGA_DO_CHAO)
+			          for pe in chao}
+			print("[boneco]     quadros apoiados: %s" % apoios)
+			menor, maior = min(apoios.values()), max(apoios.values())
+			if maior == 0 or (maior - menor) / float(maior) > DESEQUILIBRIO:
+				raise RuntimeError(
+					"em `%s` um pe fica apoiado %d quadros e o outro %d — as "
+					"duas pernas tem que fazer a mesma coisa, defasadas"
+					% (nome, menor, maior))
+
 		if dados.get("sempre_um_pe_no_chao"):
 			# **Os dois no ar ao mesmo tempo é um SALTO.** Numa caminhada há
 			# sempre um pé apoiado; num salto não há. O usuário mandou não
