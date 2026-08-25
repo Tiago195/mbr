@@ -1498,10 +1498,13 @@ ANIMACOES = {
 		# medida. A mesma excursão em dois terços do tempo.
 		#
 		# E na câmera do jogo — personagem a 43 px de altura — o peito se move
-		# 0,44 px. É sub-pixel: ninguém o vê. Quem se vê são as duas mãos, a
-		# 3,0 px, e a cabeça, a 2,3. Por isso `movem` não lista peito: exigir
-		# movimento de uma região invisível seria exigir exagero para
-		# satisfazer uma régua.
+		# fração de pixel: é sub-pixel, ninguém o vê. Quem se vê são as mãos e
+		# a cabeça. Por isso `movem` não lista peito: exigir movimento de uma
+		# região invisível seria exigir exagero para satisfazer uma régua.
+		#
+		# Os números em pixel saíam escritos aqui e envelheceram junto com as
+		# chaves — na última medição dois dos três estavam errados. Quem quiser
+		# a conta multiplica o `anda` impresso por 43/1,75.
 		#
 		# Mas a mão que se vê a 3,0 px é levada pelo BRAÇO e pelo ANTEBRAÇO, e
 		# são eles que `movem` nomeia. O antebraço ganhou chave nesta rodada:
@@ -1662,10 +1665,15 @@ ANIMACOES = {
 		# **A PERNA tem que se mexer, e é só ela que precisa.** Sem isto o piso
 		# de amplitude aprovaria uma caminhada em que só o braço balança.
 		#
-		# A cabeça saiu desta lista depois de medida: ela anda 0,042 m numa
-		# caminhada, porque o que a move é o quique do corpo e não uma ação
-		# própria. Exigir 0,05 dela seria exigir que o boneco balançasse a
-		# cabeça ao andar para satisfazer uma régua.
+		# A cabeça está fora desta lista, e o motivo é ARTICULAÇÃO e não
+		# deslocamento. Medida, ela ARTICULA 1 grau numa caminhada: o que a
+		# move é o corpo, não uma ação dela.
+		#
+		# **O comentário anterior dizia "ela anda 0,042 m" e o gerador imprime
+		# quase o quádruplo** — acima do piso que o argumento dizia que ela não
+		# alcançava. O argumento não estava só errado no número: estava
+		# invertido, porque media a grandeza que não decide. Deslocamento
+		# inclui carona; articulação não.
 		# **O braço entra aqui, e a ausência dele custou uma reprovação.** Com
 		# `movem` listando só a perna, congelar os dois braços publicava com
 		# rc=0 — e a tabela de braço morta que a revisão anterior reprovou
@@ -1674,8 +1682,16 @@ ANIMACOES = {
 		# articulacao do proprio osso, a mao gira 0,00 grau nos dois clipes —
 		# ela nunca teve chave. Quem balanca o membro e o ombro, a 52 graus.
 		"movem": ["coxa", "canela", "pe", "braco", "antebraco"],
-		# E a báscula, no eixo dela. Medida: 0,033 m de lado no peito.
-		"balanca": {"peito": 0.020},
+		# E a báscula, no eixo dela. O valor medido sai impresso — escrito
+		# aqui ele já ficou menos da metade do real.
+		#
+		# **O piso é 60% do medido, e não um número escolhido baixo.** Com
+		# 0,020 contra 0,079 medidos, a mutação que zera a báscula da tabela
+		# de tronco cortava o valor pela metade e ainda passava — ela escapou
+		# da suíte por isso. É a mesma cegueira que o piso absoluto de
+		# articulação tinha, e a mesma correção: piso de REGRESSÃO, na fração
+		# que `FRACAO_DO_PISO` declara.
+		"balanca": {"peito": 0.048},
 		# **Um pé de cada vez sai do chão, e é isso que separa andar de pular.**
 		# `parado` exige os dois plantados; aqui a exigência é que sempre haja
 		# ao menos UM no chão. Um clipe em que os dois saem ao mesmo tempo é um
