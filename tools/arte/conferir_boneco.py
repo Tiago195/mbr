@@ -389,7 +389,7 @@ ARTICULACAO_EXIGIDA = {
 	},
 	"andando": {
 		"antebraco_D": 16.9, "antebraco_E": 16.9, "braco_D": 27.3,
-		"braco_E": 27.3, "canela_D": 43.2, "canela_E": 43.2,
+		"braco_E": 27.3, "canela_D": 39.6, "canela_E": 39.6,
 		"coxa_D": 20.4, "coxa_E": 20.4, "pe_D": 22.8,
 		"pe_E": 22.8,
 	},

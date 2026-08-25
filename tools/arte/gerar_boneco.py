@@ -1761,7 +1761,12 @@ ANIMACOES = {
 				(0.300, -2, 6, 0),      # passagem: vertical, sustentando
 				(0.450, 8, 6, 6),       # empurra
 				(0.600, 15, 6, 14),     # desprende: calcanhar sai primeiro
-				(0.700, 4, 74, -24),    # levanta: joelho no máximo, dedo acima
+				# **Joelho 44, e nao 74.** Com 74 o pe subia 0,180 m num corpo de
+				# 1,75 — marcha, nao caminhada, e e o que o revisor
+				# adversarial leu como "pisao". Varrido: 74 da passo de 0,180
+				# e quique de 3,08%; 44 da 0,149 e **2,69%**, que e o alvo
+				# humano (2,6%) menos nove centesimos; 36 comeca a arrastar.
+				(0.700, 4, 44, -24),    # levanta: joelho no máximo, dedo acima
 				(0.800, -10, 68, -24),  # passa por cima, ainda dobrado
 				(0.900, -19, 44, -16),  # estende, mas SEM tocar
 			],
@@ -1879,6 +1884,17 @@ DESLIZE_PARA_A_FRENTE = 0.01
 ## O quanto o pé apoiado tem que recuar, em metros. Uma passada curta ainda é
 ## passada; nenhuma é andar no lugar.
 PASSADA_MINIMA = 0.15
+## Quanto o pe pode subir no balanco, em metros.
+##
+## **Nao havia teto, e a mutacao `a passada estica e o quadril mergulha`
+## escapou por causa disso.** Ela existia para provar o teto do QUIQUE; depois
+## de o apoio passar para 60% do ciclo, ela deixou de mexer no quique (3,0753%
+## identico) e passou a mexer noutra grandeza: a altura do passo, de 0,149 para
+## **0,241**. Um passo 60% mais alto, sem nada olhando.
+##
+## O teto e o medido mais uma folga de trabalho, pelo mesmo argumento de
+## `FOLGA_DO_QUIQUE`: teto colado no valor vira catraca.
+ALTURA_DO_PASSO_MAXIMA = 0.16
 
 ## Quanto os dois pés podem diferir, em fração, em qualquer das três medidas.
 ##
@@ -2645,6 +2661,15 @@ def main() -> int:
 						"(maximo %.0f%%) — as duas pernas tem que fazer a mesma "
 						"coisa, defasadas"
 						% (nome, rotulo, menor, maior, DESEQUILIBRIO * 100))
+				# **E a altura do passo tem TETO**, que e o que faltava.
+				# Ver `ALTURA_DO_PASSO_MAXIMA`: a comparacao entre os dois pes
+				# e cega a levantar os DOIS, e foi por ai que uma mutacao
+				# escapou.
+				if rotulo == "altura do passo" and maior > ALTURA_DO_PASSO_MAXIMA:
+					raise RuntimeError(
+						"em `%s` o pe sobe %.4f m no balanco e o teto e %.3f — "
+						"isso e marcha, nao caminhada"
+						% (nome, maior, ALTURA_DO_PASSO_MAXIMA))
 
 		if dados.get("sempre_um_pe_no_chao"):
 			# **O que separa andar de pular é FASE, não altura.**

@@ -509,6 +509,7 @@ que ela existe para fechar.
 | `gerar_boneco.py` | `AMOSTRAS_DA_SOLA` | 12 | vértices da sola usados para detectar um perdido |
 | `gerar_boneco.py` | `ESPALHAMENTO_DA_SOLA` | 0.05 | quanto eles podem se espalhar antes de um deles ser considerado perdido |
 | `gerar_boneco.py` | `DESLIZE_PARA_A_FRENTE` | 0.01 | metros que o pé apoiado pode arrastar no sentido da marcha |
+| `gerar_boneco.py` | `ALTURA_DO_PASSO_MAXIMA` | 0.16 | quanto o pé pode subir no balanço, em metros; sem teto, uma mutação escapou levantando os DOIS pés — a comparação entre eles é cega a isso |
 | `gerar_boneco.py` | `PASSADA_MINIMA` | 0.15 | metros que o pé apoiado tem de recuar |
 | `gerar_boneco.py` | `DESEQUILIBRIO` | 0.12 | fração de diferença tolerada entre os dois pés |
 | `gerar_boneco.py` | `APOIO_SIMPLES_MINIMO` | 0.20 | fração do ciclo em que cada pé é apoio único |
