@@ -137,7 +137,7 @@ MUTACOES = [
      [("gerador", "		coxa_E, canela_E, pe_E = em(pernas, instante + 0.5)",
        "		coxa_E, canela_E, pe_E = em(pernas, instante + 0.0)")]),
     ("o pe que balanca deixa de levantar",
-     [("gerador", "\t\t\t\t(0.700, 4, 74, -24),    # levanta: joelho no máximo, dedo acima",
+     [("gerador", "\t\t\t\t(0.700, 4, 44, -24),    # levanta: joelho no máximo, dedo acima",
        "\t\t\t\t(0.700, 4, 6, 0),    # levanta: joelho no máximo, dedo acima")]),
     ("a passada estica e o quadril mergulha",
      [("gerador", "\t\t\t\t(0.000, -17, 2, -10),   # contato: calcanhar, perna esticada",
