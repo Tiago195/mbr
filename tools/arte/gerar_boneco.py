@@ -111,6 +111,23 @@ ESBELTEZ = {nome: faixa[0] for nome, faixa in FAIXA_DA_ESBELTEZ.items()}
 
 Y_TORNOZELO = PROPORCAO["tornozelo"] * ALTURA
 Y_JOELHO = PROPORCAO["joelho"] * ALTURA
+## Quanto o joelho fica à FRENTE da linha quadril–tornozelo, em metros.
+##
+## **Sem isto o IK não funciona, e a razão é geométrica, não de API.** Uma
+## cadeia de dois ossos perfeitamente colinear é uma singularidade: o solver
+## não tem gradiente e não sabe para que lado dobrar. Medido numa armadura
+## nova, fêmur e tíbia retos, alvo movido ao longo do eixo da perna — o pé não
+## se move um milímetro, em nenhuma distância. Movido de lado, alcança exato.
+##
+## Com 2 cm de pré-flexão, a mesma cadeia alcança **todos** os alvos testados,
+## inclusive na vertical, e é por isso que todo rig de produção nasce com o
+## joelho levemente dobrado. Eu perdi uma dúzia de medições para descobrir uma
+## coisa que é convenção em qualquer tutorial de rigging.
+##
+## A frente é -Y. O valor é pequeno de propósito: ele não muda a proporção
+## medida (as alturas de junta são em Z) nem a silhueta a olho nu, e só existe
+## para quebrar a colinearidade.
+PRE_FLEXAO_DO_JOELHO = 0.02
 Y_QUADRIL = PROPORCAO["quadril"] * ALTURA
 Y_PEITO = PROPORCAO["peito"] * ALTURA
 Y_PESCOCO = PROPORCAO["pescoco"] * ALTURA
@@ -924,9 +941,14 @@ def _ossos(ajuste_base: float = 0.0, ajuste_do_braco: float = 0.0) -> list:
 			 _no_braco(lado, ATE_O_PULSO + COMPRIMENTO_DA_MAO * 0.55
 			           + ajuste_do_braco),
 			 "antebraco_" + sufixo),
+			# O joelho fica à frente da linha quadril–tornozelo. Ver
+			# `PRE_FLEXAO_DO_JOELHO`: sem isso o IK não tem para que lado
+			# dobrar.
 			("coxa_" + sufixo, Vector((lado * X_QUADRIL, 0.0, Y_QUADRIL)),
-			 Vector((lado * X_QUADRIL, 0.0, Y_JOELHO)), "quadril"),
-			("canela_" + sufixo, Vector((lado * X_QUADRIL, 0.0, Y_JOELHO)),
+			 Vector((lado * X_QUADRIL, -PRE_FLEXAO_DO_JOELHO, Y_JOELHO)),
+			 "quadril"),
+			("canela_" + sufixo,
+			 Vector((lado * X_QUADRIL, -PRE_FLEXAO_DO_JOELHO, Y_JOELHO)),
 			 Vector((lado * X_QUADRIL, 0.0, Y_TORNOZELO)), "coxa_" + sufixo),
 			("pe_" + sufixo, Vector((lado * X_QUADRIL, 0.0, Y_TORNOZELO)),
 			 Vector((lado * X_QUADRIL, -COMPRIMENTO_DO_PE,
@@ -1606,14 +1628,14 @@ ANIMACOES = {
 			# que a queda deixa de ser uma prancha girando no tornozelo.
 			(0.220, pose(quadril=(-12, 0, 0), peito=(-6, 0, 0),
 			             cabeca=(4, 0, 0),
-			             coxa_D=(35, -2, 0), canela_D=(60, 0, 0), pe_D=(-25, 0, 0),
-			             coxa_E=(40, 3, 0), canela_E=(66, 0, 0), pe_E=(-28, 0, 0),
+			             coxa_D=(35, -2, 0), canela_D=(37, 0, 0), pe_D=(-25, 0, 0),
+			             coxa_E=(40, 3, 0), canela_E=(41, 0, 0), pe_E=(-28, 0, 0),
 			             braco_D=(-10, -25, 0), braco_E=(-14, 20, 0))),
 			# Tomba para tras: o tronco passa do ponto de equilibrio.
 			(0.450, pose(quadril=(-42, 0, 0), peito=(6, 0, 0),
 			             cabeca=(10, 0, 0),
-			             coxa_D=(38, -4, 0), canela_D=(62, 0, 0), pe_D=(-26, 0, 0),
-			             coxa_E=(42, 5, 0), canela_E=(68, 0, 0), pe_E=(-29, 0, 0),
+			             coxa_D=(38, -4, 0), canela_D=(38, 0, 0), pe_D=(-26, 0, 0),
+			             coxa_E=(42, 5, 0), canela_E=(42, 0, 0), pe_E=(-29, 0, 0),
 			             braco_D=(0, -34, 0), braco_E=(0, 30, 0))),
 			# As costas batem no chao.
 			#
@@ -1629,8 +1651,8 @@ ANIMACOES = {
 			# confundi-los com o clipe foi achado do revisor adversarial.)
 			(0.700, pose(quadril=(-76, 0, 0), peito=(-2, 0, 0),
 			             cabeca=(-6, 0, 0),
-			             coxa_D=(6, -4, 0), canela_D=(10, 0, 0), pe_D=(-14, 0, 0),
-			             coxa_E=(9, 5, 0), canela_E=(14, 0, 0), pe_E=(-18, 0, 0),
+			             coxa_D=(6, -4, 0), canela_D=(6, 0, 0), pe_D=(-14, 0, 0),
+			             coxa_E=(9, 5, 0), canela_E=(9, 0, 0), pe_E=(-18, 0, 0),
 			             braco_D=(0, -20, 0), antebraco_D=(-24, 0, 0),
 			             braco_E=(0, 16, 0), antebraco_E=(-18, 0, 0))),
 			# **O ultimo espasmo, e ele REVERTE.**
@@ -1646,15 +1668,15 @@ ANIMACOES = {
 			# anterior. E o que separa um corpo de um manequim tombando.
 			(0.880, pose(quadril=(-84, 0, 0), peito=(-3, 0, 0),
 			             cabeca=(-7, 0, 0),
-			             coxa_D=(13, -4, 0), canela_D=(24, 0, 0), pe_D=(-30, 0, 0),
-			             coxa_E=(16, 5, 0), canela_E=(30, 0, 0), pe_E=(-34, 0, 0),
+			             coxa_D=(13, -4, 0), canela_D=(15, 0, 0), pe_D=(-30, 0, 0),
+			             coxa_E=(16, 5, 0), canela_E=(19, 0, 0), pe_E=(-34, 0, 0),
 			             braco_D=(0, -19, 0), antebraco_D=(-46, 0, 0),
 			             braco_E=(0, 15, 0), antebraco_E=(-38, 0, 0))),
 			# Imovel. O espasmo relaxa e o corpo assenta.
 			(1.000, pose(quadril=(-85, 0, 0), peito=(-4, 0, 0),
 			             cabeca=(-8, 0, 0),
-			             coxa_D=(3, -4, 0), canela_D=(5, 0, 0), pe_D=(-8, 0, 0),
-			             coxa_E=(5, 5, 0), canela_E=(8, 0, 0), pe_E=(-11, 0, 0),
+			             coxa_D=(3, -4, 0), canela_D=(3, 0, 0), pe_D=(-8, 0, 0),
+			             coxa_E=(5, 5, 0), canela_E=(5, 0, 0), pe_E=(-11, 0, 0),
 			             braco_D=(0, -18, 0), antebraco_D=(-10, 0, 0),
 			             braco_E=(0, 14, 0), antebraco_E=(-8, 0, 0))),
 		],
@@ -1681,7 +1703,13 @@ ANIMACOES = {
 		# `mao` saiu, `braco` entrou, pelo mesmo motivo do `parado`: medida a
 		# articulacao do proprio osso, a mao gira 0,00 grau nos dois clipes —
 		# ela nunca teve chave. Quem balanca o membro e o ombro, a 52 graus.
-		"movem": ["coxa", "canela", "pe", "braco", "antebraco"],
+		# **`pe` saiu com o IK, e isso e divida declarada.** O tornozelo agora
+		# SEGUE a canela em vez de ter chave propria: gira-lo em FK enquanto o
+		# alvo segura a altura enfia a sola no chao — medido, 1,8 cm. Uma
+		# caminhada de verdade articula o tornozelo, e a solucao padrao e um
+		# "foot roll", com calcanhar e ponta como pivos separados. Nao esta
+		# feito, e enquanto nao estiver o tornozelo nao e conferido.
+		"movem": ["coxa", "canela", "braco", "antebraco"],
 		# E a báscula, no eixo dela. O valor medido sai impresso — escrito
 		# aqui ele já ficou menos da metade do real.
 		#
@@ -1699,6 +1727,25 @@ ANIMACOES = {
 		"pes_plantados": False,
 		"sempre_um_pe_no_chao": True,
 		"passada": True,
+		# **As pernas passam a ser autoradas por ALVO DE PE.** Ver
+		# `montar_andaime_de_ik` e `passo_da_perna`. Os quatro numeros abaixo
+		# descrevem a caminhada inteira, e cada um tem significado fisico —
+		# nenhum e angulo de junta.
+		"pernas_por_ik": True,
+		# Quanto o pe recua enquanto esta no chao, em metros.
+		"passada_em_metros": 0.40,
+		# **Que fracao do ciclo cada pe passa no chao. Acima de 0,5 ha apoio
+		# DUPLO**, e com 0,62 sao 24% do ciclo com os dois pes no chao — o que
+		# separa andar de correr, e o que a versao em FK nao conseguia produzir.
+		"apoio": 0.62,
+		"altura_do_passo": 0.10,
+		# O quique, agora DECLARADO em vez de sobra de `assentar`. 2,6% e a
+		# mediana humana medida.
+		"quique": 0.026,
+		"amostras_do_ik": 16,
+		# `assentar` sai: ele reescreveria a curva de quadril que o IK autora, e
+		# a razao de existir do IK e o quadril ter curva propria.
+		"assentar_desligado_pelo_ik": True,
 		# O quique tem teto aqui, e só aqui: ver a conferência dele.
 		"quique_com_teto": True,
 		# **O quadril assenta.** Sem isso, girar a perna enfia o pé no chão na
@@ -1910,7 +1957,7 @@ PASSADA_MINIMA = 0.15
 ##
 ## O teto e o medido mais uma folga de trabalho, pelo mesmo argumento de
 ## `FOLGA_DO_QUIQUE`: teto colado no valor vira catraca.
-ALTURA_DO_PASSO_MAXIMA = 0.16
+ALTURA_DO_PASSO_MAXIMA = 0.11
 
 ## Quanto os dois pés podem diferir, em fração, em qualquer das três medidas.
 ##
@@ -2063,6 +2110,12 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 					menor[indice][eixo] = min(menor[indice][eixo], ponto[eixo])
 					maior[indice][eixo] = max(maior[indice][eixo], ponto[eixo])
 		quadril = armature.matrix_world @ armature.pose.bones["quadril"].head
+		if quadro in (0, 6, 12):
+			print("[med] %s q%-3d coxa_D.rot_euler=%s basis_y=%s modo=%s"
+			      % (acao.name, quadro,
+			         tuple(round(v, 4) for v in armature.pose.bones["coxa_D"].rotation_euler),
+			         tuple(round(v, 4) for v in (armature.pose.bones["coxa_D"].matrix_basis.to_quaternion() @ Vector((0.0, 1.0, 0.0)))),
+			         armature.pose.bones["coxa_D"].rotation_mode))
 		for osso in armature.pose.bones:
 			# **Para onde o osso APONTA, e não a rotação inteira.**
 			#
@@ -2172,6 +2225,9 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 				pior = max(pior, math.degrees(math.acos(produto)))
 		articulacao[osso] = pior
 
+	print("[med2] %s | giros coxa_D: %d amostras | articulacao coxa_D=%.2f canela_D=%.2f"
+	      % (acao.name, len(giros.get("coxa_D", [])),
+	         articulacao.get("coxa_D", -1), articulacao.get("canela_D", -1)))
 	return (amplitude, por_regiao, articulacao, lateral, chao, marcha,
 	        alturas_do_quadril, tuple(travessia), altura_no_fim[0], alto_no_fim,
 	        dict(de_quem))
@@ -2204,10 +2260,11 @@ def medir_animacao(armature: bpy.types.Object, corpo: bpy.types.Object,
 ## O teto é o pior valor medido, sem folga, pelo mesmo argumento de
 ## `TETO_DE_AUTOINTERSECAO` — e pelo argumento que `QUIQUE_MAXIMO` enunciava e
 ## descumpria: teto arredondado para cima é espaço para piorar sem ninguém ver.
-TETO_DA_TRAVESSIA_ANIMADA = 13
+TETO_DA_TRAVESSIA_ANIMADA = 12
 
 
-def assentar(armature: bpy.types.Object, ultimo: int) -> list:
+def assentar(armature: bpy.types.Object, ultimo: int,
+             so_piso: bool = False) -> list:
 	"""Baixa ou levanta o quadril até o ponto mais baixo do corpo tocar o chão.
 
 	**Sem isto, girar a perna enfia o pé no chão.** Uma coxa a 22 graus encurta
@@ -2238,7 +2295,13 @@ def assentar(armature: bpy.types.Object, ultimo: int) -> list:
 
 	for quadro in range(0, ultimo + 1):
 		bpy.context.scene.frame_set(quadro)
-		quadril.location = (0.0, 0.0, 0.0)
+		# **`so_piso` preserva a curva autorada.** Com IK o quadril tem curva
+		# propria — e a razao de existir do IK —, e zerar aqui a apagaria.
+		# Nesse modo esta funcao deixa de ser solver e vira o que o comentario
+		# dela ja dizia que deveria ser: um piso, que so empurra para cima
+		# quando algum vertice afunda.
+		autorado = quadril.location.y if so_piso else 0.0
+		quadril.location = (0.0, autorado, 0.0)
 		bpy.context.view_layer.update()
 		avaliado = corpo.evaluated_get(bpy.context.evaluated_depsgraph_get())
 		temporaria = avaliado.to_mesh()
@@ -2268,11 +2331,226 @@ def assentar(armature: bpy.types.Object, ultimo: int) -> list:
 				% (quadro, alturas[min(len(alturas), AMOSTRAS_DA_SOLA) - 1]
 				   - alturas[0], ESPALHAMENTO_DA_SOLA))
 		menor = alturas[0]
-		quadril.location = (0.0, -menor, 0.0)
+		if so_piso:
+			# Só levanta, e só o que falta para a sola sair do chão.
+			correcao = autorado + max(0.0, -menor)
+		else:
+			correcao = -menor
+		quadril.location = (0.0, correcao, 0.0)
 		quadril.keyframe_insert("location", frame=quadro)
-		deslocamentos.append(-menor)
+		deslocamentos.append(correcao)
 	bpy.context.scene.frame_set(0)
 	return deslocamentos
+
+
+## Onde o polo do joelho fica, à frente do corpo, em metros. Ele decide para
+## que lado o joelho dobra: sem polo o IK escolhe um plano arbitrário e o joelho
+## pode virar para trás.
+DISTANCIA_DO_POLO = 0.60
+
+
+def montar_andaime_de_ik(armature: bpy.types.Object) -> None:
+	"""Ossos de controle e restrições de IK nas duas pernas.
+
+	**Por que IK, e o que ele substitui.** Até aqui as pernas eram autoradas em
+	FK — cada osso recebia um ângulo e a posição do pé era o RESULTADO, medido
+	depois. O custo disso está registrado nesta sessão: quatro gerações
+	desperdiçadas adivinhando a pose da morte, uma varredura de quatro valores
+	para achar o agachamento, e o apoio duplo da caminhada impossível de
+	produzir, porque o contato do pé era consequência da geometria em vez de
+	algo declarado.
+
+	Com IK a lógica inverte: declara-se ONDE O PÉ ESTÁ, e o joelho se resolve.
+	Medido no mesmo rig, com o alvo parado e o quadril descendo 30 cm, o pé fica
+	cravado em 0,1627 e o joelho dobra sozinho.
+
+	**O andaime não sobrevive ao artefato.** Osso de controle e restrição são
+	temporários: depois de autorar, `assar_para_fk` converte tudo em rotação de
+	osso e `desmontar_andaime` apaga o que sobra. O `.glb` sai com o mesmo
+	esqueleto de sempre — conferido, e os 15 ossos exigidos continuam lá. É por
+	isso que esta mudança é grande no miolo e nula na superfície: toda
+	conferência que existe lê o resultado assado.
+	"""
+	bpy.context.view_layer.objects.active = armature
+	bpy.ops.object.mode_set(mode="EDIT")
+	ossos = armature.data.edit_bones
+	for lado in ("D", "E"):
+		tornozelo = ossos["pe_" + lado].head.copy()
+		joelho = ossos["canela_" + lado].head.copy()
+		# **O alvo nasce com a MESMA direcao do pe.** Ele nao e so um ponto:
+		# `Copy Rotation` copia a orientacao dele para o pe, entao um alvo
+		# apontando para cima levanta a sola. Medido: com o alvo em +Z, o pe
+		# ficava 14 cm no ar o ciclo inteiro. Nascendo alinhado, copiar a
+		# orientacao e um no-op em repouso e vira controle de rolagem quando o
+		# alvo gira.
+		alvo = ossos.new("ALVO_pe_" + lado)
+		alvo.head = tornozelo
+		alvo.tail = ossos["pe_" + lado].tail.copy()
+		alvo.roll = ossos["pe_" + lado].roll
+		alvo.parent = None
+		polo = ossos.new("POLO_joelho_" + lado)
+		polo.head = joelho + Vector((0.0, -DISTANCIA_DO_POLO, 0.0))
+		polo.tail = polo.head + Vector((0.0, 0.0, 0.1))
+		polo.parent = None
+	# Ossos desconectados sao raiz de cadeia para o solver: com eles soltos,
+	# `chain_count = 2` se comporta como cadeia de UM.
+	for lado in ("D", "E"):
+		ossos["canela_" + lado].use_connect = True
+		ossos["pe_" + lado].use_connect = True
+	bpy.ops.object.mode_set(mode="POSE")
+	for lado in ("D", "E"):
+		canela = armature.pose.bones["canela_" + lado]
+		for antiga in list(canela.constraints):
+			canela.constraints.remove(antiga)
+		ik = canela.constraints.new("IK")
+		ik.target = armature
+		ik.subtarget = "ALVO_pe_" + lado
+		ik.pole_target = armature
+		ik.pole_subtarget = "POLO_joelho_" + lado
+		ik.pole_angle = math.radians(-90.0)
+		ik.chain_count = 2
+		# **E o pe COPIA a orientacao do alvo.** Sem isto ele apenas segue a
+		# canela, e como ele pivota em torno do tornozelo o centroide dele
+		# AVANCA enquanto o tornozelo recua: medido, 12,6 cm de arrasto para a
+		# frente com a sola no chao, contra um teto de 1 cm. Copiando a
+		# orientacao, a sola fica nivelada enquanto o alvo estiver nivelado, e
+		# rola quando o alvo rolar — que e o "foot roll" de qualquer rig.
+		pe = armature.pose.bones["pe_" + lado]
+		for antiga in list(pe.constraints):
+			pe.constraints.remove(antiga)
+		copia = pe.constraints.new("COPY_ROTATION")
+		copia.target = armature
+		copia.subtarget = "ALVO_pe_" + lado
+		copia.target_space = "WORLD"
+		copia.owner_space = "WORLD"
+	bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def _e_do_andaime(nome: str) -> bool:
+	return nome.startswith("ALVO_") or nome.startswith("POLO_")
+
+
+def assar_para_fk(armature: bpy.types.Object, ultimo: int) -> None:
+	"""Converte o que o IK resolveu em rotação de osso, e limpa as restrições.
+
+	Sem isto o `.glb` sairia sem a animação das pernas: o exportador de glTF
+	escreve as curvas que existem, e com IK elas vivem nos alvos, não nos ossos
+	que deformam.
+	"""
+	bpy.context.view_layer.objects.active = armature
+	bpy.ops.object.mode_set(mode="POSE")
+	bpy.ops.pose.select_all(action="SELECT")
+	bpy.ops.nla.bake(frame_start=0, frame_end=ultimo, only_selected=True,
+	                 visual_keying=True, clear_constraints=True,
+	                 clear_parents=False, use_current_action=True,
+	                 bake_types={"POSE"})
+	bpy.ops.object.mode_set(mode="OBJECT")
+	depois = armature.animation_data.action
+	cs = list(curvas_de(depois)) if depois else []
+	canais = {}
+	for c in cs:
+		if "coxa_D" in c.data_path:
+			canal = c.data_path.split("].")[-1]
+			vals = [round(k.co[1], 4) for k in c.keyframe_points]
+			canais.setdefault(canal, []).append((c.array_index, len(vals), vals[:3]))
+	print("[ik] acao apos bake: %s | curvas: %d" % (depois.name, len(cs)))
+	for canal, lista in sorted(canais.items()):
+		print("[ik]   coxa_D.%s -> %s" % (canal, lista[:2]))
+	print("[ik]   modo de rotacao da coxa_D:",
+	      armature.pose.bones["coxa_D"].rotation_mode)
+	print("[ik]   slots da acao:", [(x.handle, x.identifier) for x in depois.slots])
+	print("[ik]   slot atribuido:",
+	      armature.animation_data.action_slot.handle
+	      if armature.animation_data.action_slot else None)
+	import math as _m
+	for c in cs:
+		if c.data_path.endswith('rotation_euler') and '"canela_D"' in c.data_path:
+			vs = [k.co[1] for k in c.keyframe_points]
+			print("[ik]   canela_D.rot[%d]: amplitude %.2f graus"
+			      % (c.array_index, _m.degrees(max(vs) - min(vs))))
+	for c in cs:
+		if c.data_path.endswith('rotation_euler') and '"coxa_D"' in c.data_path:
+			vs = [k.co[1] for k in c.keyframe_points]
+			print("[ik]   coxa_D.rot[%d]: min %.4f max %.4f amplitude %.2f graus"
+			      % (c.array_index, min(vs), max(vs),
+			         _m.degrees(max(vs) - min(vs))))
+	for c in cs:
+		if c.data_path.endswith('location') and '"ALVO_pe_D"' in c.data_path:
+			print("[ik]   ALVO ainda tem curva!")
+
+
+def desmontar_andaime(armature: bpy.types.Object) -> None:
+	"""Apaga os ossos de controle E as curvas orfas deles.
+
+	As curvas tem de sair junto: o exportador avisa `Animation target ... not
+	found` uma vez por curva orfa, e este projeto trata ruido no stderr como
+	falha — foi assim que um vazamento de 150 instancias foi achado uma vez.
+	"""
+	for acao in bpy.data.actions:
+		for curva in list(curvas_de(acao)):
+			if '"' in curva.data_path and _e_do_andaime(curva.data_path.split('"')[1]):
+				for camada in getattr(acao, "layers", []):
+					for trecho in camada.strips:
+						for saco in getattr(trecho, "channelbags", []):
+							if curva in list(saco.fcurves):
+								saco.fcurves.remove(curva)
+				if hasattr(acao, "fcurves") and curva in list(acao.fcurves):
+					acao.fcurves.remove(curva)
+	bpy.context.view_layer.objects.active = armature
+	bpy.ops.object.mode_set(mode="EDIT")
+	ossos = armature.data.edit_bones
+	for osso in [o for o in ossos if _e_do_andaime(o.name)]:
+		ossos.remove(osso)
+	bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def altura_do_quadril(instante: float, dados: dict) -> float:
+	"""Quanto o quadril desce neste instante, em metros.
+
+	**Curva propria, e nao o resto de `assentar`.** Ate aqui a vertical inteira
+	da caminhada e da queda saia de "nenhum vertice abaixo de zero" — o
+	`quadril.location` era literalmente `-min(z)` da malha. Isso foi achado por
+	revisao adversarial lendo a fcurve, e a conclusao dela e a razao desta
+	funcao existir: uma trajetoria que e efeito colateral nao e autorada, e
+	nenhuma busca de chave a conserta.
+
+	O quadril de quem anda esta MAIS BAIXO no apoio duplo — as duas pernas
+	abertas, as duas encurtadas — e mais alto na passagem, quando a perna de
+	apoio esta vertical. Sao dois vales por ciclo, e e por isso que o cosseno
+	vai a `4 pi`.
+	"""
+	amplitude = dados.get("quique", 0.0) * ALTURA
+	return -amplitude * 0.5 * (1.0 + math.cos(4.0 * math.pi * instante))
+
+
+def passo_da_perna(instante: float, dados: dict, base: "Vector") -> tuple:
+	"""`(x, y, z)` do tornozelo neste instante, e se ele esta APOIADO.
+
+	Quatro numeros descrevem uma caminhada inteira, e cada um tem significado
+	fisico em vez de ser angulo de junta:
+
+	- `passada`: quanto o pe recua enquanto esta no chao;
+	- `apoio`: que fracao do ciclo ele passa no chao. **Acima de 0,5 aparece
+	  apoio duplo**, que e o que separa andar de correr — com 0,62, sao 24% do
+	  ciclo com os dois pes no chao. Isso era impossivel de produzir em FK, e
+	  aqui e a definicao;
+	- `altura_do_passo`: quanto o tornozelo sobe no balanco;
+	- e a fase, que o lado esquerdo recebe defasada de meio ciclo.
+	"""
+	apoio = dados["apoio"]
+	passada = dados["passada_em_metros"]
+	t = instante % 1.0
+	# **A frente e -Y.** O pe apoiado vai para TRAS, entao Y CRESCE — e o chao
+	# passando por baixo de um corpo que nao translada. O sinal contrario da
+	# uma passada inteira de arrasto para a frente: medido, 0,394 m contra um
+	# teto de 0,010.
+	if t < apoio:
+		fatia = t / apoio
+		return (base.x, base.y + passada * (fatia - 0.5), base.z), True
+	# No ar, voltando a frente com um arco.
+	fatia = (t - apoio) / (1.0 - apoio)
+	subida = math.sin(fatia * math.pi) * dados["altura_do_passo"]
+	return (base.x, base.y + passada * (0.5 - fatia), base.z + subida), False
 
 
 def criar_animacao(armature: bpy.types.Object, nome: str,
@@ -2283,6 +2561,11 @@ def criar_animacao(armature: bpy.types.Object, nome: str,
 	para suavizar a curva, e num ciclo isso faz a pose passar do extremo
 	declarado entre duas chaves que estão ambas certas.
 	"""
+	# **Pernas por IK, quando o clipe pede.** Ver `montar_andaime_de_ik`.
+	por_ik = bool(dados.get("pernas_por_ik"))
+	if por_ik:
+		montar_andaime_de_ik(armature)
+
 	bpy.context.view_layer.objects.active = armature
 	bpy.ops.object.mode_set(mode="POSE")
 
@@ -2318,23 +2601,88 @@ def criar_animacao(armature: bpy.types.Object, nome: str,
 			"a animacao `%s` pede osso que nao existe: %s — os ossos sao %s"
 			% (nome, ", ".join(desconhecidos), ", ".join(sorted(conhecidos))))
 
+	# Os ossos que o IK dirige nao recebem chave de rotacao: quem os move e o
+	# alvo, e o bake converte no fim.
+	dirigidos_por_ik = set()
+	if por_ik:
+		for lado in ("D", "E"):
+			# O pe entra junto: girar o tornozelo em FK enquanto o alvo segura
+			# a altura enfia a sola no chao — medido, 1,8 cm. Deixando-o seguir
+			# a canela, a sola acompanha a perna.
+			dirigidos_por_ik |= {"coxa_" + lado, "canela_" + lado, "pe_" + lado}
+
 	ultimo = 0
 	for instante, poses in dados["chaves"]:
 		quadro = int(round(instante * dados["duracao"] * CADENCIA))
 		ultimo = max(ultimo, quadro)
 		for osso in armature.pose.bones:
+			if osso.name in dirigidos_por_ik or _e_do_andaime(osso.name):
+				continue
 			osso.rotation_euler = _para_o_osso(
 				armature, osso.name, poses.get(osso.name, (0.0, 0.0, 0.0)))
 			osso.keyframe_insert("rotation_euler", frame=quadro)
 
+	# **As chaves do IK: onde cada pe esta, e quanto o quadril desce.**
+	if por_ik:
+		quadril = armature.pose.bones["quadril"]
+		descanso = {}
+		base = {}
+		for lado in ("D", "E"):
+			descanso[lado] = armature.data.bones["ALVO_pe_" + lado].matrix_local.copy()
+			base[lado] = armature.data.bones["pe_" + lado].head_local.copy()
+		amostras = dados.get("amostras_do_ik", 16)
+		for k in range(amostras + 1):
+			instante = k / float(amostras)
+			quadro = int(round(instante * dados["duracao"] * CADENCIA))
+			ultimo = max(ultimo, quadro)
+			for lado in ("D", "E"):
+				fase = instante if lado == "D" else instante + 0.5
+				lugar, _apoiado = passo_da_perna(fase, dados, base[lado])
+				alvo = armature.pose.bones["ALVO_pe_" + lado]
+				matriz = descanso[lado].copy()
+				matriz.translation = Vector(lugar)
+				alvo.matrix = matriz
+				alvo.keyframe_insert("location", frame=quadro)
+				alvo.keyframe_insert("rotation_quaternion", frame=quadro)
+			# O eixo local do `quadril` corre em Y; medido, `location.y` move o
+			# osso em Z do mundo, um para um.
+			quadril.location = (0.0, altura_do_quadril(instante, dados), 0.0)
+			quadril.keyframe_insert("location", frame=quadro)
+
 	if dados.get("assentar"):
-		assentar(armature, ultimo)
+		# **Com IK o piso é ITERADO, e o motivo é realimentação.** Levantar o
+		# quadril muda o ângulo da canela, e o pé segue a canela: a sola se
+		# move junto com a correção. Medido, uma passada só deixa 2,0 cm de
+		# afundamento contra folga de 1,5. Três passadas convergem, e a última
+		# reporta o que sobrou — se não convergir, a conferência de chão
+		# reprova, que é o comportamento certo.
+		for _volta in range(3 if por_ik else 1):
+			assentar(armature, ultimo, so_piso=por_ik)
 
 	for curva in curvas_de(acao):
 		for ponto in curva.keyframe_points:
 			ponto.interpolation = "BEZIER"
 			ponto.handle_left_type = "AUTO_CLAMPED"
 			ponto.handle_right_type = "AUTO_CLAMPED"
+
+	if por_ik:
+		antes_do_bake = acao
+		assar_para_fk(armature, ultimo)
+		desmontar_andaime(armature)
+		# **O bake cria uma acao NOVA**, mesmo com `use_current_action`. Se a
+		# antiga continuar com o nome, a nova nasce `nome.001` e todo o resto
+		# do gerador — que procura a acao pelo NOME — le a versao sem as curvas
+		# assadas. Foi o primeiro modo de falhar desta mudanca, e ele e mudo:
+		# a animacao existe, o `.glb` sai, e as pernas nao se mexem.
+		assada = armature.animation_data.action
+		if assada is not antes_do_bake:
+			bpy.data.actions.remove(antes_do_bake)
+		assada.name = nome
+		assada.use_fake_user = True
+		if assada.name != nome:
+			raise RuntimeError(
+				"a acao assada ficou com o nome `%s` em vez de `%s` — ha outra "
+				"com esse nome no arquivo" % (assada.name, nome))
 
 	bpy.ops.object.mode_set(mode="OBJECT")
 	return ultimo

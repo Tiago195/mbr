@@ -389,14 +389,13 @@ ARTICULACAO_EXIGIDA = {
 	},
 	"andando": {
 		"antebraco_D": 16.9, "antebraco_E": 16.9, "braco_D": 27.3,
-		"braco_E": 27.3, "canela_D": 39.6, "canela_E": 39.6,
-		"coxa_D": 20.4, "coxa_E": 20.4, "pe_D": 22.8,
-		"pe_E": 22.8,
+		"braco_E": 27.3, "canela_D": 38.3, "canela_E": 38.3,
+		"coxa_D": 32.9, "coxa_E": 32.9,
 	},
 	"morte": {
 		"antebraco_D": 24.2, "antebraco_E": 20.0, "braco_D": 20.4,
-		"braco_E": 18.0, "canela_D": 37.2, "canela_E": 40.8,
-		"coxa_D": 22.9, "coxa_E": 25.3, "pe_D": 18.0,
+		"braco_E": 18.0, "canela_D": 22.8, "canela_E": 25.2,
+		"coxa_D": 22.9, "coxa_E": 25.4, "pe_D": 18.0,
 		"pe_E": 20.4,
 	},
 }
