@@ -512,7 +512,9 @@ que ela existe para fechar.
 | `gerar_boneco.py` | `PASSADA_MINIMA` | 0.15 | metros que o pé apoiado tem de recuar |
 | `gerar_boneco.py` | `DESEQUILIBRIO` | 0.12 | fração de diferença tolerada entre os dois pés |
 | `gerar_boneco.py` | `APOIO_SIMPLES_MINIMO` | 0.20 | fração do ciclo em que cada pé é apoio único |
-| `gerar_boneco.py` | `QUIQUE_MAXIMO` | 0.05578 | fração da altura que o quadril sobe e desce ao andar; é o **valor medido**, e o alvo humano é 2,3 a 2,9% |
+| `gerar_boneco.py` | `QUIQUE_MAXIMO` | 0.0328 | fração da altura que o quadril sobe e desce ao andar; é o medido (3,08%) **mais uma folga de trabalho declarada** — teto colado no medido é catraca, não defesa |
+| `gerar_boneco.py` | `FOLGA_DO_QUIQUE` | 0.002 | essa folga, para o teto absorver ruído em vez de só saber dizer "não piore nem um micrômetro" |
+| `gerar_boneco.py` | `ALVO_HUMANO_DO_QUIQUE` | 0.026 | o alvo, **medido em pessoas** e não escolhido; o gerador imprime a distância até ele a cada execução |
 | `gerar_boneco.py` | `TETO_DA_TRAVESSIA_ANIMADA` | 13 | pares de face que podem se atravessar num quadro animado |
 | `conferir_boneco.py` | `ALTURA` | 1.75 | a altura que o artefato tem de ter |
 | `conferir_boneco.py` | `FOLGA_DA_ALTURA` | 0.01 | e com que folga; **é 0,04 no outro conferidor**, e a diferença é deliberada |

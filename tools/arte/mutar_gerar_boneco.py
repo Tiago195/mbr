@@ -137,15 +137,15 @@ MUTACOES = [
      [("gerador", "		coxa_E, canela_E, pe_E = em(pernas, instante + 0.5)",
        "		coxa_E, canela_E, pe_E = em(pernas, instante + 0.0)")]),
     ("o pe que balanca deixa de levantar",
-     [("gerador", "\t\t\t\t(0.625, 4, 74, -24),    # levanta: joelho no máximo, dedo acima",
-       "\t\t\t\t(0.625, 4, 6, 0),    # levanta: joelho no máximo, dedo acima")]),
+     [("gerador", "\t\t\t\t(0.700, 4, 74, -24),    # levanta: joelho no máximo, dedo acima",
+       "\t\t\t\t(0.700, 4, 6, 0),    # levanta: joelho no máximo, dedo acima")]),
     ("a passada estica e o quadril mergulha",
      [("gerador", "\t\t\t\t(0.000, -17, 2, -10),   # contato: calcanhar, perna esticada",
        "\t\t\t\t(0.000, -30, 2, -10),   # contato: calcanhar, perna esticada")]),
     ("uma chave e escrita duas vezes",
-     [("gerador", "\t\t\t\t(0.250, -2, 6, 0),      # passagem: vertical, sustentando",
-       "\t\t\t\t(0.250, -2, 6, 0),      # passagem: vertical, sustentando\n"
-       "\t\t\t\t(0.250, 40, 80, 30),")]),
+     [("gerador", "\t\t\t\t(0.300, -2, 6, 0),      # passagem: vertical, sustentando",
+       "\t\t\t\t(0.300, -2, 6, 0),      # passagem: vertical, sustentando\n"
+       "\t\t\t\t(0.300, 40, 80, 30),")]),
 
     # --- as conferencias acrescentadas na rodada do revisor adversarial ---
     # **Congelar UM braco ja era mutacao; congelar os DOIS nao era**, e era

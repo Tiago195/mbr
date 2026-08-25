@@ -870,6 +870,31 @@ def conferir(caminho: str) -> list:
 			"o `.glb` tem animacao que ninguem confere: %s — acrescente em "
 			"`ANIMACOES_EXIGIDAS` com a duracao medida" % ", ".join(sobrando))
 	medido = _ritmo_do_instantaneo()
+	# **O mapeamento tem de cobrir tudo, e o instantaneo tem de existir.**
+	#
+	# Duas conferencias falhavam ABERTAS aqui, e as duas por ausencia:
+	#
+	#   - apagar uma linha de `NOME_NO_ORIGINAL` desligava a comparacao da
+	#     duracao contra o censo. Medido pelo revisor: com o mapa intacto,
+	#     declarar `parado` em 1,37 s reprova; tirando so a linha `"parado":
+	#     "idle"`, o mesmo arquivo passa;
+	#   - e `_ritmo_do_instantaneo` engole `OSError` E `ValueError` e devolve
+	#     vazio, entao mover `data/direcao-de-arte.json` para fora fazia tres
+	#     conferencias sumirem e o arquivo imprimir "passou". Isso e verde na
+	#     maquina que tem o instantaneo e cego na que nao tem — e esta
+	#     ferramenta e vendida como a que roda em qualquer maquina.
+	sem_mapa = sorted(set(ANIMACOES_EXIGIDAS) - set(NOME_NO_ORIGINAL))
+	if sem_mapa:
+		falhas.append(
+			"as animacoes %s nao tem nome no original — a duracao delas nao e "
+			"comparada com o censo, e a conferencia aprova por ausencia"
+			% ", ".join(sem_mapa))
+	if not medido:
+		falhas.append(
+			"nao consegui ler o ritmo de `data/direcao-de-arte.json` — sem ele "
+			"a duracao de cada clipe deixa de ser comparada com o censo, e "
+			"isso some sem ruido em vez de reprovar")
+
 	for nome, (duracao, ciclo) in sorted(ANIMACOES_EXIGIDAS.items()):
 		# **A duracao declarada tem que bater com o censo, e nao so com o
 		# gerador.** Ela esta copiada a mao em dois arquivos; sem esta linha, os

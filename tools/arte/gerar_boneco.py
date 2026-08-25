@@ -1415,8 +1415,21 @@ def _ciclo_de_pernas(pernas: list, bracos: list, tronco: list) -> list:
 				        for a, d in zip(antes[1:], depois[1:])]
 		raise KeyError("o instante %.3f caiu fora da tabela" % alvo)
 
+	# **E os instantes DEFASADOS entram junto, senao o espelho nao e espelho.**
+	#
+	# O lado esquerdo le a tabela em `instante + 0,5`. Enquanto os instantes
+	# eram uniformes isso caia sempre sobre um ponto da tabela e os dois lados
+	# davam a mesma curva. Com espacamento irregular — que e o que o apoio de
+	# 60% exige — o lado esquerdo passa a cair ENTRE pontos e vira interpolado:
+	# medido, os dois pes passaram a subir 0,1524 contra 0,1803, e
+	# `DESEQUILIBRIO` reprovou. Nao era a tabela errada, era a AMOSTRAGEM.
+	#
+	# Incluindo os instantes defasados no conjunto, os dois lados voltam a cair
+	# sobre pontos exatos.
 	instantes = sorted({q for q, *_ in pernas} | {q for q, *_ in bracos}
-	                   | {q for q, *_ in tronco})
+	                   | {q for q, *_ in tronco}
+	                   | {(q + 0.5) % 1.0 for q, *_ in pernas}
+	                   | {(q + 0.5) % 1.0 for q, *_ in bracos})
 	chaves = []
 	for instante in instantes + [1.0]:
 		coxa_D, canela_D, pe_D = em(pernas, instante)
@@ -1544,8 +1557,10 @@ ANIMACOES = {
 		"passada": False,
 		# **`assentar` produz TODA a trajetoria vertical desta queda**, e isso
 		# e honesto dizer: as chaves aqui so rotacionam. Lida a fcurve de
-		# `quadril.location`, o corpo sobe 3 cm enquanto os joelhos cedem e
-		# depois desce 64 cm — nada disso esta escrito nas poses. E uma
+		# `quadril.location`, o corpo sobe alguns centimetros enquanto os
+		# joelhos cedem e depois desce mais de meio metro — nada disso esta
+		# escrito nas poses. Os dois numeros ja sairam gravados aqui e os dois
+		# erraram; quem quiser lê a fcurve. E uma
 		# ferramenta de locomocao ("sem isso, girar a perna enfia o pe no chao
 		# na passada") aplicada a uma queda.
 		#
@@ -1721,19 +1736,34 @@ ANIMACOES = {
 				# instante da troca de apoio, quando as DUAS pernas estão
 				# anguladas e portanto as duas ficam curtas. Quanto maior o
 				# ângulo, mais fundo o corpo cai ali. É geometria, não estilo.
+				# **O apoio dura 60% do ciclo, e daí sai o apoio duplo.**
+				#
+				# Com o desprendimento em 0,500 cada pé ficava no chão metade
+				# do ciclo — e como o outro lado é a defasagem de meio ciclo,
+				# os dois nunca se sobrepunham. Medido, `quadros apoiados` e
+				# `apoio SIMPLES` davam o MESMO conjunto: **zero quadros com os
+				# dois pés no chão.** Isso é a mecânica de uma corrida no tempo
+				# de uma caminhada, e nenhuma conferência via —
+				# `APOIO_SIMPLES_MINIMO` põe piso no apoio simples e é cega ao
+				# duplo ser zero. Achado do revisor adversarial.
+				#
+				# Num passo humano o apoio duplo é 20 a 25% do ciclo, e sai de
+				# cada pé ficar 60% no chão. Empurrando o desprendimento para
+				# 0,600 e comprimindo o balanço em 0,600–1,000, a sobreposição
+				# vira 2 × 10% = 20%.
 				(0.000, -17, 2, -10),   # contato: calcanhar, perna esticada
-				(0.125, -11, 10, -2),   # recebe o peso: pé assenta
+				(0.150, -11, 10, -2),   # recebe o peso: pé assenta
 				# **O joelho de apoio dobra na passagem**, e isso não é
 				# enfeite: reto, o corpo sobe ao máximo justo quando a perna
 				# fica vertical, e o quique do quadril media 0,121 m — 7% da
 				# altura, contra 4 a 5 cm de uma pessoa, 2,5 vezes demais. É o
 				# joelho que absorve, e sem ele o corpo cai e escala.
-				(0.250, -2, 6, 0),      # passagem: vertical, sustentando
-				(0.375, 8, 6, 6),       # empurra
-				(0.500, 15, 6, 14),     # desprende: calcanhar sai primeiro
-				(0.625, 4, 74, -24),    # levanta: joelho no máximo, dedo acima
-				(0.750, -10, 68, -24),  # passa por cima, ainda dobrado
-				(0.875, -19, 44, -16),  # estende, mas SEM tocar
+				(0.300, -2, 6, 0),      # passagem: vertical, sustentando
+				(0.450, 8, 6, 6),       # empurra
+				(0.600, 15, 6, 14),     # desprende: calcanhar sai primeiro
+				(0.700, 4, 74, -24),    # levanta: joelho no máximo, dedo acima
+				(0.800, -10, 68, -24),  # passa por cima, ainda dobrado
+				(0.900, -19, 44, -16),  # estende, mas SEM tocar
 			],
 			# (instante, braço, antebraço) do braço DIREITO. Ele acompanha a
 			# perna do lado OPOSTO — é o que impede o corpo de girar sobre o
@@ -1867,31 +1897,27 @@ APOIO_SIMPLES_MINIMO = 0.20
 
 ## Quanto o quadril pode subir e descer, em fração da altura.
 ##
-## **Isto é teto de REGRESSÃO, e não o alvo.** O alvo é 2,3 a 2,9% — os 4 a 5 cm
-## de uma pessoa de 1,75 m. Estamos em 5,6%, e a distância é conhecida.
+## **O alvo é 2,3 a 2,9%** — os 4 a 5 cm de uma pessoa de 1,75 m. O clipe está
+## em 3,08%, e chegou lá por um caminho que o comentário anterior dizia ser
+## impossível: ele afirmava que fechar a distância exigia "tornozelo que rola do
+## calcanhar à ponta, e bacia que gira no plano transversal". Não exigiu.
+## Exigiu **apoio mais longo**: estender a fase de apoio de 50% para 60% do
+## ciclo levou o quique de 5,58% para 3,08% de graça.
 ##
-## O que ela custa está medido: o quique não é ondulação, é um mergulho brusco
-## no instante da troca de apoio, quando as DUAS pernas estão anguladas e as
-## duas ficam curtas ao mesmo tempo. Medido quadro a quadro, o quadril ia de
-## 0,888 a 0,770 em dois quadros. Encurtar a passada de 24 para 17 graus levou
-## 7,1% a 5,6%; fechar o resto exige o que uma perna rígida não tem — tornozelo
-## que rola do calcanhar à ponta, e bacia que gira no plano transversal.
+## **E o teto tem folga de trabalho, de propósito.** Três tetos deste projeto
+## ficaram colados no valor medido — este a 3 µm, e os dois de autointerseção a
+## zero —, e o revisor adversarial nomeou o efeito: um teto que não pode
+## absorver ruído só sabe dizer "não piore nem um micrômetro", e a única saída
+## que ele deixa a quem autora o próximo clipe é subir o número. Já foi assim
+## uma vez aqui: o teto desceu de 7% para 5,58% acompanhando o clipe, não uma
+## meta.
 ##
-## O teto é o valor medido. Já foi 6,0%, e isso não era o "mesmo tratamento de
-## `TETO_DE_AUTOINTERSECAO`" que o comentário prometia: aquele é o valor exato,
-## 78 contra 78, folga zero. Teto arredondado para cima é espaço para piorar
-## sem ninguém ver.
-##
-## **E o próprio comentário violava a regra que enunciava**, achado do revisor:
-## ele dizia "sem folga — 5,6%" enquanto o medido é 5,5762%, ou seja arredondado
-## para cima justamente como ele condenava duas linhas antes. Hoje o teto é
-## 5,578%, que é o medido arredondado na QUARTA casa — 0,04 mm de folga num
-## corpo de 1,75 m, e o `.glb` sai byte a byte igual entre execuções, então nem
-## isso seria preciso.
-##
-## Ele continua reprovando a regressão que motivou a correção — a tabela de
-## pernas anterior mede 7,3%.
-QUIQUE_MAXIMO = 0.05578
+## `FOLGA_DO_QUIQUE` é essa margem, declarada. O teto é o medido mais ela, e o
+## gerador imprime a distância até o alvo humano a cada execução — para a
+## conversa ser sobre a meta e não sobre o micrômetro.
+FOLGA_DO_QUIQUE = 0.002
+ALVO_HUMANO_DO_QUIQUE = 0.026
+QUIQUE_MAXIMO = 0.0328
 
 
 def _passada(alturas: list, posicoes: list) -> tuple:
@@ -2502,8 +2528,11 @@ def main() -> int:
 					% (nome, pe, max(alturas), FOLGA_DO_CHAO))
 		if dados.get("assentar"):
 			quique = max(alturas_do_quadril) - min(alturas_do_quadril)
-			print("[boneco]     quique do quadril: %.4f m (%.4f%% da altura)"
-			      % (quique, 100.0 * quique / ALTURA))
+			print("[boneco]     quique do quadril: %.4f m (%.4f%% da altura; "
+			      "teto %.2f%%, alvo humano %.1f%%, faltam %.2f pontos)"
+			      % (quique, 100.0 * quique / ALTURA, 100.0 * QUIQUE_MAXIMO,
+			         100.0 * ALVO_HUMANO_DO_QUIQUE,
+			         100.0 * (quique / ALTURA - ALVO_HUMANO_DO_QUIQUE)))
 			# **O quique tem TETO, e ele não tinha.** `quadril anda 0,1310 m`
 			# era impresso e comparado só com o piso de amplitude, que não tem
 			# teto. Medido, o corpo subia e descia 7% da altura contra 4 a 5 cm

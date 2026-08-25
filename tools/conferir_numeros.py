@@ -1747,13 +1747,26 @@ def _quantas_mutacoes(caminho: str) -> int:
 ## De que medida de `data/direcao-de-arte.json` sai cada número do conferidor
 ## do boneco novo. `PROPORCAO_EXIGIDA` e `VAOS_EXIGIDOS` guardam ossos e vãos;
 ## o JSON guarda juntas. A correspondência é escrita uma vez, aqui.
-## Os quinze ossos do boneco novo, para `movem` (que fala de REGIAO) poder ser
-## comparado com `ARTICULACAO_EXIGIDA` (que fala de OSSO).
-OSSOS_DO_BONECO = (
-    "quadril", "peito", "cabeca",
-    "braco_D", "antebraco_D", "mao_D", "braco_E", "antebraco_E", "mao_E",
-    "coxa_D", "canela_D", "pe_D", "coxa_E", "canela_E", "pe_E",
-)
+def _ossos_do_boneco() -> list:
+    """Os ossos do boneco novo, LIDOS de `conferir_boneco.OSSOS_EXIGIDOS`.
+
+    **Isto era uma lista escrita a mao, e foi a quarta lista-espelho da serie.**
+    Depois de `ciclo`, `deitado` e `ARTICULACAO_EXIGIDA`, a correcao que amarrou
+    a terceira criou esta para poder traduzir regiao em osso — e ela mesma nao
+    era amarrada a nada. Medido pelo revisor adversarial: tirando `coxa_E`
+    daqui E da tabela do conferidor, e congelando o canal dela dentro do `.glb`,
+    uma caminhada arrastando a perna passava nas duas ferramentas. A contagem
+    caia de 603 para 601 afirmacoes, e o piso publicado e 403 — ninguem via.
+
+    A lista existe em dois lugares que ja sao lidos aqui. Derivar de um deles
+    custa quatro linhas e fecha a classe em vez do caso.
+    """
+    caminho = os.path.join(RAIZ, "tools", "arte", "conferir_boneco.py")
+    with open(caminho, encoding="utf-8") as arquivo:
+        trecho = re.search(r"^OSSOS_EXIGIDOS = \[(.*?)^\]", arquivo.read(),
+                           re.S | re.M)
+    return re.findall(r'"(\w+)"', trecho.group(1)) if trecho else []
+
 
 DE_ONDE_SAI_A_PROPORCAO = {
     "pe_D": "tornozelo",
@@ -1904,6 +1917,15 @@ def _conferir_os_quadros_do_boneco(c: "Conferencia") -> None:
     for nome in sorted(quadros):
         c.afirma("CLAUDE.md quadros de `%s`" % nome, claude,
                  r"`%s` (\d+)[,)]" % nome, quadros[nome])
+
+
+def _fracao_do_piso() -> float:
+    """`FRACAO_DO_PISO` lida do conferidor, para ela decidir de verdade."""
+    caminho = os.path.join(RAIZ, "tools", "arte", "conferir_boneco.py")
+    with open(caminho, encoding="utf-8") as arquivo:
+        achado = re.search(r"^FRACAO_DO_PISO = ([0-9.]+)$",
+                           arquivo.read(), re.M)
+    return float(achado.group(1)) if achado else 0.0
 
 
 def articulacao_do_artefato(clipe: str) -> dict:
@@ -2089,12 +2111,18 @@ def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
                 "`movem` cobre %s e `ARTICULACAO_EXIGIDA` cobre %s"
                 % (sorted(movem_do_gerador), sorted(exigida)))
         else:
+            ossos_do_boneco = _ossos_do_boneco()
+            c.contar()
+            if len(ossos_do_boneco) != 15:
+                c.falhas.append(
+                    "li %d ossos de `OSSOS_EXIGIDOS` e o boneco tem 15 — a "
+                    "traducao regiao->osso ficou orfa" % len(ossos_do_boneco))
             for nome in sorted(movem_do_gerador):
                 # Cada regiao de `movem` vira os ossos dela: `coxa` ->
                 # `coxa_D`, `coxa_E`; `cabeca` -> `cabeca`.
                 esperado = set()
                 for regiao in movem_do_gerador[nome]:
-                    pares = {o for o in OSSOS_DO_BONECO
+                    pares = {o for o in ossos_do_boneco
                              if o == regiao or o[:-2] == regiao}
                     esperado |= pares or {regiao}
                 c.contar()
@@ -2112,6 +2140,7 @@ def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
                     # ele existe para fechar. Entre 40% e 100% do medido,
                     # os dois lados fecham.
                     medidos = articulacao_do_artefato(nome)
+                    fracao = _fracao_do_piso()
                     for osso in sorted(exigida[nome]):
                         c.contar()
                         real = medidos.get(osso)
@@ -2120,12 +2149,21 @@ def _conferir_os_nomes_do_boneco(c: "Conferencia") -> None:
                                 "o `.glb` nao tem `%s` em `%s` — o piso "
                                 "de regressao dele ficou orfao"
                                 % (osso, nome))
-                        elif not (0.4 * real <= exigida[nome][osso] <= real):
+                        # A faixa sai de `FRACAO_DO_PISO`, e nao de um
+                        # literal: ela era declarada no §9 como se
+                        # decidisse algo e nao era lida por ninguem —
+                        # baixa-la para 0,01 nao mudava nada. Constante
+                        # morta declarada como limiar e pior que nao
+                        # declarada, porque le como defesa.
+                        elif not (0.8 * fracao * real
+                                  <= exigida[nome][osso]
+                                  <= 1.2 * fracao * real):
                             c.falhas.append(
                                 "o piso de `%s` em `%s` e %.1f e o clipe "
-                                "faz %.2f — ele tem de ficar entre 40%% e "
-                                "100%% do medido, senao deixa de guardar"
-                                % (osso, nome, exigida[nome][osso], real))
+                                "faz %.2f — ele tem de ser %.0f%% disso, "
+                                "com 20%% de folga, senao deixa de guardar"
+                                % (osso, nome, exigida[nome][osso], real,
+                                   100.0 * fracao))
 
     exigidos = set(re.findall(
         r'^\t"(\w+)": \(', re.search(
