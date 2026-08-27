@@ -410,6 +410,12 @@ SONDAS = [
      "todos os campeões trocaram e conjuraram sem erro"),
     ("sonda de ritmo", "res://tools/sondar_ritmo.gd",
      "o ataque básico respeita a cadência"),
+    # A do modelo padrão (decisão 25): o apelido de clipe é camada que nenhuma
+    # outra ferramenta roda, e um nome errado em `NO_KAYKIT` seria exatamente o
+    # defeito que deixou o jogo pedindo oito clipes inexistentes — `tocar`
+    # devolvendo `false` calado.
+    ("sonda do modelo padrão", "res://tools/sondar_kaykit.gd",
+     "o modelo padrão fala o vocabulário inteiro"),
 ]
 
 
@@ -2402,6 +2408,143 @@ def _conferir_o_boneco_novo(c: "Conferencia") -> None:
         c.falhas.append("o `arte/boneco.glb` commitado reprova: %s" % motivo)
 
 
+def _conferir_o_modelo_kaykit(c: "Conferencia") -> None:
+    """O modelo padrão do jogo (decisão 25) — conferível SEM a engine.
+
+    A sonda `sondar_kaykit.gd` prova em execução que cada verbo toca; esta
+    função prova, em Python puro sobre o `.glb` commitado, que as afirmações
+    escritas continuam verdadeiras: o mapa `NO_KAYKIT` só cita clipes que
+    existem, verbos que dividem clipe concordam sobre ser ciclo (o loop mora
+    no recurso compartilhado), e os números que a decisão 25 publica — clipes,
+    ossos, escala — são os do arquivo e do código, não os da memória de quem
+    escreveu.
+    """
+    c.contar()
+    caminho = os.path.join(RAIZ, "arte", "kaykit", "Knight.glb")
+    if not os.path.exists(caminho):
+        c.falhas.append("não achei `arte/kaykit/Knight.glb` — o modelo padrão")
+        return
+    if not os.path.exists(os.path.join(RAIZ, "arte", "kaykit", "LICENSE.txt")):
+        c.falhas.append(
+            "`arte/kaykit/` está sem o `LICENSE.txt` — asset de terceiro "
+            "viaja com a licença ao lado, CC0 inclusive"
+        )
+    try:
+        cabecalho = _cabecalho_do_glb("arte/kaykit/Knight.glb")
+    except (OSError, ValueError) as erro:
+        c.falhas.append("não consegui ler `Knight.glb`: %s" % erro)
+        return
+    clipes_do_glb = {a.get("name", "") for a in cabecalho.get("animations", [])}
+    peles = cabecalho.get("skins", [])
+    ossos_do_glb = len(peles[0].get("joints", [])) if peles else 0
+
+    boneco = ler("scripts/gameplay/boneco.gd")
+    vocabulario = ler("scripts/gameplay/vocabulario_de_animacao.gd")
+    decisao = ler("docs/02-decisoes-tecnicas.md")
+
+    # O jogo aponta para o arquivo conferido aqui — sem isto, tudo abaixo
+    # conferiria um modelo que ninguém carrega, que é a ferida original.
+    c.contar()
+    padrao = re.search(r'@export var modelo: String = "([^"]+)"', boneco)
+    if not padrao:
+        c.falhas.append("não achei o `modelo` padrão em `boneco.gd`")
+    elif padrao.group(1) != "res://arte/kaykit/Knight.glb":
+        c.falhas.append(
+            "`Boneco.modelo` aponta para `%s` e esta conferência lê "
+            "`arte/kaykit/Knight.glb`" % padrao.group(1)
+        )
+
+    # O mapa NO_KAYKIT: todo verbo de TODOS tem entrada, e toda entrada cita
+    # um clipe que EXISTE no `.glb`. Um nome errado aqui é `tocar` devolvendo
+    # `false` calado — o defeito da lição 9, na camada nova.
+    constantes = dict(re.findall(
+        r'const (\w+): StringName = &"(\w+)"', vocabulario))
+    bloco = re.search(
+        r"const NO_KAYKIT: Dictionary = \{(.*?)\n\}", vocabulario, re.S)
+    todos = re.search(
+        r"const TODOS: Array\[StringName\] = \[(.*?)\]", vocabulario, re.S)
+    ciclos = re.search(
+        r"const CICLOS: Array\[StringName\] = \[(.*?)\]", vocabulario, re.S)
+    c.contar()
+    if not bloco or not todos or not ciclos or not constantes:
+        c.falhas.append(
+            "não achei `NO_KAYKIT`, `TODOS`, `CICLOS` ou as constantes em "
+            "`vocabulario_de_animacao.gd` — conferência órfã"
+        )
+        return
+    mapa = dict(re.findall(r'(\w+): &"([^"]+)"', bloco.group(1)))
+    nomes_todos = re.findall(r"\b([A-Z][A-Z_]+)\b", todos.group(1))
+    nomes_ciclos = set(re.findall(r"\b([A-Z][A-Z_]+)\b", ciclos.group(1)))
+    for nome in nomes_todos:
+        c.contar()
+        if nome not in mapa:
+            c.falhas.append("`NO_KAYKIT` não verte o verbo `%s`" % nome)
+        elif mapa[nome] not in clipes_do_glb:
+            c.falhas.append(
+                "`NO_KAYKIT` manda `%s` tocar `%s`, que não existe no "
+                "`Knight.glb`" % (nome, mapa[nome])
+            )
+    # Verbos que dividem o clipe concordam sobre ser ciclo.
+    por_clipe: dict = {}
+    for nome, clipe in mapa.items():
+        por_clipe.setdefault(clipe, []).append(nome)
+    for clipe, donos in sorted(por_clipe.items()):
+        c.contar()
+        em_ciclo = {nome for nome in donos if nome in nomes_ciclos}
+        if em_ciclo and len(em_ciclo) != len(donos):
+            c.falhas.append(
+                "os verbos %s dividem o clipe `%s` e discordam sobre ser "
+                "ciclo — o loop mora no recurso compartilhado e o segundo a "
+                "escrever vence em silêncio" % (sorted(donos), clipe)
+            )
+
+    # Os números que a decisão 25 publica são os do arquivo e do código.
+    c.contar()
+    publicado = re.search(
+        r"rigados \((\d+) ossos.*?com (\d+)\s+clipes embutidos", decisao, re.S)
+    if not publicado:
+        c.falhas.append(
+            "não achei 'rigados (N ossos ... com N clipes embutidos' na "
+            "decisão 25 — conferência órfã"
+        )
+    else:
+        if int(publicado.group(1)) != ossos_do_glb:
+            c.falhas.append(
+                "a decisão 25 publica %s ossos e o `Knight.glb` tem %d"
+                % (publicado.group(1), ossos_do_glb)
+            )
+        if int(publicado.group(2)) != len(clipes_do_glb):
+            c.falhas.append(
+                "a decisão 25 publica %s clipes e o `Knight.glb` tem %d"
+                % (publicado.group(2), len(clipes_do_glb))
+            )
+    c.contar()
+    escala = re.search(
+        r"@export var escala_do_modelo: float = ([\d.]+)", boneco)
+    conta = re.search(
+        r"autorado com ([\d]+,[\d]+) m e entra com escala 0?,?([\d]+)",
+        decisao)
+    if not escala or not conta:
+        c.falhas.append(
+            "não achei a escala em `boneco.gd` ou a frase 'autorado com X m "
+            "e entra com escala Y' na decisão 25 — conferência órfã"
+        )
+    else:
+        altura_autorada = float(conta.group(1).replace(",", "."))
+        no_codigo = float(escala.group(1))
+        no_documento = float("0." + conta.group(2))
+        if abs(no_codigo - no_documento) > 1e-3:
+            c.falhas.append(
+                "a decisão 25 publica escala %.3f e `boneco.gd` usa %.3f"
+                % (no_documento, no_codigo)
+            )
+        if abs(no_codigo - 1.75 / altura_autorada) > 1e-3:
+            c.falhas.append(
+                "a escala %.3f não é 1,75 / %.3f — ou a altura autorada ou a "
+                "escala envelheceu" % (no_codigo, altura_autorada)
+            )
+
+
 def _conferir_as_mutacoes(c: "Conferencia") -> None:
     """O `CLAUDE.md` publica quantas mutações existem; elas têm que existir.
 
@@ -4172,6 +4315,7 @@ def main() -> int:
     _conferir_a_esbeltez(c)
     _conferir_as_mutacoes(c)
     _conferir_o_boneco_novo(c)
+    _conferir_o_modelo_kaykit(c)
     _conferir_as_folgas_do_boneco(c)
     _conferir_o_artefato_do_boneco(c)
     _conferir_os_nomes_do_boneco(c)

@@ -201,15 +201,15 @@ func _conferir_a_frente(corpo: Node3D) -> Array[String]:
 				soma_do_rosto += ponto
 				pontos_do_rosto += 1
 
-	# **Sumiu o material, REPROVA.** Uma conferência cujo alvo ficou órfão e que
-	# trata "não achei" como aprovação é pior que nenhuma: ela desliga sozinha
-	# quando alguém renomeia uma constante, e em silêncio.
+	# **Sumiu o material, muda de instrumento — e sem instrumento REPROVA.**
+	# Uma conferência cujo alvo ficou órfão e que trata "não achei" como
+	# aprovação é pior que nenhuma. O modelo padrão desde a decisão 25 é um
+	# asset do KayKit, que não tem o material `rosto` do nosso gerador; para
+	# ele a frente é medida pelos DEDOS DOS PÉS, que em qualquer humanoide
+	# apontam para onde o rosto olha. Só quando nem material nem ossos de pé
+	# existem é que não há medida — e aí é reprovação, não aprovação.
 	if pontos_do_rosto == 0 or pontos_do_corpo == 0:
-		return [
-			"a frente do boneco: o corpo exportado não tem o material `%s` — "
-			% MATERIAL_DO_ROSTO
-			+ "sem ele não há como saber de que lado é a cara"
-		] as Array[String]
+		return _conferir_a_frente_pelos_pes(corpo, esqueleto)
 
 	# A malha nasce em repouso e o esqueleto está na pose de vínculo, então a
 	# transformação do esqueleto leva vértice local a ponto de mundo.
@@ -230,6 +230,65 @@ func _conferir_a_frente(corpo: Node3D) -> Array[String]:
 			+ "Godot é -Z; a exportação glTF do Blender entrega o rosto em +Z. "
 			+ "Quem converte é `Boneco.giro_do_modelo`.") % [
 				adiante, ROSTO_ADIANTE_MINIMO,
+			]
+		] as Array[String]
+	return [] as Array[String]
+
+
+## Os pares calcanhar → dedos do esqueleto do KayKit.
+const OSSOS_DO_PE: Array = [["foot.l", "toes.l"], ["foot.r", "toes.r"]]
+
+## Quanto o dedo tem que estar À FRENTE do calcanhar, em metros.
+##
+## Medido no Knight em escala de jogo: +0,082 m na média dos dois pés — é a
+## linha que esta sonda imprime. O piso fica em pouco mais de metade, pela
+## mesma régua do rosto: frouxo aprova torto, apertado reprova quando o pé
+## encurtar. Zerar `Boneco.giro_do_modelo` dá -0,082 e reprova.
+const DEDO_ADIANTE_MINIMO: float = 0.05
+
+## A frente medida pelos PÉS, para modelo sem o material `rosto`.
+##
+## A mesma projeção do rosto — um produto escalar sobre o `-basis.z` do corpo,
+## nunca uma lista de eixos —, trocando o instrumento: em qualquer humanoide o
+## dedo do pé fica à frente do calcanhar, no eixo para onde o rosto olha. Os
+## dois pés entram na média para um pé aberto não decidir sozinho.
+func _conferir_a_frente_pelos_pes(
+		corpo: Node3D, esqueleto: Skeleton3D
+) -> Array[String]:
+	var frente: Vector3 = -corpo.global_transform.basis.z
+	if frente.length_squared() <= 0.000001:
+		return ["a frente do boneco: o corpo não tem orientação"] as Array[String]
+	var mundo: Transform3D = esqueleto.global_transform
+	var soma: float = 0.0
+	var pares: int = 0
+	for par: Array in OSSOS_DO_PE:
+		var pe: int = esqueleto.find_bone(par[0])
+		var dedo: int = esqueleto.find_bone(par[1])
+		if pe < 0 or dedo < 0:
+			continue
+		var avanco: Vector3 = (
+			mundo * esqueleto.get_bone_global_rest(dedo).origin
+			- mundo * esqueleto.get_bone_global_rest(pe).origin
+		)
+		soma += avanco.dot(frente.normalized())
+		pares += 1
+	if pares == 0:
+		return [
+			("a frente do boneco: o modelo não tem o material `%s` nem os "
+			+ "ossos de pé %s — sem instrumento não há como saber de que "
+			+ "lado é a cara") % [MATERIAL_DO_ROSTO, str(OSSOS_DO_PE)]
+		] as Array[String]
+	var adiante: float = soma / float(pares)
+	print("  os dedos do pé estão %+.3f m à frente do calcanhar (piso %+.3f)" % [
+		adiante, DEDO_ADIANTE_MINIMO,
+	])
+	if adiante < DEDO_ADIANTE_MINIMO:
+		return [
+			("a frente do boneco: os dedos do pé estão %+.3f m à frente do "
+			+ "calcanhar, e o piso é %+.3f — o personagem anda DE COSTAS. "
+			+ "A frente de um nó na Godot é -Z; a exportação glTF entrega a "
+			+ "frente em +Z. Quem converte é `Boneco.giro_do_modelo`.") % [
+				adiante, DEDO_ADIANTE_MINIMO,
 			]
 		] as Array[String]
 	return [] as Array[String]

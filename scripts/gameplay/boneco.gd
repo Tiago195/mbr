@@ -44,7 +44,42 @@ extends Node3D
 ##
 ## Um caminho, e não um `PackedScene`: assim o projeto continua abrindo numa
 ## máquina onde o arquivo não foi gerado — cai no corpo de caixas e segue.
-@export var modelo: String = "res://arte/personagem.glb"
+##
+## **Desde a decisão 25 o padrão é o Knight do KayKit** (`arte/kaykit/`, CC0,
+## rastreado): asset com esqueleto de 41 ossos e 75 clipes próprios, que
+## `_apelidar_clipes` verte para o nosso vocabulário. `arte/personagem.glb`
+## continua existindo — é o reserva declarado em `reservas` e o que as
+## ferramentas de arte continuam conferindo.
+@export var modelo: String = "res://arte/kaykit/Knight.glb"
+
+## Caminhos tentados quando `modelo` não existe, na ordem. O gerado por script
+## vem primeiro porque é o único que uma máquina sem o repositório completo
+## consegue reproduzir sozinha.
+@export var reservas: PackedStringArray = PackedStringArray([
+	"res://arte/personagem.glb",
+])
+
+## Quanto multiplicar o modelo padrão. **1,75 / 2,467 — não é gosto.**
+##
+## O Knight é autorado com 2,467 m do pé ao topo do elmo (medido por
+## `tools/sondar_kaykit.gd`, que reprova corpo fora de 1,2–2,4 m), e a nossa
+## direção de arte manda 1,75 m (§2 de `docs/11` — é a altura de
+## `arte/personagem.glb`, e a que o alcance das habilidades e a câmera já
+## assumem). A escala não mexe nos pés: a origem do modelo é o chão.
+@export var escala_do_modelo: float = 0.709
+
+## Malhas do modelo a esconder ao carregar.
+##
+## O `.glb` do KayKit traz TODAS as opções de empunhadura como malhas irmãs —
+## duas espadas, quatro escudos e uma arma de mão inversa, todas visíveis ao
+## mesmo tempo. São opções de encaixe, não equipamento: quem decide o que a
+## mão segura é o jogo, no dia em que houver itens. Até lá fica a espada de
+## uma mão, porque personagem de mão vazia num jogo de luta lê como alvo, não
+## como combatente.
+@export var malhas_ocultas: PackedStringArray = PackedStringArray([
+	"2H_Sword", "Spike_Shield", "Round_Shield", "Rectangle_Shield",
+	"Badge_Shield", "1H_Sword_Offhand",
+])
 
 ## Meia volta, para a frente do modelo bater com a frente da Godot.
 ##
@@ -152,12 +187,19 @@ func _ready() -> void:
 ## sendo o corpo (`-basis.z`, em `combatant.gd` e em `player.gd`). O que gira é
 ## só a malha, dentro dele.
 func _montar_modelo() -> bool:
-	if modelo == "" or not ResourceLoader.exists(modelo):
-		return false
-	var recurso: Resource = load(modelo)
+	var caminho: String = modelo
+	if caminho == "" or not ResourceLoader.exists(caminho):
+		caminho = ""
+		for reserva: String in reservas:
+			if ResourceLoader.exists(reserva):
+				caminho = reserva
+				break
+		if caminho == "":
+			return false
+	var recurso: Resource = load(caminho)
 	var empacotada: PackedScene = recurso as PackedScene
 	if empacotada == null:
-		push_warning("Boneco: '%s' não é uma cena." % modelo)
+		push_warning("Boneco: '%s' não é uma cena." % caminho)
 		return false
 	var cena: Node3D = empacotada.instantiate() as Node3D
 	if cena == null:
@@ -165,14 +207,61 @@ func _montar_modelo() -> bool:
 	add_child(cena)
 	cena.position = Vector3(0.0, -pes_abaixo_do_centro, 0.0)
 	cena.rotation_degrees = giro_do_modelo
+	# A escala é DO MODELO PADRÃO. O reserva (`arte/personagem.glb`) já nasce
+	# na altura da direção de arte e entra sem correção — escalá-lo junto o
+	# encolheria para 1,24 m em silêncio.
+	if caminho == modelo:
+		cena.scale = Vector3.ONE * escala_do_modelo
+	_esconder_opcoes_de_empunhadura(cena)
 	_animador = _achar_animador(cena)
 	_esqueleto = _achar_esqueleto(cena)
+	_apelidar_clipes()
 	_fechar_os_ciclos()
 	if _animador == null or _esqueleto == null:
 		push_warning(
-			"Boneco: '%s' carregou sem esqueleto ou sem AnimationPlayer." % modelo
+			"Boneco: '%s' carregou sem esqueleto ou sem AnimationPlayer." % caminho
 		)
 	return true
+
+## Esconde as malhas listadas em `malhas_ocultas`, onde estiverem.
+##
+## Por NOME e não por caminho: o `.glb` do KayKit pendura as opções de
+## empunhadura em nós de encaixe fundos na árvore, e o caminho mudaria com
+## qualquer reexportação do pack. Nome que não existe não é erro — o reserva
+## não tem malha nenhuma dessas, e a lista é do modelo padrão.
+func _esconder_opcoes_de_empunhadura(cena: Node) -> void:
+	var fila: Array[Node] = [cena]
+	while not fila.is_empty():
+		var no: Node = fila.pop_back()
+		fila.append_array(no.get_children())
+		if no is MeshInstance3D and malhas_ocultas.has(no.name):
+			(no as MeshInstance3D).visible = false
+
+## Registra cada clipe do pack também sob o nome do NOSSO vocabulário.
+##
+## O jogo inteiro pede `parado`, `correndo`, `estocada` — e o modelo do KayKit
+## traz `Idle`, `Running_A`, `1H_Melee_Attack_Stab`. A tabela é
+## `VocabularioDeAnimacao.NO_KAYKIT`, e o registro é um APELIDO, não uma
+## cópia: o mesmo `Animation` entra na biblioteca sob os dois nomes, então
+## vários verbos podem dividir um clipe sem duplicar dado nenhum.
+##
+## Só apelida o que FALTA: num modelo que já fala o vocabulário — o
+## `personagem.glb` gerado — nenhum nome falta e isto é um laço vazio. E clipe
+## do pack que não existir não vira apelido: `tocar` reclama do nome ausente,
+## que é o comportamento conferido de quem pede o que não há.
+func _apelidar_clipes() -> void:
+	if _animador == null:
+		return
+	for nosso: StringName in VocabularioDeAnimacao.NO_KAYKIT:
+		if _animador.has_animation(nosso):
+			continue
+		var deles: StringName = VocabularioDeAnimacao.NO_KAYKIT[nosso]
+		if not _animador.has_animation(deles):
+			continue
+		var biblioteca: AnimationLibrary = _animador.get_animation_library(
+			_animador.find_animation_library(_animador.get_animation(deles))
+		)
+		biblioteca.add_animation(nosso, _animador.get_animation(deles))
 
 ## Carrega as malhas do andaime, se existirem. Devolve se alguma entrou.
 ##

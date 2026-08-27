@@ -215,14 +215,42 @@ design dos sistemas. Vale o que valer o argumento — discuta, não obedeça.
 
 ## Estado atual
 
-> Última atualização: **24/08/2026**. Repositório em `github.com:Tiago195/mbr`,
+> Última atualização: **26/08/2026**. Repositório em `github.com:Tiago195/mbr`,
 > branch `master`. **478 testes, 1304 asserções**, todos verdes, stderr limpo.
 
 ### Onde parar de ler e começar a trabalhar
 
 > **PARE AQUI E LEIA.** Esta seção é o ponto de partida da próxima sessão.
 
-### O que esta sessão fez, e o buraco que ela achou primeiro
+### 26/08/2026: o boneco do jogo virou um asset CC0 — decisão 25
+
+O usuário, vendo o custo da geração por script (*"nesse ritimo vai demorar
+quase 1~2 anos"*), pediu pesquisa extensa sobre como gamedevs usam IA para
+personagem e animação. Quatro varreduras depois, o achado central: **autorar
+malha, rig e clipes por `bpy` não tem precedente encontrado como pipeline de
+produção** — a comunidade usa script para exportar e VALIDAR, e resolve
+personagem chibi rigado com biblioteca CC0. IA não muda isso em 2026: auto-rig
+colapsa nas juntas, Mixamo está sem manutenção, mocap falha nos pés.
+
+O que mudou (tudo na decisão 25 de `docs/02`): o jogo carrega
+`arte/kaykit/Knight.glb` (CC0, 41 ossos, 76 clipes embutidos, escala 0,709
+para 1,75 m), `VocabularioDeAnimacao.NO_KAYKIT` verte os nossos verbos para os
+clipes dele por APELIDO na `AnimationLibrary`, e `tools/sondar_kaykit.gd` +
+`_conferir_o_modelo_kaykit` em `conferir_numeros.py` conferem — com três
+mutações pegas no dia do nascimento. Os geradores e as suítes de mutação deles
+FICAM, como instrumento e reserva.
+
+O usuário viu e recusou as alternativas de elenco (styloo, VRoid, packs pagos):
+*"n gostei de nenhum, vamos voltar aos kaykit por enquanto!"* — o "por
+enquanto" é literal, a identidade anime-chibi fica para a fase de arte.
+
+**Atenção: a sessão "Boneco de teste do projeto mbr" trabalha em paralelo**
+no gerador (`gerar_boneco.py`) e deixou o HEAD com 4 números discordando de
+`docs/11` (`conferir_numeros.py` os lista). São dela; esta sessão não os
+tocou de propósito — duas sessões editando o mesmo arquivo é conflito, e o
+trabalho dela agora é instrumento, não bloqueio.
+
+### O que a sessão de 24/08 fez, e o buraco que ela achou primeiro
 
 **`arte/personagem.glb` era gerado, conferido, rastreado — e o jogo não o
 carregava.** `Boneco` montava o corpo de caixas, e os nomes que a camada de
@@ -288,14 +316,20 @@ esperando ser ligado.
 validou a telegrafia, a carga de suprema e o ritmo do reset de auto-ataque
 (*"bom, melhorou"*). Falta ele ver:
 
-1. **a perseguição da âncora e a corrente de combo** — as duas são sensação de
+1. **o Knight do KayKit em jogo** (decisão 25, 26/08/2026): andar, correr,
+   golpear, conjurar, apanhar, morrer — o corpo agora toca clipes de verdade
+   de um asset CC0, e Home e End percorrem o vocabulário. A sonda sabe que
+   cada verbo toca; não sabe se LÊ bem na câmera do jogo, nem se a frente,
+   a escala e a espada convencem;
+2. **a perseguição da âncora e a corrente de combo** — as duas são sensação de
    jogo, e as sondas sabem que não quebrou, não que ficou bom;
-2. **os 25 clipes de `arte/personagem.glb`**, com Home e End. As sondas
+3. **os 25 clipes de `arte/personagem.glb`**, com Home e End — carregável de
+   volta esvaziando `Boneco.modelo` no Inspector (ele é o reserva). As sondas
    conferem que cada um existe, dura o que a direção de arte manda, fecha o
    ciclo, mantém o pé no chão e é tocado pelo evento certo. Nenhuma delas sabe
    se a silhueta diz o que a animação é — que é o item 7 do §10, e o único que
    não se automatiza;
-3. **os três clipes de `arte/boneco.glb`** — `parado`, `andando` e `morte`. Ele
+4. **os três clipes de `arte/boneco.glb`** — `parado`, `andando` e `morte`. Ele
    ainda não tem consumidor no jogo, então isto é olhar no Blender, não jogar.
    O que nenhuma ferramenta mede: **a pintura sai rasgada** em degraus de face
    nos ombros, no peito e na virilha, e o `rosto` é um retângulo chapado de
@@ -309,7 +343,7 @@ validou a telegrafia, a carga de suprema e o ritmo do reset de auto-ataque
 
 É a lista completa do que falta de olho humano; não há outra.
 
-**O item 3 nasceu de uma reprovação adversarial**, e a lição é sobre esta lista
+**O item 4 nasceu de uma reprovação adversarial**, e a lição é sobre esta lista
 e não sobre o boneco: um clipe novo entrou no repositório e não entrou aqui,
 numa seção que afirma de si mesma ser completa. Lista que se declara completa e
 não é conferida por nada é a mesma classe de "documentação discordando de si
@@ -505,8 +539,14 @@ classe e deixou passar a perda de 27 conferências.
 godot --headless --path . --script res://tests/run_tests.gd
 godot --headless --path . --script res://tools/sondar_campeoes.gd
 godot --headless --path . --script res://tools/sondar_ritmo.gd
+godot --headless --path . --script res://tools/sondar_kaykit.gd
 py tools/conferir_numeros.py
 ```
+
+A quarta é da decisão 25: confere que o **modelo padrão do jogo**
+(`arte/kaykit/Knight.glb`) fala o vocabulário inteiro — presença, duração,
+ciclo e altura — porque o apelido de clipe é camada que nenhuma das outras
+roda.
 
 E, para o boneco e a direção de arte, mais duas — que precisam do **Blender**,
 não da Godot:
@@ -522,8 +562,10 @@ publicam os artefatos se ele passar. A terceira mede o original e regrava
 `data/direcao-de-arte.json`; ela só funciona onde a instalação da Steam
 existir, e sem ela sai com 2 — que é diferente de reprovar.
 
-**São DOIS bonecos, e é preciso saber qual é qual.** `gerar_personagem.py` faz
-`arte/personagem.glb`, que é o que o jogo carrega hoje: cápsulas e caixas, com
+**São DOIS bonecos gerados, e desde a decisão 25 NENHUM deles é o que o jogo
+carrega** — o modelo padrão é `arte/kaykit/Knight.glb` (asset CC0), e
+`arte/personagem.glb` é o reserva declarado em `Boneco.reservas`.
+`gerar_personagem.py` faz `arte/personagem.glb`: cápsulas e caixas, com
 os 25 clipes do vocabulário universal. `gerar_boneco.py` faz `arte/boneco.glb`,
 o boneco novo — malha contínua por Skin Modifier, na proporção medida, com
 `parado`, `andando` e `morte`. **Ele ainda não tem consumidor**: nada na camada de jogo
@@ -610,10 +652,10 @@ corrompe as duas. `mutar_gerar_boneco.py` planta a trava `.mutacao-em-curso`
 enquanto roda, e **enquanto ela existe o repositório está mutado** — não editar
 arquivo nenhum do projeto até ela sair.
 
-São **quatro**, e `py tools/conferir_numeros.py` sozinho já roda os três
-primeiros: ele executa a suíte E as duas sondas, e trata `SCRIPT ERROR` no
+São **cinco**, e `py tools/conferir_numeros.py` sozinho já roda os quatro
+primeiros: ele executa a suíte E as três sondas, e trata `SCRIPT ERROR` no
 stderr, código de saída e ausência da marca de sucesso como falha. Rodar os
-quatro à mão continua valendo quando se quer ler a saída de um deles.
+cinco à mão continua valendo quando se quer ler a saída de um deles.
 
 **E ele confere `arte/boneco.glb` também**, chamando `conferir_boneco.conferir`
 sobre o artefato commitado. Antes disso, um `grep` por `gerar_boneco` ou

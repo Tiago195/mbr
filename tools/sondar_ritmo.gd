@@ -315,6 +315,36 @@ func _conferir_vocabulario(
 	jogador.set("_target", null)
 	jogador.set("target_position", jogador.global_position)
 	jogador.velocity = Vector3.ZERO
+
+	# **Primeiro o gesto da conferência anterior tem que SOLTAR o corpo.**
+	# O gesto dura o que o clipe dura, e o clipe é do modelo — quando o
+	# vocabulário passou a apelidar os clipes do KayKit (decisão 25), o giro
+	# ficou mais longo que os 4 quadros que se esperava aqui, e `parado` e
+	# `levou_dano` reprovavam com o corpo ainda LEGITIMAMENTE preso ao gesto:
+	# a reação cede a conjuração por prioridade de desenho, de propósito.
+	# Esperar um número fixo de quadros era depender do comprimento do clipe.
+	# O teto continua sendo reprovação: gesto que nunca solta é defeito real.
+	var gesto_da_cena: Node = null
+	for filho: Node in jogador.get_children():
+		if filho.get_script() != null and (
+				filho.get_script() as Script
+		).resource_path.ends_with("gesto_de_conjuracao.gd"):
+			gesto_da_cena = filho
+	var soltou: bool = true
+	if gesto_da_cena != null:
+		soltou = false
+		for _passo: int in 600:
+			if not bool(gesto_da_cena.call("esta_gesticulando")):
+				soltou = true
+				break
+			await physics_frame
+			await process_frame
+	if not soltou:
+		falhas.append(
+			"o gesto de conjuração não soltou o corpo em 10 s; "
+			+ "as conferências de evento não têm como rodar"
+		)
+		return falhas
 	for _passo: int in 4:
 		await physics_frame
 		await process_frame

@@ -224,6 +224,53 @@ const GESTOS: Array[StringName] = [
 	ESTOCADA, GIRO, SALTO, ERGUER, PREPARO,
 ]
 
+## O nome que cada verbo nosso tem no pack do KayKit (`arte/kaykit/`).
+##
+## **É a mesma espécie de tabela que `NO_ORIGINAL`**: o boneco deixou de ser
+## gerado por script (decisão 25) e passou a ser um asset CC0 com 75 clipes
+## próprios; o jogo continua falando o vocabulário daqui, e quem verte é
+## `Boneco._apelidar_clipes`, registrando cada clipe também sob o nosso nome.
+##
+## Vários verbos apontam para o MESMO clipe, e isso é a regra do §3 de
+## `docs/11` (mesma forma divide o gesto) aplicada ao que o pack tem: comer e
+## beber são `Use_Item`, as duas montarias são o sentado, e os três arremessos
+## são `Throw` enquanto não houver camada que separe tronco de pernas.
+##
+## Cuidado herdado de `CICLOS`: verbos que dividem clipe precisam CONCORDAR
+## sobre ser ciclo — o loop é gravado no recurso compartilhado, e um par
+## discordante faria um verbo herdar o loop do outro em silêncio.
+## `tools/conferir_numeros.py` confere isso.
+const NO_KAYKIT: Dictionary = {
+	PARADO: &"Idle",
+	ANDANDO: &"Walking_A",
+	CORRENDO: &"Running_A",
+	LEVOU_DANO: &"Hit_A",
+	# Tontura não existe no pack; apanhar em ciclo é o substituto legível.
+	ATORDOADO: &"Hit_B",
+	MORTE: &"Death_A",
+	CAIDO: &"Lie_Idle",
+	# Rastejar não existe no pack; deitado respirando é o que há.
+	RASTEJANDO: &"Lie_Idle",
+	COLHENDO: &"Interact",
+	PEGANDO: &"PickUp",
+	# Corte HORIZONTAL e mineração VERTICAL, como o §3 separa os dois.
+	CORTANDO: &"1H_Melee_Attack_Slice_Horizontal",
+	MINERANDO: &"2H_Melee_Attack_Chop",
+	COMENDO: &"Use_Item",
+	BEBENDO: &"Use_Item",
+	OPERANDO: &"Interact",
+	ARREMESSO: &"Throw",
+	ARREMESSO_A_FRENTE: &"Throw",
+	ARREMESSO_ATRAS: &"Throw",
+	MONTADO: &"Sit_Chair_Idle",
+	MONTADO_CORRENDO: &"Sit_Chair_Idle",
+	ESTOCADA: &"1H_Melee_Attack_Stab",
+	GIRO: &"2H_Melee_Attack_Spin",
+	SALTO: &"Jump_Full_Short",
+	ERGUER: &"Spellcast_Raise",
+	PREPARO: &"Spellcasting",
+}
+
 ## Tudo que o boneco sabe fazer: os verbos universais mais os gestos.
 ## `conferir_numeros.py` exige que esta lista seja exatamente a união das duas
 ## de cima, e que ela seja a mesma que o gerador produz e que o `.glb` tem.

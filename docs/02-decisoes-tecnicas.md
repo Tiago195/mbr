@@ -1360,3 +1360,80 @@ Continua valendo `docs/01`: do Royal Crown entram **números e estrutura**, nunc
 arte, som, código ou texto. Gerar em vez de comprar não muda a fronteira — o
 censo lê os bundles da Steam e escreve um JSON de medidas, e nenhum byte de
 malha, textura ou animação do original entra neste repositório.
+
+> **Superada em parte pela decisão 25**: o modelo que o jogo carrega passou a
+> ser um asset CC0. O que desta decisão continua valendo está listado lá.
+
+## 25. O boneco do jogo é um asset CC0, e o gerador vira instrumento
+
+**Decidido em 26/08/2026, pelo usuário**, depois de uma pesquisa que ele pediu
+com estas palavras:
+
+> *"ta parecendo TAO custoso e demorado, nesse ritimo vai demorar quase 1~2
+> anos pra eu ter o basico q eu imaginei [...] Quero saber oq estou fazendo de
+> errado"*
+
+E, ao ver as alternativas (KayKit, styloo, VRoid, packs pagos):
+
+> *"n gostei de nenhum, vamos voltar aos kaykit por enquanto!"*
+
+### O que a pesquisa mediu
+
+Quatro varreduras (geradores de malha por IA, IA de animação, prática dos devs
+solo, pipeline para a Godot), e três achados que decidem:
+
+1. **Autorar malha, rig e clipes por `bpy` não tem precedente encontrado como
+   pipeline de produção de jogo.** A comunidade usa script de Blender para
+   exportar, converter e VALIDAR — nunca para autorar. O custo que este projeto
+   vinha pagando (rasgos de pintura, travessia de casca, rodadas adversariais
+   por clipe) é o custo normal desse caminho, não um acidente.
+2. **IA não resolve personagem animado em 2026**: o auto-rig da Meshy/Tripo
+   colapsa nas juntas acima de ~30° de rotação; Mixamo está sem manutenção da
+   Adobe; vídeo→mocap falha exatamente nos pés. Malha estática virou commodity;
+   personagem rigado que deforma continua sendo trabalho de gente.
+3. **O problema já estava resolvido por CC0**: o pack Adventurers do KayKit
+   traz personagens rigados (41 ossos, com root e encaixes de mão) com 76
+   clipes embutidos cada — cobrindo os 22 verbos universais do §3 de `docs/11`
+   com sobra.
+
+### O que mudou no jogo
+
+- `arte/kaykit/Knight.glb` (CC0, com a licença ao lado) é o modelo padrão de
+  `Boneco.modelo`; `arte/personagem.glb` é o reserva declarado.
+- O jogo continua falando o NOSSO vocabulário: `VocabularioDeAnimacao.NO_KAYKIT`
+  verte cada verbo para o clipe do pack, e `Boneco._apelidar_clipes` registra o
+  apelido na `AnimationLibrary` — o mesmo `Animation` sob os dois nomes, sem
+  duplicar dado. Verbos que dividem clipe precisam concordar sobre ser ciclo,
+  porque o loop mora no recurso compartilhado.
+- O Knight é autorado com 2,467 m e entra com escala 0,709 para os 1,75 m da
+  direção de arte; as opções de empunhadura (duas espadas, quatro escudos, uma
+  de mão inversa, todas visíveis no `.glb`) são escondidas ao carregar, menos a
+  espada de uma mão.
+- `tools/sondar_kaykit.gd` confere que o modelo padrão fala o vocabulário
+  INTEIRO — presença, duração, ciclo e altura —, `sondar_campeoes.gd` ganhou a
+  medida de frente pelos dedos dos pés para modelo sem o material `rosto`, e
+  `_conferir_o_modelo_kaykit` em `conferir_numeros.py` confere tudo isso sem a
+  engine, sobre o `.glb` commitado. Cada conferência foi derrubada por mutação
+  no dia em que nasceu — e a de números pegou um erro REAL na primeira
+  execução: a primeira versão desta decisão publicava "75 clipes" escrito de
+  memória, e o arquivo tem 76.
+
+### O que da decisão 24 continua valendo
+
+- **A fronteira de `docs/01`**: nenhum byte do Royal Crown entra. Um asset CC0
+  não muda isso.
+- **A direção de arte medida** (`docs/11`) continua sendo a régua: é ela que dá
+  o 1,75 m da escala e as durações que as sondas cobram.
+- **O gerador e as suítes de mutação dele ficam** — como instrumento de medida
+  e como reserva, não como fornecedor do modelo do jogo. `gerar_boneco.py` e
+  `gerar_personagem.py` continuam rodando e conferindo; o que morreu é a
+  obrigação de o JOGO carregar o que eles produzem.
+
+### O "por enquanto" é literal
+
+O usuário viu o KayKit e não o confundiu com o alvo: é chibi-brinquedo, não o
+chibi-anime do original. A identidade visual fica para a fase de arte — os
+candidatos pesquisados (VRoid para elenco em escala, malha por imagem→3D com
+rig próprio) estão registrados na sessão de 26/08/2026. O que esta decisão
+compra é o que a Fase 1 pede: um corpo legível com animação de verdade, hoje,
+por zero reais.
