@@ -52,6 +52,14 @@ enum Gesto {
 	## esfaquear. `throw` é a conjuração universal do original justamente
 	## porque essa é a forma que todo campeão tem.
 	ARREMESSO,
+
+	## Escudada: a habilidade que EMPURRA os outros.
+	##
+	## Era SALTO, e SALTO estava errado nos dois lados: deslocamento que move
+	## A SI (dash) é o corpo indo; deslocamento que move OS OUTROS é o corpo
+	## batendo — e desenhar o R do Leo como pulo dizia que ele fugiu, quando
+	## ele deu escudada. Quem separa os dois é o `recipient` do efeito.
+	EMPURRAO,
 }
 
 ## Quanto o gesto inteiro dura, em segundos.
@@ -86,7 +94,13 @@ enum Gesto {
 ## Disparar no APERTO da tecla não bastava: entre conjurar e sair do lugar há a
 ## janela de conjuração, e a animação terminava antes de o personagem se mexer.
 ## Quem sabe a hora certa é o próprio deslocamento.
-@export var clipe_de_deslocamento: StringName = VocabularioDeAnimacao.SALTO
+##
+## Era `SALTO` (`Jump_Full_Short`), e dash não sobe: lia como pulo. `ESQUIVA`
+## é verbo do vocabulário ESTENDIDO — num corpo que não o fala, `Boneco.tocar`
+## resolve a reserva universal dele (o salto, de novo) sozinho.
+@export var clipe_de_deslocamento: StringName = (
+	VocabularioDeAnimacao.Estendido.ESQUIVA
+)
 
 ## Que clipe toca em cada gesto de habilidade.
 ##
@@ -101,7 +115,21 @@ enum Gesto {
 	Gesto.ERGUER: VocabularioDeAnimacao.ERGUER,
 	Gesto.PREPARO: VocabularioDeAnimacao.PREPARO,
 	Gesto.ARREMESSO: VocabularioDeAnimacao.ARREMESSO,
+	Gesto.EMPURRAO: VocabularioDeAnimacao.Estendido.EMPURRAO,
 }
+
+## Os dois elos da corrente de golpes, alternados.
+##
+## Uma habilidade com VÁRIOS pulsos de golpe (o Q do Leo: dois cones, a 0,27 e
+## 0,55 s) tocava um gesto único no aperto da tecla — e a segunda marca nascia
+## na tela com o corpo já parado, que é como "bate duas vezes" vira "desenhou
+## errado". Agora cada momento de golpe toca um elo, na hora em que o pulso
+## SAI — a hora vem do `resolved` do `AbilityCaster`, nunca de um relógio
+## próprio desta camada (regra 3 do `CLAUDE.md`).
+@export var elos_de_golpe: Array[StringName] = [
+	VocabularioDeAnimacao.Estendido.GOLPE_A,
+	VocabularioDeAnimacao.Estendido.GOLPE_B,
+]
 
 ## Abaixo desta velocidade o personagem está parado, e conjura o gesto normal.
 ##
@@ -134,6 +162,14 @@ var _gesto: Gesto = Gesto.ESTOCADA
 var _restante: float = 0.0
 var _total: float = 0.0
 
+## A corrente de golpes armada: id da habilidade, quantos momentos de golpe
+## faltam e o delay do último elo tocado — pulsos que saem no MESMO instante
+## são um golpe só, e é o delay que os agrupa.
+var _golpes_da_habilidade: StringName = &""
+var _golpes_restantes: int = 0
+var _elo: int = 0
+var _delay_do_ultimo_elo: float = -1.0
+
 func _ready() -> void:
 	_boneco = _achar_boneco()
 	_combatente = _achar_irmao("Combatant")
@@ -154,6 +190,10 @@ func _ready() -> void:
 	_caster = _achar_caster()
 	if _caster != null:
 		_caster.cast_attempted.connect(_ao_conjurar)
+		# É por aqui que a corrente de golpes sabe A HORA de cada elo: o
+		# pulso atrasado emite `resolved` quando SAI, e o gesto acompanha o
+		# dado em vez de manter um relógio paralelo que dessincronizaria.
+		_caster.resolved.connect(_ao_resolver)
 
 ## O golpe básico saiu: o corpo bate — NO RITMO da cadência.
 ##
@@ -175,6 +215,15 @@ func _ao_atacar() -> void:
 	_total = duracao
 	_restante = _total
 
+## O clipe do golpe básico DESTE corpo: quem empunha besta dispara, quem
+## empunha lâmina estoca. Quem sabe a arma é o `Boneco`, que vestiu o
+## equipamento do campeão — perguntar a ele é o que faz a Bella atirar sem
+## esta camada conhecer campeão nenhum.
+func _clipe_do_ataque() -> StringName:
+	if _boneco != null and _boneco.ataque_e_disparo():
+		return VocabularioDeAnimacao.Estendido.DISPARO
+	return clipe_de_ataque
+
 ## Toca o clipe de ataque acelerado para caber no intervalo da cadência.
 ## Devolve se tocou.
 func _tocar_no_ritmo_do_ataque() -> bool:
@@ -183,13 +232,14 @@ func _tocar_no_ritmo_do_ataque() -> bool:
 	var roda: RodaDeAnimacao = _achar_roda()
 	if roda != null and roda.esta_mostrando():
 		return false
-	var do_clipe: float = _boneco.duracao_de(clipe_de_ataque)
+	var clipe: StringName = _clipe_do_ataque()
+	var do_clipe: float = _boneco.duracao_de(clipe)
 	if do_clipe <= 0.0:
 		return false
 	# Nunca DESacelerar: clipe mais rápido que a cadência vira pausa entre
 	# golpes, que é como o ataque lento deve ler.
 	var velocidade: float = maxf(do_clipe / _intervalo_do_ataque(), 1.0)
-	if not _boneco.tocar(clipe_de_ataque, true, velocidade):
+	if not _boneco.tocar(clipe, true, velocidade):
 		return false
 	_total = maxf(do_clipe / velocidade, 0.05)
 	_restante = _total
@@ -288,12 +338,26 @@ func _ao_conjurar(
 	_de_ataque = false
 	var saiu: Ability = result.ability if result.ability != null else pedida
 	_gesto = Gesto.PREPARO if result.started() else _gesto_para(saiu)
+	# Conjurar ANDANDO tem clipe próprio, é universal no original — e GANHA da
+	# corrente de golpes: `throw_f`/`throw_b` são a conjuração em movimento dos
+	# 32 campeões (§5 de `docs/11`), e `sondar_ritmo.gd` confere a regra.
+	var em_movimento: StringName = _clipe_em_movimento()
+	_armar_corrente_de_golpes(saiu if em_movimento == &"" else null)
+	if _golpes_restantes > 0 and not result.started():
+		# Habilidade de VÁRIOS golpes: nenhum gesto único agora. O corpo arma
+		# a postura e fica seguro até o último elo; cada elo toca quando o
+		# pulso dele SAI — `_ao_resolver`, com a hora vinda do motor. A
+		# postura é o `parado`, e não sobra do clipe anterior: o que estivesse
+		# tocando viraria a cara da habilidade por 0,27 s.
+		if _boneco != null:
+			_boneco.tocar(VocabularioDeAnimacao.PARADO)
+		_total = maxf(_prazo_da_corrente(saiu), 0.05)
+		_restante = _total
+		return
 	# Com esqueleto, o gesto vira CLIPE. O nome sai do mesmo `_gesto` que o
 	# corpo de caixas usa, para os dois caminhos concordarem sobre o que a
 	# habilidade parece.
 	var clipe: StringName = StringName(clipes_por_gesto.get(_gesto, &""))
-	# Conjurar ANDANDO tem clipe próprio, e é universal no original.
-	var em_movimento: StringName = _clipe_em_movimento()
 	if em_movimento != &"" and not result.started():
 		clipe = em_movimento
 	var tocou: bool = _tocar(clipe)
@@ -332,6 +396,105 @@ func _clipe_em_movimento() -> StringName:
 	return VocabularioDeAnimacao.ARREMESSO_ATRAS
 
 
+# ------------------------------------------------------- corrente de golpes
+
+## Verdadeiro para um pulso frontal de golpe: forma de lâmina, com efeito, e
+## que não desloca ninguém — deslocamento tem gesto próprio (o dash desenha a
+## si; o empurrão é `EMPURRAO`).
+static func _e_pulso_de_golpe(pulse: AbilityPulse) -> bool:
+	if pulse == null or pulse.effects.is_empty():
+		return false
+	match pulse.form:
+		AbilityPulse.Form.CONE, AbilityPulse.Form.LINE, \
+		AbilityPulse.Form.TRAPEZOID:
+			pass
+		_:
+			return false
+	for efeito: AbilityEffect in pulse.effects:
+		if efeito is DisplacementEffect:
+			return false
+	return true
+
+## Os INSTANTES de golpe de uma habilidade: os delays distintos dos pulsos de
+## golpe, em ordem. Dois pulsos no mesmo instante são um golpe só — um corpo
+## não bate duas vezes ao mesmo tempo.
+static func _momentos_de_golpe(ability: Ability) -> Array[float]:
+	var momentos: Array[float] = []
+	for pulse: AbilityPulse in ability.pulses:
+		if not _e_pulso_de_golpe(pulse):
+			continue
+		var momento: float = maxf(pulse.delay, 0.0)
+		var novo: bool = true
+		for visto: float in momentos:
+			if absf(visto - momento) < 0.01:
+				novo = false
+		if novo:
+			momentos.append(momento)
+	momentos.sort()
+	return momentos
+
+## Arma a corrente quando a habilidade tem DOIS ou mais instantes de golpe.
+## Genérico pelos delays dos pulsos, não por campeão: qualquer habilidade do
+## corpus com essa estrutura ganha a alternância de graça.
+func _armar_corrente_de_golpes(ability: Ability) -> void:
+	_golpes_restantes = 0
+	_golpes_da_habilidade = &""
+	_elo = 0
+	_delay_do_ultimo_elo = -1.0
+	# Sem esqueleto não há elo para tocar: o corpo de caixas fica com o gesto
+	# único de sempre.
+	if ability == null or _boneco == null or _boneco.animador() == null:
+		return
+	var momentos: Array[float] = _momentos_de_golpe(ability)
+	if momentos.size() < 2:
+		return
+	_golpes_da_habilidade = ability.id
+	_golpes_restantes = momentos.size()
+
+## Quanto segurar o corpo: do aperto da tecla até o fim do clipe do último
+## elo. O instante do último golpe vem dos pulsos; a duração do elo, do clipe.
+func _prazo_da_corrente(ability: Ability) -> float:
+	var momentos: Array[float] = _momentos_de_golpe(ability)
+	var ultimo: float = 0.0
+	if not momentos.is_empty():
+		ultimo = momentos[momentos.size() - 1]
+	var clipe: StringName = &""
+	if not elos_de_golpe.is_empty():
+		clipe = elos_de_golpe[0]
+	return ultimo + maxf(_boneco.duracao_de(clipe), 0.05)
+
+## Um resultado saiu do motor. Se a corrente está armada e o pulso é de golpe,
+## toca o próximo elo — é assim que o segundo cone do Q do Leo ganha um corpo
+## batendo no instante em que a marca dele nasce.
+func _ao_resolver(result: CastResult) -> void:
+	if _golpes_restantes <= 0 or result == null or result.ability == null:
+		return
+	if result.ability.id != _golpes_da_habilidade:
+		return
+	if result.pulse != null:
+		_tocar_elo(result.pulse)
+		return
+	for parte: CastResult in result.parts:
+		if parte != null and parte.pulse != null:
+			_tocar_elo(parte.pulse)
+
+func _tocar_elo(pulse: AbilityPulse) -> void:
+	if _golpes_restantes <= 0 or not _e_pulso_de_golpe(pulse):
+		return
+	var momento: float = maxf(pulse.delay, 0.0)
+	# Pulsos do MESMO instante dividem o elo — ver `_momentos_de_golpe`.
+	if _delay_do_ultimo_elo >= 0.0 and absf(momento - _delay_do_ultimo_elo) < 0.01:
+		return
+	_delay_do_ultimo_elo = momento
+	_golpes_restantes -= 1
+	if elos_de_golpe.is_empty():
+		return
+	var clipe: StringName = elos_de_golpe[_elo % elos_de_golpe.size()]
+	_elo += 1
+	_de_ataque = false
+	_gesto = Gesto.ESTOCADA
+	_tocar(clipe)
+
 ## Que gesto cabe a esta habilidade.
 ##
 ## Decidido pelo PRIMEIRO pulso com efeito, que é o golpe que o jogador
@@ -343,7 +506,12 @@ static func _gesto_para(ability: Ability) -> Gesto:
 			continue
 		for efeito: AbilityEffect in pulse.effects:
 			if efeito is DisplacementEffect:
-				return Gesto.SALTO
+				# Quem é movido decide o gesto: `CASTER` é o dash — o corpo
+				# vai —, `TARGETS` é empurrão ou puxão — o corpo BATE. O R do
+				# Leo empurra os outros e saía desenhado como pulo.
+				if efeito.recipient == AbilityEffect.Recipient.CASTER:
+					return Gesto.SALTO
+				return Gesto.EMPURRAO
 		match pulse.form:
 			AbilityPulse.Form.CIRCLE:
 				# Área em volta de quem conjura gira; área plantada longe é
@@ -389,7 +557,7 @@ func _aplicar(t: float) -> void:
 		return
 	var frente: Vector3 = -global_frente()
 	match _gesto:
-		Gesto.ESTOCADA, Gesto.ARREMESSO:
+		Gesto.ESTOCADA, Gesto.ARREMESSO, Gesto.EMPURRAO:
 			# Sem esqueleto os dois avançam o corpo: é o que dá para separar
 			# num corpo inteiriço, e o corpo inteiriço é o caminho de quem não
 			# gerou `arte/personagem.glb`.
@@ -425,7 +593,7 @@ func _aplicar(t: float) -> void:
 func _aplicar_nos_membros(peso: float) -> void:
 	_boneco.repousar()
 	match _gesto:
-		Gesto.ESTOCADA, Gesto.ARREMESSO:
+		Gesto.ESTOCADA, Gesto.ARREMESSO, Gesto.EMPURRAO:
 			# O braço da frente sobe e desce como quem golpeia; o de trás
 			# contrabalança, que é o que dá peso ao movimento.
 			_boneco.braco_direito.rotation_degrees.x = -150.0 * peso
