@@ -9,7 +9,7 @@ extends Resource
 ## original faz de interessante: uma `Skill` de lá referencia até 12 `Impact`,
 ## e cada impacto tem tempo, posição, raio e alvos próprios. Um impacto ainda
 ## pode encadear outro, com geometria e tempo próprios. Depois de traduzido,
-## **416 das habilidades do original têm mais de um pulso**.
+## **462 das habilidades do original têm mais de um pulso**.
 ##
 ## Sem esta peça, traduzir uma habilidade de vários golpes obrigaria a
 ## escolher entre descartar impactos ou fundi-los num só — e fundir está
@@ -132,7 +132,7 @@ enum Follow {
 
 ## Só tem efeito em pulso ATRASADO: num pulso instantâneo a âncora já é
 ## calculada no lugar certo, e perseguir por zero segundo não muda nada. É por
-## isso que a lacuna vale para **27 dos 127 espaços de campeão** e não para os
+## isso que a lacuna vale para **27 dos 130 espaços de campeão** e não para os
 ## 41 que declaram a coluna.
 @export var follow: Follow = Follow.NONE
 
@@ -206,7 +206,7 @@ func _base_anchor(cast: AbilityCast, previous: Vector3) -> Vector3:
 
 ## Frente é a direção da mira; lado é perpendicular a ela, no plano do chão.
 ## Sem deslocamento declarado, devolve zero e nada muda — o caso de 1376 dos
-## 1602 impactos de `impact_xml`, e de 1403 dos 1687 pulsos traduzidos.
+## 1602 impactos de `impact_xml`, e de 1528 dos 1812 pulsos traduzidos.
 func _offset(cast: AbilityCast) -> Vector3:
 	if is_zero_approx(forward_offset) and is_zero_approx(side_offset):
 		return Vector3.ZERO

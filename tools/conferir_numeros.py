@@ -316,6 +316,13 @@ def _medir_no_original() -> dict | None:
     skills = linhas(
         "skill_xml", "skill_2_xml", "skill_3_xml", "skill_4_xml"
     )
+    ccs = linhas("crowd_control_xml")
+
+    def numero(valor: str | None) -> float:
+        try:
+            return float(valor)
+        except (TypeError, ValueError):
+            return 0.0
     impactos_todos = linhas(
         "impact_xml", "impact_2_xml", "impact_3_xml", "impact_4_xml"
     )
@@ -372,6 +379,19 @@ def _medir_no_original() -> dict | None:
             1 for r in impactos_um
             if r.get("StartPositionX", "0") in ("", "0")
             and r.get("StartPositionZ", "0") in ("", "0")
+        ),
+        # Decisão 26: os controles cuja distância mora numa curva-asset — sem
+        # `Distance`, com `MoveSpeed` — e as linhas que declaram os dois, que
+        # são as que calibram a razão 0,5 do empurrão derivado.
+        "empurroes_por_curva": sum(
+            1 for r in ccs
+            if numero(r.get("Distance")) <= 0.0
+            and numero(r.get("MoveSpeed")) > 0.0
+        ),
+        "empurroes_calibrados": sum(
+            1 for r in ccs
+            if numero(r.get("Distance")) > 0.0
+            and numero(r.get("MoveSpeed")) > 0.0
         ),
     }
 
@@ -3684,7 +3704,7 @@ def main() -> int:
              r"vale para \*\*(\d+) dos \d+ espaços de campeão\*\*",
              espacos_com_corrente)
     c.afirma("docs/02 espaços com corrente", doc02_ritmo,
-             r"\*\*(\d+) dos 127 espaços\*\* abrem corrente",
+             r"\*\*(\d+) dos \d+ espaços\*\* abrem corrente",
              espacos_com_corrente)
     # E o corpus tem que concordar com o contador do tradutor.
     c.contar()
@@ -3714,6 +3734,108 @@ def main() -> int:
                  relatorio,
                  "corrente de combo para elo sem efeito "
                  "(o golpe caiu em lacuna)"))
+
+    # ------------------------------- decisão 26: dash da curva e empurrão
+    #
+    # O dash é REPLICADO, não só contado: para cada habilidade com pulso de
+    # dash, a distância tem que ser o comprimento do primeiro pulso LINE com
+    # efeito — ou `cast_range` quando não há LINE. Contar quantos existem não
+    # pega uma distância trocada; refazer a derivação pega. É a mesma razão
+    # pela qual `rank_for_level` é replicado em vez de confiado.
+    def _e_dash(p: dict, e: dict) -> bool:
+        return (
+            e.get("type") == "displacement"
+            and e.get("recipient") == "CASTER"
+            and e.get("mode") == "ALONG_AIM"
+            and p.get("form") == "SINGLE"
+        )
+
+    dashes = 0
+    dash_por_linha = 0
+    dash_por_alcance = 0
+    dash_fora_da_regra: list = []
+    for h in habilidades:
+        proprios = [
+            (p, e) for p in h["pulses"] for e in p["effects"] if _e_dash(p, e)
+        ]
+        if not proprios:
+            continue
+        linhas_de_dano = [
+            p for p in h["pulses"]
+            if p["form"] == "LINE" and float(p.get("length", 0.0)) > 0.0
+        ]
+        if linhas_de_dano:
+            esperada = float(linhas_de_dano[0]["length"])
+            dash_por_linha += len(proprios)
+        else:
+            esperada = float(h["cast_range"])
+            dash_por_alcance += len(proprios)
+        dashes += len(proprios)
+        for _, efeito in proprios:
+            if abs(float(efeito["distance"]) - esperada) > 1e-6:
+                dash_fora_da_regra.append(h["id"])
+    c.contar()
+    if dash_fora_da_regra:
+        c.falhas.append(
+            "decisão 26: %d dash(es) com distância fora da derivação "
+            "(LINE, senão cast_range): %s"
+            % (len(dash_fora_da_regra), ", ".join(dash_fora_da_regra[:5]))
+        )
+    c.afirma("docs/02 dashes emitidos", doc02_ritmo,
+             r"São \*\*(\d+) dashes\s+emitidos\*\*", dashes)
+    c.afirma("docs/02 dashes pela linha", doc02_ritmo,
+             r"o trajeto —\s+(\d+) linhas\)", dash_por_linha)
+    c.afirma("docs/02 dashes pelo alcance", doc02_ritmo,
+             r"`AI_SkillRange`\*\* \((\d+) linhas\)", dash_por_alcance)
+    c.afirma("docs/02 dash no ranque-modelo", doc02_ritmo,
+             r"(\d+) ranques-modelo\s+ficam de fora",
+             _emissoes(relatorio, "dash não emitido no ranque-modelo"))
+    c.afirma("docs/02 curvas que continuam lacuna", doc02_ritmo,
+             r"\*\*(\d+) linhas\s+continuam lacuna\*\*",
+             _emissoes_lacuna(relatorio, "curva de deslocamento (MoveCurve)"))
+    c.afirma("docs/02 empurrões derivados alcançáveis", doc02_ritmo,
+             r"\*\*(\d+) dos \d+ são\s+alcançáveis pelo corpus\*\*",
+             _emissoes(
+                 relatorio,
+                 "displacement:cc derivado de MoveSpeed (sem Distance)"))
+    # O empurrão do R do Leo, DERIVADO no corpus: `MoveSpeed=8 × 0,5 = 4`.
+    # É o que fica vermelho se a constante mudar sem o documento acompanhar.
+    empurrao_do_leo = -1.0
+    for h in habilidades:
+        if h["id"] != "rc_1000800":
+            continue
+        for p in h["pulses"]:
+            for e in p["effects"]:
+                if e.get("type") == "displacement" \
+                        and e.get("mode") == "AWAY_FROM_CASTER":
+                    empurrao_do_leo = float(e["distance"])
+    c.afirma("docs/02 empurrão do R do Leo", doc02_ritmo,
+             r"empurra (\d+) m", int(round(empurrao_do_leo)))
+    c.afirma("docs/02 larguras pela escala", doc02_ritmo,
+             r"\*\*(\d+) pulsos\*\* mudaram de\s+largura",
+             _emissoes(relatorio, "largura do colisor pela escala (StartScaleX)"))
+    c.afirma("docs/02 larguras ainda inventadas", doc02_ritmo,
+             r"caiu de 139 para (\d+)",
+             _emissoes_lacuna(
+                 relatorio,
+                 "geometria inventada: largura do projétil "
+                 "(o original guarda o colisor fora do XML)"))
+    c.afirma("docs/02 pulsos depois da decisão 26", doc02_ritmo,
+             r"1687 → (\d+)", total_pulsos)
+    c.afirma("docs/02 efeitos depois da decisão 26", doc02_ritmo,
+             r"3229 → (\d+)", total_efeitos)
+    c.afirma("docs/02 espaços depois da decisão 26", doc02_ritmo,
+             r"espaços de campeão foram de 127\s+para (\d+)", espacos_de_campeao)
+    c.afirma("docs/02 campeões completos depois da decisão 26", doc02_ritmo,
+             r"conjuráveis de 28 para\s+\*\*(\d+)\*\*", len(completos))
+    c.afirma("docs/02 corrente depois da decisão 26", doc02_ritmo,
+             r"de 4 para \*\*(\d+) espaços\*\*", espacos_com_corrente)
+    c.afirma("docs/02 vários golpes depois da decisão 26", doc02_ritmo,
+             r"\(79 → (\d+) com vários golpes", espacos_com_varios_golpes)
+    c.afirma("docs/02 carga depois da decisão 26", doc02_ritmo,
+             r"67 → (\d+) com carga", espacos_com_carga)
+    c.afirma("docs/02 reset depois da decisão 26", doc02_ritmo,
+             r"44 → (\d+) com reset", espacos_com_reset)
 
     # -------------------------------------------- perseguição da âncora
     pulso_gd = ler("scripts/core/abilities/ability_pulse.gd")
@@ -4094,6 +4216,15 @@ def main() -> int:
                  r"`User` em (\d+)", medido["segue_conjurador"])
         c.afirma("ability_pulse.gd FollowTarget=Target", pulso_xml,
                  r"`Target` em (\d+)", medido["segue_alvo"])
+
+        # Decisão 26: o universo do empurrão derivado, medido no XML — é o
+        # que pega o tradutor deixar de olhar a coluna sem o documento saber.
+        c.afirma("docs/02 empurrões por curva", doc02,
+                 r"\*\*Empurrão por curva\.\*\* (\d+) controles",
+                 medido["empurroes_por_curva"])
+        c.afirma("docs/02 linhas que calibram o empurrão", doc02,
+                 r"todas as (\d+) linhas que\s+declaram os dois",
+                 medido["empurroes_calibrados"])
         # </bloco-do-xml>
         # **O número do aviso é ele próprio uma afirmação.** Ele dizia 8, e
         # estava certo; a mudança seguinte escreveu 12 onde havia 15, e nada

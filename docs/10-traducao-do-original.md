@@ -37,7 +37,7 @@ escreve em `data/traducao/`:
 
 `AbilityCatalog` e `ItemCatalog` carregam esses arquivos e devolvem `Ability` e
 `Item` de verdade. **A tradução é executável**: `tests/test_catalogo_traduzido.gd`
-conjura as **964 que têm pulso** pela mesma `AbilityEngine` das habilidades
+conjura as **979 que têm pulso** pela mesma `AbilityEngine` das habilidades
 feitas à mão, e equipa e desequipa os 421 itens conferindo que nenhum
 modificador fica para trás.
 
@@ -180,7 +180,7 @@ frente dos pés, e o golpe que sai da mão direita.
 
 **A mudança estrutural.** Até aqui `Ability` tinha **uma** forma, **um** filtro
 e **uma** lista de efeitos. Uma `Skill` do original referencia até doze
-`Impact`, cada um podendo encadear outros, e 416 das traduzidas viram mais de
+`Impact`, cada um podendo encadear outros, e 462 das traduzidas viram mais de
 um pulso.
 
 Traduzir sem isso obrigaria a escolher entre descartar impactos ou fundi-los —
@@ -337,8 +337,8 @@ uma recarga **inventada de 45 s**. O sistema existe desde 22/08/2026 (decisão
 declara carga nenhuma.
 
 **A contagem que importa não é a primeira.** `UsageType = Player` dá 40 linhas;
-33 têm os três espaços de habilidade; 28 têm as quatro habilidades
-conjuráveis. Os cinco que faltam citam um grupo cuja habilidade cai numa
+33 têm os três espaços de habilidade; 31 têm as quatro habilidades
+conjuráveis. Os dois que faltam citam um grupo cuja habilidade cai numa
 lacuna já registrada, e o `RELATORIO.md` os nomeia um a um. Publicar só as 40
 daria "40 campeões" onde há 28 jogáveis.
 
@@ -359,14 +359,14 @@ Números da última execução (o `RELATORIO.md` gerado tem o detalhe):
 | | |
 |---|---|
 | Habilidades traduzidas | **1126** — as 948 de `skill_xml` + 178 das tabelas de continuação |
-| ...com pelo menos um pulso | 964 |
-| ...com mais de um pulso | 416 |
-| Pulsos | 1687 |
-| Efeitos | 3229 |
+| ...com pelo menos um pulso | 979 |
+| ...com mais de um pulso | 462 |
+| Pulsos | 1812 |
+| Efeitos | 3361 |
 | Itens | **421**, em 257 linhas de melhoria |
 | Atores | **384** — campeão, mob, bot, lacaio, baú, árvore |
 | ...campeões com kit | 33 |
-| ...com as quatro conjuráveis | 28 |
+| ...com as quatro conjuráveis | 31 |
 
 Das 162 sem pulso:
 
@@ -445,7 +445,7 @@ original tem e nós não, achado por medição em vez de por memória.
 | Lacuna | Onde aparece | O que é |
 |---|---|---|
 | ~~**Carga de suprema**~~ | `UltimateCharge` | **Fechada.** 517 habilidades declaram o ganho; o ataque básico rende 200 e a suprema custa 1000. Ver a decisão 17 |
-| ~~**Corrente de combo**~~ | `ComboSkillInfo`, 89 | **Fechada.** Conjurar A dentro de uma janela troca A por B, sem esperar a recarga de A. 89 emitidas no corpus e **4 dos 127 espaços** de campeão; 21 recusadas por apontarem para elo sem efeito e 15 podadas depois. Ver a decisão 21 |
+| ~~**Corrente de combo**~~ | `ComboSkillInfo`, 89 | **Fechada.** Conjurar A dentro de uma janela troca A por B, sem esperar a recarga de A. 89 emitidas no corpus e **7 dos 130 espaços** de campeão; 21 recusadas por apontarem para elo sem efeito e 15 podadas depois. Ver a decisão 21 |
 | **Janelas de cancelamento** | `MoveCancelableTime` e três irmãs, 72 | Nós temos um booleano `cancelable`. O original tem quatro instantes por habilidade: quando dá para andar, quando dá para conjurar outra, quando dá para atacar. É onde mora o "feel" |
 | **Corrente entre dois alvos** | `Link`, 47 | Amarra dois combatentes e rompe na distância |
 | **Troca de habilidade no espaço** | `UseSkillSlot`, 27 | Postura que reescreve o que Q e W fazem |
@@ -459,9 +459,9 @@ Rótulo curto não é justificativa.
 
 | Lacuna | Onde | O que é |
 |---|---|---|
-| ~~**Área que acompanha o alvo**~~ | `FollowTarget`, 354 | **Fechada.** E a lacuna estava mal descrita: a coluna **não é booleana** — vale `None` em 1552 impactos, `User` em 353 e `Target` em 62, e a maioria acompanha o CONJURADOR, não o alvo. O 1967 contava a coluna presente. Só muda alguma coisa em pulso ATRASADO: são 27 dos 127 espaços de campeão. Ver a decisão 19 |
+| ~~**Área que acompanha o alvo**~~ | `FollowTarget`, 354 | **Fechada.** E a lacuna estava mal descrita: a coluna **não é booleana** — vale `None` em 1552 impactos, `User` em 353 e `Target` em 62, e a maioria acompanha o CONJURADOR, não o alvo. O 1967 contava a coluna presente. Só muda alguma coisa em pulso ATRASADO: são 27 dos 130 espaços de campeão. Ver a decisão 19 |
 | **Arbusto atacável** | `BeAbleToAttackBush`, 1523 | Não há sistema de arbusto |
-| ~~**Reset de auto-ataque**~~ | `ResetAttackCoolTime`, 259 | **Fechada.** Conjurar zera a cadência do ataque básico. 259 habilidades declaram verdadeiro e 262 declaram falso — o 521 de antes contava a COLUNA presente, e `"False"` é string não-vazia. Pelo caminho que o jogo percorre, são 44 dos 127 espaços de campeão. Ver a decisão 18 |
+| ~~**Reset de auto-ataque**~~ | `ResetAttackCoolTime`, 259 | **Fechada.** Conjurar zera a cadência do ataque básico. 259 habilidades declaram verdadeiro e 262 declaram falso — o 521 de antes contava a COLUNA presente, e `"False"` é string não-vazia. Pelo caminho que o jogo percorre, são 46 dos 130 espaços de campeão. Ver a decisão 18 |
 | **Projétil teleguiado** | `TrackingMode`, 118 | O nosso vai reto |
 | **Investida que para ao acertar** | `StopCondition`, 100 | O nosso dash sempre completa a distância. `OnImpactEnemy` faz ele travar no primeiro alvo, que é outra habilidade |
 | **Gancho que arrebenta na distância** | `LimitSourceDistance`, 17 | Parente do `Link` |
@@ -470,7 +470,7 @@ Rótulo curto não é justificativa.
 
 | Lacuna | Onde | Por que fica fora |
 |---|---|---|
-| Curva de deslocamento | `MoveCurve`, 154 | Trajetória de dash como curva editada. É camada visual, e depende de asset |
+| Curva de deslocamento | `MoveCurve`, 14 | **Encolheu de 154**: o componente RETO virou dash de verdade (decisão 26) — a curva Z modula a velocidade, mas a distância é derivável do próprio XML. O que sobra é `YMoveCurvePath` sozinha (arco vertical puro, 5 linhas) e curva sem alcance derivável (9), que continuam sendo o caso da decisão 20: camada visual, depende de asset |
 | `BuffReleaseCondition` de animação | `SkillFinish` 41, `InteractionStart` 16, `OnStartSkill` 4, `Move` 3, `OnCCMoved` 1 — **65** | Dependem de eventos que `core/` não emite. `ShieldExhaust` e `SkillActivated` **foram fechados** — viraram `TriggerEffect` + `CleanseEffect` |
 | Valor de poção | `RecoverDataType`, 43 | Os números vivem no texto localizado, que não extraímos. Melhor uma lacuna honesta que um valor inventado |
 | Ping | `PingList`, 22 | Interface, não combate |
@@ -502,6 +502,18 @@ Onde o original não documenta e a escolha foi nossa:
   irradia do ponto de impacto (157 linhas) ou do conjurador (113). Nós sempre
   empurramos para longe do conjurador. Para arremesso e empurrão de área a
   diferença é pequena; para um impacto que explode longe do conjurador, não é.
+- **Empurrão sem `Distance` sai de `MoveSpeed × 0,5`.** 11 controles guardam a
+  distância numa curva-asset e declaram só a velocidade; antes viravam empurrão
+  NENHUM. O 0,5 é a mediana da razão `Distance / MoveSpeed` nas 20 linhas que
+  declaram os dois (faixa 0,2 a 0,75). Ver a decisão 26.
+- **A distância do dash é derivada, não declarada.** O perfil do movimento vive
+  na curva-asset; o que emitimos é o deslocamento reto, com distância vinda do
+  pulso LINE da própria habilidade ou de `AI_SkillRange`. E ele é instantâneo:
+  o original o distribui ao longo de `Duration` (1,34 s no Q do Leo), e o nosso
+  `DisplacementEffect` não tem duração — é a peça que o vocabulário tem hoje.
+- **Largura de projétil-parede é a média de `StartScaleX` e `EndScaleX`.**
+  Quando a escala cresce em voo (2 → 5), uma largura constante só consegue
+  dizer a média. Constante onde o original cresce, e contado como aproximação.
 
 ---
 

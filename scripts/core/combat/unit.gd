@@ -114,7 +114,7 @@ var pending_cooldown_adjustments: Array[CooldownRequest] = []
 ## Quanto falta para o próximo ataque básico poder sair, em segundos.
 ##
 ## Mora aqui, e não na camada de gameplay, porque é o que a habilidade ZERA:
-## 44 dos 127 espaços de campeão do original declaram `ResetAttackCoolTime`, e
+## 46 dos 130 espaços de campeão do original declaram `ResetAttackCoolTime`, e
 ## um contador guardado num nó de cena não é alcançável por `AbilityEngine` —
 ## que é estática, roda no servidor headless e não conhece nó. Era um `float`
 ## dentro de `player.gd` até a decisão 18.

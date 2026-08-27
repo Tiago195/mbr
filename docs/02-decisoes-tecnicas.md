@@ -623,7 +623,7 @@ saiu. Guarda que nunca roda é indistinguível de guarda que não funciona.
 `ResetAttackCoolTime` do original: conjurar solta o próximo ataque básico na
 hora, em vez de esperar a velocidade de ataque. **259 habilidades declaram
 verdadeiro e 262 declaram falso**; pelo caminho que o jogo percorre, são
-**44 dos 127 espaços de campeão**, em **22 campeões**.
+**46 dos 130 espaços de campeão**, em **23 campeões**.
 
 **O 521 anterior contava outra coisa.** O censo de colunas do tradutor conta a
 COLUNA presente, e `"False"` é string não-vazia — 259 + 262. É a mesma
@@ -757,7 +757,7 @@ sumirem:
    parece plausível e conta a história oposta:** com 353 de 354 instantâneos, a
    mudança seria marginal; com 258 atrasados, ela é ampla.
 
-Pelo caminho que o jogo percorre, a lacuna vale para **27 dos 127 espaços de
+Pelo caminho que o jogo percorre, a lacuna vale para **27 dos 130 espaços de
 campeão**, em **18 campeões** — não 35.
 
 ### O que muda
@@ -1047,7 +1047,7 @@ gasta nada.
 ### O que a medição mudou, de novo
 
 A tabela dizia 14. Medido pelo caminho que o jogo percorre,
-**4 dos 127 espaços** abrem corrente — e o caminho até lá tem quatro achados:
+**7 dos 130 espaços** abrem corrente — e o caminho até lá tem quatro achados:
 
 - **O ataque básico ficou de fora, e por dado.** 23 dos 34 campeões têm combo
   no básico, o que parecia dobrar o trabalho. Mas o elo 2 é **idêntico ao elo 1
@@ -1095,7 +1095,7 @@ No corpus inteiro são **89 habilidades** com corrente emitida.
   recebe a corrente — sem corrente, fora da janela, antes de ela abrir.
 - `tools/sondar_campeoes.gd` aperta o mesmo espaço uma segunda vez, num ciclo
   **isolado**: recarga limpa, conjura, tica só até a janela ABRIR, aperta de
-  novo. Medido: **4 espaços abrem corrente e 4 entregam o elo seguinte.**
+  novo. Medido: **7 espaços abrem corrente e 7 entregam o elo seguinte.**
 - A recarga NÃO é limpa antes do segundo aperto, de propósito: é passar por
   cima dela que faz a corrente valer a pena, e limpá-la esconderia justamente
   o defeito procurado.
@@ -1448,6 +1448,84 @@ rig próprio) estão registrados na sessão de 26/08/2026. O que esta decisão
 compra é o que a Fase 1 pede: um corpo legível com animação de verdade, hoje,
 por zero reais.
 
+## 26. O dash reto sai da curva por inferência, e o empurrão da velocidade
+
+**Decidido em 26/08/2026**, reabrindo a metade INFERÍVEL do que a decisão 20
+tinha classificado como arte.
+
+A decisão 20 continua certa no que ela mediu: `ZMoveCurvePath` não contém
+números, e a FORMA do movimento é asset. O que ela deixou passar é que a
+lacuna cobria duas coisas de espécie diferente — o **perfil** do movimento
+(como a velocidade varia ao longo do trajeto, que é curva de animação e fica
+para a Fase 6) e a **distância** percorrida, que o XML declara por outro
+caminho. Registrar as duas juntas custava mecânica de verdade: o Q do Leo
+(`SkillType=Moving`, curva `MoveCurve_LeoShieldRushZ`) conjurava o dano e
+andava **zero metro**, e a parede do R arremessava sem empurrar ninguém.
+O runtime nunca foi o bloqueio — `DisplacementEffect` com `recipient CASTER`
+é exatamente o dash da `investida.tres`, provado em jogo desde a Fase 3.
+
+### O que passou a ser emitido, e de onde vem cada número
+
+- **Dash do conjurador.** Toda linha de skill com `ZMoveCurvePath` (o perfil
+  de avanço no próprio eixo) ganha um pulso `SINGLE` no conjurador com
+  `displacement ALONG_AIM`. A distância, em ordem de evidência: o comprimento
+  do pulso **LINE** da própria habilidade (o dano do dash cobre o trajeto —
+  50 linhas), senão **`AI_SkillRange`** (75 linhas). São **125 dashes
+  emitidos**; 15 ranques-modelo ficam de fora contados, e **14 linhas
+  continuam lacuna** — 5 só com `YMoveCurvePath` (arco vertical puro, o caso
+  da decisão 20 em estado puro) e 9 sem alcance derivável.
+- **Empurrão por curva.** 11 controles (`ThrowUp`/`KnockBack`) não declaram
+  `Distance` — a distância mora numa curva-asset — e declaram `MoveSpeed`.
+  Antes `_empurrao` devolvia nada e o arremesso saía sem deslocamento. Agora
+  a distância é `MoveSpeed × 0,5`, e o 0,5 é MEDIDO: todas as 20 linhas que
+  declaram os dois dão razão `Distance/MoveSpeed` com mediana 0,5 (faixa 0,2
+  a 0,75). O R do Leo (`MoveSpeed=8`) empurra 4 m. **7 dos 11 são
+  alcançáveis pelo corpus** e passaram a emitir.
+- **Largura pelo colisor escalado.** O tradutor não lia `StartScaleX`, e a
+  parede do R do Leo — um `Collider_UnitCube` escalado a 4 — saía com a
+  largura FABRICADA de 1,0 m: quem mirava certo não acertava. Quando nem
+  `CastDirection_Width` nem `Radius` existem, a largura agora é a média de
+  `StartScaleX` e `EndScaleX` (constante onde o original cresce em voo, e
+  contado como aproximação). **24 pulsos** mudaram de
+  largura; a invenção de largura caiu de 139 para 115.
+
+### O que a emissão NÃO faz, de propósito
+
+- **Não dura.** O original distribui o dash ao longo de `Duration` (1,34 s no
+  Q do Leo); `DisplacementEffect` acumula em `pending_displacement` e a
+  camada de gameplay resolve num quadro. Dar duração ao deslocamento é
+  mudança de vocabulário, não de tradução — fica registrado aqui, não
+  implementado às escondidas.
+- **Não segue curva.** Nem lateral, nem vertical: o deslocamento é reto no
+  plano. O arco continua sendo arte (decisão 20).
+- **Não muda a recusa por falta de alvo.** O pulso do dash não pega ninguém
+  (`hits_self` falso inclusive): o efeito é do conjurador, e a engine aplica
+  efeito de conjurador com a lista de alvos vazia. Uma habilidade `UNIT` que
+  recusava sem alvo continua recusando.
+- **Não para ao acertar.** `StopCondition` (100 linhas) continua lacuna
+  registrada — o nosso dash completa a distância.
+
+### O que o corpus mudou de tamanho, e o efeito colateral bom
+
+125 pulsos e 132 efeitos a mais (1687 → 1812, 3229 → 3361). Três grupos que
+não tinham NENHUM ranque conjurável — o E do Kaiba, o E da Kara e o dash da
+`violet_1002800`, todos "sem tradução" porque o único conteúdo deles era o
+movimento — ganharam pulso, e com isso os **espaços de campeão foram de 127
+para 130** e os campeões com as quatro habilidades conjuráveis de 28 para
+**31**. A corrente de combo foi junto, de 4 para **7 espaços**: três elos que
+eram recusados por "não fazer nada" agora fazem — movem. Os recontos das
+lacunas fechadas mudaram pelo mesmo motivo (79 → 88 com vários golpes,
+67 → 69 com carga, 44 → 46 com reset), e `conferir_numeros.py` cobra cada um.
+
+### Como isto é conferido
+
+- `tools/conferir_numeros.py` afirma os números desta decisão contra o corpus
+  regenerado, e a sonda de campeões conjura os 130 espaços — os três novos
+  inclusive — conferindo que nada estourou.
+- Mutação exigida em vermelho: trocar a distância derivada do dash ou apagar
+  a derivação do empurrão tem que reprovar a ferramenta; ver o bloco da
+  decisão 26 em `conferir_numeros.py`.
+
 ## 27. O cenário de treino é o embrião do NOSSO mapa, em escala 0,4
 
 **Decidido em 26/08/2026.** Existe uma cena nova,
@@ -1524,3 +1602,4 @@ O conferidor sabe que a geometria cumpre o combinado; não sabe se o greybox LÊ
 — se vila parece vila na câmera isométrica, se as cores chapadas separam as
 classes de coisa, se as distâncias têm ritmo de jogo. Isso é a validação que o
 usuário faz quando a cena entrar na `main.tscn`.
+

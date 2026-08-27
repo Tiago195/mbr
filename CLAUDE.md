@@ -431,7 +431,7 @@ fazia o boneco acertar o número com antebraço comprido e nenhuma mão.
 
 **E o anel de alcance nasceu MENTINDO.** Ele mostrava `cast_range`, que vem de
 `AI_SkillRange` do original — a distância em que a IA *decide usar* a
-habilidade, não até onde ela pega. Em **43 dos 119 espaços** com alcance
+habilidade, não até onde ela pega. Em **37 dos 122 espaços** com alcance
 declarado os dois divergem, às vezes por 7 metros. Foi o que fez o usuário
 reportar o R do Leo como *"impossível de acertar"*: o anel dizia 4 m, o projétil
 nasce 2 m atrás e voa 5, então pega até 3.
@@ -469,10 +469,10 @@ bonecos é **gerá-los no Blender**, aqui — decisão 24.
 |---|---|---|
 | ~~61~~ | Vários golpes, e a tela desenhava só o primeiro | **fechada** (decisão 16) |
 | ~~65~~ | Alimentam a carga da suprema, que não existia | **fechada** (decisão 17) |
-| ~~43~~ | Deveriam **zerar a cadência do ataque básico** | **fechada** (decisão 18) — 44 pelo caminho do jogo |
+| ~~43~~ | Deveriam **zerar a cadência do ataque básico** | **fechada** (decisão 18) — 46 pelo caminho do jogo |
 | ~~35~~ | Área que **acompanha o alvo**; a nossa planta no chão | **fechada** (decisão 19) — 27 pelo caminho do jogo |
 | ~~24~~ | Deslocamento em **arco** | **fora de escopo** (decisão 20) — é asset, e `docs/10` já dizia |
-| ~~14~~ | **Corrente de combo**: apertar Q de novo vira outra habilidade | **fechada** (decisão 21) — 4 pelo caminho do jogo |
+| ~~14~~ | **Corrente de combo**: apertar Q de novo vira outra habilidade | **fechada** (decisão 21) — 7 pelo caminho do jogo |
 
 A contagem vem de varrer `skill_xml` + `impact_xml` pelas colunas de
 `ORFAS_QUE_SAO_LACUNA`. **Cuidado ao remedir:** `"False"` é string não-vazia e
@@ -482,8 +482,8 @@ reset de auto-ataque parecer 521 quando são 259.
 
 **Ao fechar cada lacuna, a primeira coisa é REMEDIR pelo caminho que o jogo
 percorre** — `rank_for_level` sobre os espaços de campeão. As cinco fechadas
-mudaram de número: **61 → 79**, **65 → 67**, **43 → 44**, **35 → 27**,
-**14 → 4**. E duas mudaram de NATUREZA: a do arco é asset (decisão 20), e a
+mudaram de número: **61 → 88**, **65 → 69**, **43 → 46**, **35 → 27**,
+**14 → 7**. E duas mudaram de NATUREZA: a do arco é asset (decisão 20), e a
 do combo perdeu o ataque básico porque o segundo golpe dele é idêntico ao
 primeiro no nosso vocabulário. Os números da tabela
 vieram de varrer o XML por outro caminho e **não são reproduzíveis**: nenhuma
@@ -766,8 +766,8 @@ campeão, mob, bot, lacaio, baú e árvore, com atributos base, crescimento por
 nível, kit e passiva. É a tabela que responde *quem tem quais habilidades* — a
 única que responde, e a que faltava para o corpus virar personagem jogável.
 
-Dela saem **33 campeões com kit** e **28 deles com as quatro habilidades**
-conjuráveis. Os cinco que faltam citam um grupo cuja habilidade cai numa lacuna
+Dela saem **33 campeões com kit** e **31 deles com as quatro habilidades**
+conjuráveis. Os dois que faltam citam um grupo cuja habilidade cai numa lacuna
 registrada; `data/traducao/RELATORIO.md` nomeia cada um. **Toda contagem de
 ator aqui é DEDUPLICADA por Id** — `actor_xml` e `actor_2_xml` repetem linhas, e
 somá-las cruas já produziu "58 campeões" onde havia 40.
@@ -838,12 +838,12 @@ Das 124 habilidades dos 31 campeões com suprema:
 
 | Quantas | O que falta |
 |---|---|
-| ~~65~~ | ~~Alimentam a carga da suprema, que não existe~~ — **fechada**: a suprema enche agindo e os 45 s inventados morreram. Pelo caminho que o jogo usa são **67 dos 127 espaços** |
-| ~~61~~ | ~~Vários golpes, e a tela desenhava só o primeiro~~ — **fechada**: cada golpe é desenhado quando sai, e cone e trapézio ganharam forma de verdade. Recontado pelo caminho que o jogo usa, são **79 dos 127 espaços**; o 61 contava referências de impacto do XML, que é outra medida |
-| ~~43~~ | ~~Deveriam **zerar a cadência do ataque básico**~~ — **fechada**: conjurar solta o próximo ataque básico na hora. Recontado pelo caminho que o jogo usa, são **44 dos 127 espaços**, em 22 campeões. Ver a decisão 18 |
-| ~~35~~ | ~~Área que **acompanha o alvo**~~ — **fechada**: e a lacuna estava mal descrita. `FollowTarget` não é booleana (`None` 1552, `User` 353, `Target` 62), a maioria acompanha o CONJURADOR, e só muda algo em pulso ATRASADO: **27 dos 127 espaços**. Ver a decisão 19 |
+| ~~65~~ | ~~Alimentam a carga da suprema, que não existe~~ — **fechada**: a suprema enche agindo e os 45 s inventados morreram. Pelo caminho que o jogo usa são **69 dos 130 espaços** |
+| ~~61~~ | ~~Vários golpes, e a tela desenhava só o primeiro~~ — **fechada**: cada golpe é desenhado quando sai, e cone e trapézio ganharam forma de verdade. Recontado pelo caminho que o jogo usa, são **88 dos 130 espaços**; o 61 contava referências de impacto do XML, que é outra medida |
+| ~~43~~ | ~~Deveriam **zerar a cadência do ataque básico**~~ — **fechada**: conjurar solta o próximo ataque básico na hora. Recontado pelo caminho que o jogo usa, são **46 dos 130 espaços**, em 23 campeões. Ver a decisão 18 |
+| ~~35~~ | ~~Área que **acompanha o alvo**~~ — **fechada**: e a lacuna estava mal descrita. `FollowTarget` não é booleana (`None` 1552, `User` 353, `Target` 62), a maioria acompanha o CONJURADOR, e só muda algo em pulso ATRASADO: **27 dos 130 espaços**. Ver a decisão 19 |
 | ~~24~~ | ~~Deslocamento em **arco**~~ — **fora de escopo**: `ZMoveCurvePath` não contém números, contém caminhos de asset de animação, e `docs/10` já a listava como "precisa de sistema que não é de combate". Ver a decisão 20 |
-| ~~14~~ | ~~**Corrente de combo**~~ — **fechada**: o elo seguinte sai sem esperar a recarga do primeiro. São **4 dos 127 espaços**; o ataque básico ficou de fora porque o elo 2 dele é idêntico ao elo 1 no nosso vocabulário. Ver a decisão 21 |
+| ~~14~~ | ~~**Corrente de combo**~~ — **fechada**: o elo seguinte sai sem esperar a recarga do primeiro. São **7 dos 130 espaços**; o ataque básico ficou de fora porque o elo 2 dele é idêntico ao elo 1 no nosso vocabulário. Ver a decisão 21 |
 
 Na medição de 22/08/2026, quando as seis estavam abertas, 26 dos 31 campeões
 tinham ao menos uma afetada. Regerar aquela medição é uma varredura de
@@ -872,7 +872,7 @@ de sensação, e o que falta antes continua sendo oposição, mapa e loot.
   Ver a decisão 17.
 - ~~**Corrente de combo**~~ — **fechada em 23/08/2026**. Conjurar A dentro da
   janela troca A por B, e o elo seguinte sai sem esperar a recarga do primeiro.
-  125 no XML, 89 emitidas no corpus, **4 dos 127 espaços** de campeão. O ataque
+  125 no XML, 89 emitidas no corpus, **7 dos 130 espaços** de campeão. O ataque
   básico ficou de fora porque o elo 2 dele é idêntico ao elo 1 no nosso
   vocabulário. Ver a decisão 21.
 - **Janelas de cancelamento** — 72. Nós temos um booleano `cancelable`; o
@@ -925,7 +925,7 @@ conhece nó da engine.
 godot --headless --path . --script res://tools/sondar_campeoes.gd
 ```
 
-Carrega `main.tscn` de verdade, troca de campeão nos 33, conjura os 127 espaços
+Carrega `main.tscn` de verdade, troca de campeão nos 33, conjura os 130 espaços
 e confere que **cada golpe virou marca na tela com a geometria do pulso, no
 lugar dele, apontando para o lado dele, visível e pelo tempo certo** — e
 nenhuma marca a mais. Oito rodadas de revisão adversarial construíram essa

@@ -41,7 +41,7 @@ var targets: Array[Unit] = []
 ##
 ## Existem porque a camada visual precisava saber O QUE desenhar e ONDE, e só
 ## tinha a habilidade inteira. Com isso ela desenhava `primary_pulse()` e mais
-## nada — **79 dos 127** espaços de campeão carregam habilidade de vários
+## nada — **88 dos 130** espaços de campeão carregam habilidade de vários
 ## golpes, e do segundo em diante nada aparecia na tela. A habilidade
 ## funcionava e parecia quebrada.
 ##

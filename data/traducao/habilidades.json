@@ -1229,6 +1229,28 @@
      "side_offset": 0.0,
      "source_impact": 10002001,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -1345,6 +1367,28 @@
      "side_offset": 0.0,
      "source_impact": 10002011,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -1461,6 +1505,28 @@
      "side_offset": 0.0,
      "source_impact": 10002021,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -1577,6 +1643,28 @@
      "side_offset": 0.0,
      "source_impact": 10002031,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -1693,6 +1781,28 @@
      "side_offset": 0.0,
      "source_impact": 10002041,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -2267,6 +2377,13 @@
        "type": "crowd_control"
       },
       {
+       "distance": 4.0,
+       "ignores_root": true,
+       "mode": "AWAY_FROM_CASTER",
+       "recipient": "TARGETS",
+       "type": "displacement"
+      },
+      {
        "base_damage": 144.0,
        "damage_type": "PHYSICAL",
        "drain_factor": 0.0,
@@ -2313,7 +2430,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10008000,
-     "width": 1.0
+     "width": 4.0
     }
    ],
    "rank": 1,
@@ -4021,6 +4138,28 @@
      "side_offset": 0.0,
      "source_impact": 10013000,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -4092,6 +4231,28 @@
      "side_offset": 0.0,
      "source_impact": 10013010,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -4163,6 +4324,28 @@
      "side_offset": 0.0,
      "source_impact": 10013020,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -4234,6 +4417,28 @@
      "side_offset": 0.0,
      "source_impact": 10013030,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -4305,6 +4510,28 @@
      "side_offset": 0.0,
      "source_impact": 10013040,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -4378,7 +4605,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10018000,
-     "width": 1.0
+     "width": 3.5
     },
     {
      "delay": 0.0,
@@ -4421,6 +4648,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 10018090
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 9.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -11796,6 +12045,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 10038001
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -17128,6 +17399,28 @@
      "side_offset": 0.0,
      "source_impact": 10057001,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -17209,6 +17502,28 @@
      "side_offset": 0.0,
      "source_impact": 10057011,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -17290,6 +17605,28 @@
      "side_offset": 0.0,
      "source_impact": 10057021,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -17371,6 +17708,28 @@
      "side_offset": 0.0,
      "source_impact": 10057031,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -17452,6 +17811,28 @@
      "side_offset": 0.0,
      "source_impact": 10057041,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -20815,6 +21196,28 @@
      "side_offset": 0.0,
      "source_impact": 10071900,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 9.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -20931,6 +21334,28 @@
      "side_offset": 0.0,
      "source_impact": 10071900,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 9.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -21047,6 +21472,28 @@
      "side_offset": 0.0,
      "source_impact": 10071900,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 9.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -21163,6 +21610,28 @@
      "side_offset": 0.0,
      "source_impact": 10071900,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 9.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -21279,6 +21748,28 @@
      "side_offset": 0.0,
      "source_impact": 10071900,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 9.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -25169,6 +25660,28 @@
      "side_offset": 0.0,
      "source_impact": 10082000,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -25227,6 +25740,28 @@
      "side_offset": 0.0,
      "source_impact": 10082010,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -25285,6 +25820,28 @@
      "side_offset": 0.0,
      "source_impact": 10082020,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -25343,6 +25900,28 @@
      "side_offset": 0.0,
      "source_impact": 10082030,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -25401,6 +25980,28 @@
      "side_offset": 0.0,
      "source_impact": 10082040,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -25773,6 +26374,28 @@
      "side_offset": 0.0,
      "source_impact": 10083099,
      "width": 1.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 7.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -26118,6 +26741,28 @@
      "side_offset": 0.0,
      "source_impact": 10083099,
      "width": 1.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 7.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -26463,6 +27108,28 @@
      "side_offset": 0.0,
      "source_impact": 10083099,
      "width": 1.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 7.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -26808,6 +27475,28 @@
      "side_offset": 0.0,
      "source_impact": 10083099,
      "width": 1.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 7.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -27153,6 +27842,28 @@
      "side_offset": 0.0,
      "source_impact": 10083099,
      "width": 1.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 7.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -27431,6 +28142,28 @@
      "side_offset": 0.0,
      "source_impact": 10084099,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -27682,6 +28415,28 @@
      "side_offset": 0.0,
      "source_impact": 10084099,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -27933,6 +28688,28 @@
      "side_offset": 0.0,
      "source_impact": 10084099,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -28184,6 +28961,28 @@
      "side_offset": 0.0,
      "source_impact": 10084099,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -28435,6 +29234,28 @@
      "side_offset": 0.0,
      "source_impact": 10084099,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -28769,6 +29590,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 10083099
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 7.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -42731,6 +43574,28 @@
      "radius": 2.2,
      "side_offset": 0.0,
      "source_impact": 10141000
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -42792,6 +43657,28 @@
      "radius": 2.2,
      "side_offset": 0.0,
      "source_impact": 10141010
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -42853,6 +43740,28 @@
      "radius": 2.2,
      "side_offset": 0.0,
      "source_impact": 10141020
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -42914,6 +43823,28 @@
      "radius": 2.2,
      "side_offset": 0.0,
      "source_impact": 10141030
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -42975,6 +43906,28 @@
      "radius": 2.2,
      "side_offset": 0.0,
      "source_impact": 10141040
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -45262,6 +46215,28 @@
      "side_offset": 0.0,
      "source_impact": 10151001,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -45445,6 +46420,28 @@
      "side_offset": 0.0,
      "source_impact": 10151011,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -45628,6 +46625,28 @@
      "side_offset": 0.0,
      "source_impact": 10151021,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -45811,6 +46830,28 @@
      "side_offset": 0.0,
      "source_impact": 10151031,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -45994,6 +47035,28 @@
      "side_offset": 0.0,
      "source_impact": 10151041,
      "width": 1.5
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -47287,6 +48350,28 @@
      "radius": 2.55,
      "side_offset": 0.0,
      "source_impact": 10152501
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.55,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -47481,6 +48566,28 @@
      "radius": 2.55,
      "side_offset": 0.0,
      "source_impact": 10152511
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.55,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -47675,6 +48782,28 @@
      "radius": 2.55,
      "side_offset": 0.0,
      "source_impact": 10152521
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.55,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -47869,6 +48998,28 @@
      "radius": 2.55,
      "side_offset": 0.0,
      "source_impact": 10152531
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.55,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -48063,6 +49214,28 @@
      "radius": 2.55,
      "side_offset": 0.0,
      "source_impact": 10152541
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.55,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -49577,6 +50750,28 @@
      "radius": 4.8,
      "side_offset": 0.0,
      "source_impact": 10158114
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -50333,6 +51528,28 @@
      "radius": 1.8,
      "side_offset": 0.0,
      "source_impact": 10161200
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -50438,6 +51655,28 @@
      "radius": 1.8,
      "side_offset": 0.0,
      "source_impact": 10161200
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -50543,6 +51782,28 @@
      "radius": 1.8,
      "side_offset": 0.0,
      "source_impact": 10161200
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -50648,6 +51909,28 @@
      "radius": 1.8,
      "side_offset": 0.0,
      "source_impact": 10161200
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -50753,6 +52036,28 @@
      "radius": 1.8,
      "side_offset": 0.0,
      "source_impact": 10161200
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 2.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -54875,7 +56180,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10178000,
-     "width": 1.0
+     "width": 2.5
     },
     {
      "delay": 0.77,
@@ -54940,7 +56245,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10178001,
-     "width": 1.0
+     "width": 2.5
     },
     {
      "delay": 1.27,
@@ -55005,7 +56310,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10178002,
-     "width": 1.0
+     "width": 2.5
     },
     {
      "delay": 1.77,
@@ -55070,7 +56375,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10178003,
-     "width": 1.0
+     "width": 2.5
     },
     {
      "delay": 2.27,
@@ -55135,7 +56440,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10178004,
-     "width": 1.0
+     "width": 2.5
     }
    ],
    "rank": 1,
@@ -56715,7 +58020,30 @@
    "mana_cost": 40.0,
    "owner": "kaiba",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 1,
    "resets_attack_cooldown": false,
    "source_id": 1018301,
@@ -56742,7 +58070,30 @@
    "mana_cost": 44.0,
    "owner": "kaiba",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 2,
    "resets_attack_cooldown": false,
    "source_id": 1018302,
@@ -56769,7 +58120,30 @@
    "mana_cost": 48.0,
    "owner": "kaiba",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 3,
    "resets_attack_cooldown": false,
    "source_id": 1018303,
@@ -56796,7 +58170,30 @@
    "mana_cost": 52.0,
    "owner": "kaiba",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 4,
    "resets_attack_cooldown": false,
    "source_id": 1018304,
@@ -56823,7 +58220,30 @@
    "mana_cost": 56.0,
    "owner": "kaiba",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 5,
    "resets_attack_cooldown": false,
    "source_id": 1018305,
@@ -56877,6 +58297,13 @@
        "recipient": "TARGETS",
        "source_tag": "rc_cc_1018100",
        "type": "crowd_control"
+      },
+      {
+       "distance": 4.0,
+       "ignores_root": true,
+       "mode": "AWAY_FROM_CASTER",
+       "recipient": "TARGETS",
+       "type": "displacement"
       },
       {
        "base_damage": 48.0,
@@ -56970,6 +58397,13 @@
        "type": "crowd_control"
       },
       {
+       "distance": 4.0,
+       "ignores_root": true,
+       "mode": "AWAY_FROM_CASTER",
+       "recipient": "TARGETS",
+       "type": "displacement"
+      },
+      {
        "base_damage": 72.0,
        "damage_type": "PHYSICAL",
        "drain_factor": 0.0,
@@ -57059,6 +58493,13 @@
        "recipient": "TARGETS",
        "source_tag": "rc_cc_1018102",
        "type": "crowd_control"
+      },
+      {
+       "distance": 4.0,
+       "ignores_root": true,
+       "mode": "AWAY_FROM_CASTER",
+       "recipient": "TARGETS",
+       "type": "displacement"
       },
       {
        "base_damage": 96.0,
@@ -57152,6 +58593,13 @@
        "type": "crowd_control"
       },
       {
+       "distance": 4.0,
+       "ignores_root": true,
+       "mode": "AWAY_FROM_CASTER",
+       "recipient": "TARGETS",
+       "type": "displacement"
+      },
+      {
        "base_damage": 120.0,
        "damage_type": "PHYSICAL",
        "drain_factor": 0.0,
@@ -57241,6 +58689,13 @@
        "recipient": "TARGETS",
        "source_tag": "rc_cc_1018104",
        "type": "crowd_control"
+      },
+      {
+       "distance": 4.0,
+       "ignores_root": true,
+       "mode": "AWAY_FROM_CASTER",
+       "recipient": "TARGETS",
+       "type": "displacement"
       },
       {
        "base_damage": 144.0,
@@ -60629,7 +62084,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10198000,
-     "width": 1.0
+     "width": 1.5
     },
     {
      "delay": 0.8,
@@ -60674,7 +62129,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10198001,
-     "width": 1.0
+     "width": 1.5
     }
    ],
    "rank": 1,
@@ -61556,6 +63011,28 @@
      "side_offset": 0.0,
      "source_impact": 10202000,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -61626,6 +63103,28 @@
      "side_offset": 0.0,
      "source_impact": 10202010,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -61696,6 +63195,28 @@
      "side_offset": 0.0,
      "source_impact": 10202020,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -61766,6 +63287,28 @@
      "side_offset": 0.0,
      "source_impact": 10202030,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -61836,6 +63379,28 @@
      "side_offset": 0.0,
      "source_impact": 10202040,
      "width": 1.0
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -62467,6 +64032,28 @@
      "radius": 1.8,
      "side_offset": 0.0,
      "source_impact": 10209101
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -64167,6 +65754,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 10212500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -64223,6 +65832,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 10212500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -64279,6 +65910,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 10212500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -64335,6 +65988,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 10212500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -64391,6 +66066,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 10212500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -67072,6 +68769,28 @@
      "side_offset": 0.0,
      "source_impact": 10223100,
      "width": 14.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -67175,6 +68894,28 @@
      "side_offset": 0.0,
      "source_impact": 10223100,
      "width": 14.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -67278,6 +69019,28 @@
      "side_offset": 0.0,
      "source_impact": 10223100,
      "width": 14.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -67381,6 +69144,28 @@
      "side_offset": 0.0,
      "source_impact": 10223100,
      "width": 14.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -67484,6 +69269,28 @@
      "side_offset": 0.0,
      "source_impact": 10223100,
      "width": 14.8
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -72704,6 +74511,28 @@
      "radius": 1.5,
      "side_offset": 0.0,
      "source_impact": 10251510
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.25,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -72810,6 +74639,28 @@
      "radius": 1.5,
      "side_offset": 0.0,
      "source_impact": 10251510
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.25,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -72916,6 +74767,28 @@
      "radius": 1.5,
      "side_offset": 0.0,
      "source_impact": 10251510
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.25,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -73022,6 +74895,28 @@
      "radius": 1.5,
      "side_offset": 0.0,
      "source_impact": 10251510
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.25,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -73128,6 +75023,28 @@
      "radius": 1.5,
      "side_offset": 0.0,
      "source_impact": 10251510
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 3.25,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -73237,6 +75154,28 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10252000
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -73319,6 +75258,28 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10252010
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -73401,6 +75362,28 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10252020
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -73483,6 +75466,28 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10252030
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -73565,6 +75570,28 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10252040
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -74019,6 +76046,13 @@
        "type": "crowd_control"
       },
       {
+       "distance": 4.0,
+       "ignores_root": true,
+       "mode": "AWAY_FROM_CASTER",
+       "recipient": "TARGETS",
+       "type": "displacement"
+      },
+      {
        "base_damage": 416.0,
        "damage_type": "PHYSICAL",
        "drain_factor": 0.0,
@@ -74421,7 +76455,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10261001,
-     "width": 1.0
+     "width": 2.0
     }
    ],
    "rank": 1,
@@ -74534,7 +76568,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10261011,
-     "width": 1.0
+     "width": 2.0
     }
    ],
    "rank": 2,
@@ -74647,7 +76681,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10261021,
-     "width": 1.0
+     "width": 2.0
     }
    ],
    "rank": 3,
@@ -74760,7 +76794,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10261031,
-     "width": 1.0
+     "width": 2.0
     }
    ],
    "rank": 4,
@@ -74873,7 +76907,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 10261041,
-     "width": 1.0
+     "width": 2.0
     }
    ],
    "rank": 5,
@@ -76076,7 +78110,30 @@
    "mana_cost": 32.0,
    "owner": "kara",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 1,
    "resets_attack_cooldown": true,
    "source_id": 1026301,
@@ -76103,7 +78160,30 @@
    "mana_cost": 35.0,
    "owner": "kara",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 2,
    "resets_attack_cooldown": true,
    "source_id": 1026302,
@@ -76130,7 +78210,30 @@
    "mana_cost": 38.0,
    "owner": "kara",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 3,
    "resets_attack_cooldown": true,
    "source_id": 1026303,
@@ -76157,7 +78260,30 @@
    "mana_cost": 41.0,
    "owner": "kara",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 4,
    "resets_attack_cooldown": true,
    "source_id": 1026304,
@@ -76184,7 +78310,30 @@
    "mana_cost": 44.0,
    "owner": "kara",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 6.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 5,
    "resets_attack_cooldown": true,
    "source_id": 1026305,
@@ -80649,7 +82798,30 @@
    "mana_cost": 20.0,
    "owner": "rody",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.9,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 1,
    "resets_attack_cooldown": true,
    "source_id": 1028101,
@@ -80676,7 +82848,30 @@
    "mana_cost": 22.0,
    "owner": "rody",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.9,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 2,
    "resets_attack_cooldown": true,
    "source_id": 1028102,
@@ -80703,7 +82898,30 @@
    "mana_cost": 24.0,
    "owner": "rody",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.9,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 3,
    "resets_attack_cooldown": true,
    "source_id": 1028103,
@@ -80730,7 +82948,30 @@
    "mana_cost": 26.0,
    "owner": "rody",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.9,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 4,
    "resets_attack_cooldown": true,
    "source_id": 1028104,
@@ -80757,7 +82998,30 @@
    "mana_cost": 28.0,
    "owner": "rody",
    "passive_effects": [],
-   "pulses": [],
+   "pulses": [
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.9,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
+    }
+   ],
    "rank": 5,
    "resets_attack_cooldown": true,
    "source_id": 1028105,
@@ -87202,7 +89466,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008000,
-     "width": 1.0
+     "width": 2.5
     },
     {
      "delay": 0.77,
@@ -87239,7 +89503,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008001,
-     "width": 1.0
+     "width": 2.5
     }
    ],
    "rank": 1,
@@ -87304,7 +89568,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008000,
-     "width": 1.0
+     "width": 2.5
     },
     {
      "delay": 0.77,
@@ -87341,7 +89605,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008001,
-     "width": 1.0
+     "width": 2.5
     }
    ],
    "rank": 2,
@@ -87406,7 +89670,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008000,
-     "width": 1.0
+     "width": 2.5
     },
     {
      "delay": 0.77,
@@ -87443,7 +89707,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008001,
-     "width": 1.0
+     "width": 2.5
     }
    ],
    "rank": 3,
@@ -87508,7 +89772,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008000,
-     "width": 1.0
+     "width": 2.5
     },
     {
      "delay": 0.77,
@@ -87545,7 +89809,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008001,
-     "width": 1.0
+     "width": 2.5
     }
    ],
    "rank": 4,
@@ -87610,7 +89874,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008000,
-     "width": 1.0
+     "width": 2.5
     },
     {
      "delay": 0.77,
@@ -87647,7 +89911,7 @@
      "radius": 1.0,
      "side_offset": 0.0,
      "source_impact": 19008001,
-     "width": 1.0
+     "width": 2.5
     }
    ],
    "rank": 5,
@@ -87733,6 +89997,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009000
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -87791,6 +90077,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009000
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -87849,6 +90157,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009000
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -87907,6 +90237,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009000
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -87965,6 +90317,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009000
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -88023,6 +90397,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -88081,6 +90477,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -88139,6 +90557,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -88197,6 +90637,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -88255,6 +90717,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19009500
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 4.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -90256,6 +92740,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -90361,6 +92867,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -90466,6 +92994,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -90571,6 +93121,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -90676,6 +93248,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.5,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -90808,6 +93402,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -90913,6 +93529,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -91018,6 +93656,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -91123,6 +93783,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -91228,6 +93910,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
@@ -92378,6 +95082,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 1,
@@ -92509,6 +95235,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 2,
@@ -92640,6 +95388,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 3,
@@ -92771,6 +95541,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 4,
@@ -92902,6 +95694,28 @@
      "radius": 0.8,
      "side_offset": 0.0,
      "source_impact": 19014100
+    },
+    {
+     "delay": 0.0,
+     "duration": 0.0,
+     "effects": [
+      {
+       "distance": 5.0,
+       "ignores_root": false,
+       "mode": "ALONG_AIM",
+       "recipient": "CASTER",
+       "type": "displacement"
+      }
+     ],
+     "form": "SINGLE",
+     "hits_allies": false,
+     "hits_enemies": false,
+     "hits_self": false,
+     "loop_interval": 0.0,
+     "max_targets": 0,
+     "origin": "CASTER",
+     "radius": 0.0,
+     "source_impact": 0
     }
    ],
    "rank": 5,
