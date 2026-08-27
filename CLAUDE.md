@@ -251,6 +251,32 @@ no gerador (`gerar_boneco.py`) e deixou o HEAD com 4 números discordando de
 tocou de propósito — duas sessões editando o mesmo arquivo é conflito, e o
 trabalho dela agora é instrumento, não bloqueio.
 
+### E no mesmo 26/08, a primeira onda orquestrada: mundo, oposição e kits
+
+O usuário pediu modo supervisor (*"vc deve supervisionar e orquestrar esses
+agents gamedevs"*), e uma onda de 5 investigadores + 4 implementadores em
+worktrees isolados entregou, tudo integrado e verde:
+
+- **decisão 26**: o tradutor emite dash reto (`ZMoveCurvePath` vira
+  deslocamento de CASTER por inferência) e empurrão por `MoveSpeed` — o W do
+  Leo ANDA, o R EMPURRA, e três campeões destravaram (a tabela de espaços
+  desta seção já está remedida);
+- **decisão 27**: `scenes/cenario_de_treino.tscn` — greybox 120×120 gerado
+  por `tools/gerar_cenario.gd`, integrado à `main.tscn` no lugar do chão de
+  20 m;
+- **oposição**: `scripts/gameplay/bot.gd` + `spawner_de_mobs.gd` — o
+  primeiro consumidor de `AIPath`; um mob `playeraggressive` persegue, bate
+  na cadência e morre, conferido por `sondar_ritmo` e visto em tela;
+- **kits legíveis**: vocabulário ESTENDIDO com reserva declarada
+  (`disparo`/`golpe_a`/`golpe_b`/`esquiva`/`empurrao`), arma por
+  papel/campeão (`Boneco.EQUIPAMENTOS` — MARKSMAN de besta, Leo de espada e
+  escudo), Q em dois golpes pelo delay dos pulsos, e o escudo do E voando
+  colado na entidade do core.
+
+O que essa onda deixou de olho humano: os quatro itens do relatório do
+implementador visual (props com identidade, corrente do Q, esquiva do W,
+pausa da antecipação) e o ritmo do mob como ameaça.
+
 ### O que a sessão de 24/08 fez, e o buraco que ela achou primeiro
 
 **`arte/personagem.glb` era gerado, conferido, rastreado — e o jogo não o
