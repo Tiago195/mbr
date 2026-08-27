@@ -73,18 +73,71 @@ extends Node3D
 ## corpo fora de 1,4–2,8 m.
 @export var escala_do_modelo: float = 1.0
 
-## Malhas do modelo a esconder ao carregar.
+## TODAS as opções de empunhadura embutidas no modelo padrão.
 ##
-## O `.glb` do KayKit traz TODAS as opções de empunhadura como malhas irmãs —
-## duas espadas, quatro escudos e uma arma de mão inversa, todas visíveis ao
-## mesmo tempo. São opções de encaixe, não equipamento: quem decide o que a
-## mão segura é o jogo, no dia em que houver itens. Até lá fica a espada de
-## uma mão, porque personagem de mão vazia num jogo de luta lê como alvo, não
-## como combatente.
-@export var malhas_ocultas: PackedStringArray = PackedStringArray([
-	"2H_Sword", "Spike_Shield", "Round_Shield", "Rectangle_Shield",
-	"Badge_Shield", "1H_Sword_Offhand",
-])
+## O `.glb` do KayKit as traz como malhas irmãs — duas espadas, quatro
+## escudos e uma arma de mão inversa, todas visíveis ao mesmo tempo. São
+## opções de encaixe, não equipamento: o que a mão segura é SELEÇÃO, decidida
+## por `EQUIPAMENTOS` — o que não está na seleção do equipamento atual é
+## escondido. Era uma lista de ocultas com a espada implícita; virou seleção
+## quando a besta da Bella provou que "esconder o resto" não expressa "prender
+## um prop que o modelo não tem".
+const OPCOES_EMBUTIDAS: PackedStringArray = [
+	"1H_Sword", "2H_Sword", "Spike_Shield", "Round_Shield",
+	"Rectangle_Shield", "Badge_Shield", "1H_Sword_Offhand",
+]
+
+## O que cada equipamento mostra e pendura.
+##
+## `embutidos` são nomes de `OPCOES_EMBUTIDAS` que ficam visíveis; `externos`
+## são `.gltf` de `arte/kaykit/` presos por `BoneAttachment3D` a um osso do
+## esqueleto, com transform identidade — os props do pack são autorados na
+## origem do encaixe. `disparo` marca o ataque básico como tiro:
+## `GestoDeConjuracao` lê isso para trocar a estocada pelo `DISPARO`.
+const EQUIPAMENTOS: Dictionary = {
+	&"espada": {
+		"embutidos": ["1H_Sword"],
+		"externos": [],
+		"disparo": false,
+	},
+	&"espada_e_escudo": {
+		"embutidos": ["1H_Sword", "Round_Shield"],
+		"externos": [],
+		"disparo": false,
+	},
+	&"besta": {
+		"embutidos": [],
+		"externos": [
+			{"malha": "res://arte/kaykit/crossbow_2handed.gltf", "osso": "handslot.r"},
+			{"malha": "res://arte/kaykit/quiver.gltf", "osso": "chest"},
+		],
+		"disparo": true,
+	},
+}
+
+## Equipamento por PAPEL do ator — a regra geral.
+##
+## Por papel e não por id, de propósito: `role` já vem traduzido de
+## `atores.json` para os 33 campeões, então os 7 MARKSMAN ganham a besta com
+## UMA linha — uma tabela por id seriam 33 linhas que ninguém atualizaria.
+## Papel que não está aqui cai em `equipamento_padrao`.
+const EQUIPAMENTO_POR_PAPEL: Dictionary = {
+	&"MARKSMAN": &"besta",
+}
+
+## Exceções por campeão — só onde o KIT exige um prop específico.
+##
+## O Leo é o caso que criou a tabela: o E dele ARREMESSA o escudo
+## (`skill_leo_shieldthrow`), e um escudo que voa da mão de quem não tem
+## escudo não conta história nenhuma. A regra continua sendo o papel; aqui
+## entra apenas o campeão cuja habilidade cita o objeto.
+const EQUIPAMENTO_POR_CAMPEAO: Dictionary = {
+	&"leo": &"espada_e_escudo",
+}
+
+## O que um corpo sem campeão empunha. A espada, porque personagem de mão
+## vazia num jogo de luta lê como alvo, não como combatente.
+@export var equipamento_padrao: StringName = &"espada"
 
 ## Meia volta, para a frente do modelo bater com a frente da Godot.
 ##
@@ -150,6 +203,30 @@ var _esqueleto: Skeleton3D = null
 ## o pedido acontece a cada quadro, e sem isto o console viraria um muro.
 var _reclamados: Dictionary = {}
 
+## A cena do modelo carregado — onde as opções de empunhadura moram.
+var _cena_do_modelo: Node3D = null
+
+## Chave de `EQUIPAMENTOS` em uso. Vazia até o primeiro `equipar_para`.
+var _equipamento_atual: StringName = &""
+
+## Nós `BoneAttachment3D` pendurados pelo equipamento atual. Trocar de
+## equipamento os derruba antes de pendurar os novos.
+var _presos_externos: Array[Node] = []
+
+## Props escondidos por empréstimo — o escudo que está VOANDO. `devolver_prop`
+## só os mostra de volta se o equipamento atual ainda os lista.
+var _emprestados: Dictionary = {}
+
+## O seletor de campeão irmão, quando existe. O `Boneco` o OBSERVA em vez de
+## ser chamado por ele: `ChampionSelector` não conhece a camada visual, e
+## ensiná-lo a chamar o corpo inverteria a dependência. Uma comparação de
+## `StringName` por quadro é o preço.
+var _seletor: Node = null
+
+## O campeão cujo equipamento está vestido. Sentinela própria, e não `&""`,
+## porque "sem campeão" também é um estado que precisa equipar uma vez.
+var _campeao_vestido: StringName = &"__nunca__"
+
 ## Verdadeiro quando o corpo tem membros animáveis. Falso quando é uma malha
 ## externa inteiriça — e aí o gesto move o corpo todo, que é o que dá para
 ## fazer sem esqueleto.
@@ -157,11 +234,29 @@ func tem_membros() -> bool:
 	return quadril != null
 
 func _ready() -> void:
+	_seletor = _achar_seletor()
 	if _montar_modelo():
 		return
 	if _montar_externas():
 		return
 	_montar()
+
+## Acompanha o campeão do seletor irmão. Polling, e é decisão: o seletor não
+## emite sinal de troca, e é de outra camada — observar uma propriedade
+## pública custa uma comparação por quadro e nenhuma dependência nova.
+func _process(_delta: float) -> void:
+	if _seletor == null:
+		return
+	var perfil: Variant = _seletor.get("current")
+	var id: StringName = &""
+	var papel: StringName = &""
+	if perfil != null:
+		id = perfil.get("id")
+		papel = perfil.get("role")
+	if id == _campeao_vestido:
+		return
+	_campeao_vestido = id
+	equipar_para(id, papel)
 
 ## Carrega `arte/personagem.glb`. Devolve se entrou.
 ##
@@ -217,9 +312,10 @@ func _montar_modelo() -> bool:
 	# encolheria para 1,24 m em silêncio.
 	if caminho == modelo:
 		cena.scale = Vector3.ONE * escala_do_modelo
-	_esconder_opcoes_de_empunhadura(cena)
+	_cena_do_modelo = cena
 	_animador = _achar_animador(cena)
 	_esqueleto = _achar_esqueleto(cena)
+	_aplicar_equipamento(equipamento_padrao)
 	_apelidar_clipes()
 	_fechar_os_ciclos()
 	if _animador == null or _esqueleto == null:
@@ -228,19 +324,129 @@ func _montar_modelo() -> bool:
 		)
 	return true
 
-## Esconde as malhas listadas em `malhas_ocultas`, onde estiverem.
+# ---------------------------------------------------------------- equipamento
+
+## Veste o equipamento de um campeão: exceção do campeão, senão a regra do
+## papel, senão o padrão.
+func equipar_para(campeao: StringName, papel: StringName) -> void:
+	var chave: StringName = EQUIPAMENTO_POR_CAMPEAO.get(
+		campeao, EQUIPAMENTO_POR_PAPEL.get(papel, equipamento_padrao)
+	)
+	_aplicar_equipamento(chave)
+
+## O ataque básico deste corpo é um TIRO? `GestoDeConjuracao` pergunta para
+## escolher entre a estocada e o `DISPARO`.
+func ataque_e_disparo() -> bool:
+	var config: Dictionary = EQUIPAMENTOS.get(_equipamento_atual, {})
+	return bool(config.get("disparo", false))
+
+## Aplica uma chave de `EQUIPAMENTOS`: visibilidade dos embutidos por SELEÇÃO
+## e os externos pendurados no osso deles.
 ##
 ## Por NOME e não por caminho: o `.glb` do KayKit pendura as opções de
 ## empunhadura em nós de encaixe fundos na árvore, e o caminho mudaria com
 ## qualquer reexportação do pack. Nome que não existe não é erro — o reserva
-## não tem malha nenhuma dessas, e a lista é do modelo padrão.
-func _esconder_opcoes_de_empunhadura(cena: Node) -> void:
-	var fila: Array[Node] = [cena]
+## não tem malha nenhuma dessas, e a seleção é do modelo padrão.
+func _aplicar_equipamento(chave: StringName) -> void:
+	if _cena_do_modelo == null or chave == _equipamento_atual:
+		return
+	if not EQUIPAMENTOS.has(chave):
+		push_warning("Boneco: equipamento '%s' não existe." % chave)
+		return
+	_equipamento_atual = chave
+	_emprestados.clear()
+	var config: Dictionary = EQUIPAMENTOS[chave]
+	var visiveis: Array = config.get("embutidos", [])
+	var fila: Array[Node] = [_cena_do_modelo]
 	while not fila.is_empty():
 		var no: Node = fila.pop_back()
 		fila.append_array(no.get_children())
-		if no is MeshInstance3D and malhas_ocultas.has(no.name):
-			(no as MeshInstance3D).visible = false
+		if no is MeshInstance3D and OPCOES_EMBUTIDAS.has(no.name):
+			(no as MeshInstance3D).visible = visiveis.has(String(no.name))
+	for preso: Node in _presos_externos:
+		preso.queue_free()
+	_presos_externos.clear()
+	for externo: Dictionary in config.get("externos", []):
+		_pendurar_externo(
+			String(externo.get("malha", "")), String(externo.get("osso", ""))
+		)
+
+## Pendura um `.gltf` de prop num osso, por `BoneAttachment3D` filho direto do
+## `Skeleton3D`, com transform identidade — os props do pack são autorados na
+## origem do encaixe, então qualquer número aqui seria correção às cegas.
+func _pendurar_externo(caminho: String, osso: String) -> void:
+	if _esqueleto == null:
+		return
+	var indice: int = _esqueleto.find_bone(osso)
+	if indice < 0:
+		# O importador pode higienizar o ponto do nome (`handslot.r` →
+		# `handslot_r`); aceitar as duas grafias é mais barato que depender
+		# de qual versão da Godot importou o `.glb`.
+		var limpo: String = osso.replace(".", "_")
+		indice = _esqueleto.find_bone(limpo)
+		if indice >= 0:
+			osso = limpo
+	if indice < 0:
+		_reclamar("osso '%s' não existe no esqueleto de '%s'" % [osso, modelo])
+		return
+	if not ResourceLoader.exists(caminho):
+		_reclamar("prop '%s' não existe" % caminho)
+		return
+	var cena: PackedScene = load(caminho) as PackedScene
+	if cena == null:
+		_reclamar("prop '%s' não é uma cena" % caminho)
+		return
+	var prendedor := BoneAttachment3D.new()
+	prendedor.name = "Preso_%s" % osso.replace(".", "_")
+	_esqueleto.add_child(prendedor)
+	prendedor.bone_name = osso
+	prendedor.add_child(cena.instantiate())
+	_presos_externos.append(prendedor)
+
+## O nó de malha de um prop embutido, visível ou não. Nulo quando o modelo não
+## o tem. `AbilityCaster` o usa para fazer o escudo do E do Leo VOAR — a malha
+## de verdade, não uma esfera.
+func no_de_prop(nome: StringName) -> MeshInstance3D:
+	if _cena_do_modelo == null:
+		return null
+	var fila: Array[Node] = [_cena_do_modelo]
+	while not fila.is_empty():
+		var no: Node = fila.pop_back()
+		fila.append_array(no.get_children())
+		if no is MeshInstance3D and no.name == StringName(nome):
+			return no as MeshInstance3D
+	return null
+
+## Esconde um prop embutido POR EMPRÉSTIMO — o escudo saiu da mão porque está
+## voando. `devolver_prop` desfaz.
+func esconder_prop(nome: StringName) -> void:
+	var no: MeshInstance3D = no_de_prop(nome)
+	if no == null or not no.visible:
+		return
+	no.visible = false
+	_emprestados[nome] = true
+
+## Devolve um prop emprestado — visível de novo SÓ se o equipamento atual
+## ainda o lista: quem trocou de campeão no meio do voo não ganha o escudo do
+## anterior na mão.
+func devolver_prop(nome: StringName) -> void:
+	if not _emprestados.has(nome):
+		return
+	_emprestados.erase(nome)
+	var config: Dictionary = EQUIPAMENTOS.get(_equipamento_atual, {})
+	var visiveis: Array = config.get("embutidos", [])
+	if not visiveis.has(String(nome)):
+		return
+	var no: MeshInstance3D = no_de_prop(nome)
+	if no != null:
+		no.visible = true
+
+## Reclama uma vez por mensagem — o mesmo contrato de `tocar`.
+func _reclamar(mensagem: String) -> void:
+	if _reclamados.has(mensagem):
+		return
+	_reclamados[mensagem] = true
+	push_warning("Boneco: %s." % mensagem)
 
 ## Registra cada clipe do pack também sob o nome do NOSSO vocabulário.
 ##
@@ -354,6 +560,17 @@ func _achar_esqueleto(no: Node) -> Skeleton3D:
 	return null
 
 
+## O `ChampionSelector` irmão, se houver. É de quem o `_process` lê o campeão.
+func _achar_seletor() -> Node:
+	var host: Node = get_parent()
+	if host == null:
+		return null
+	for filho: Node in host.get_children():
+		if filho is ChampionSelector:
+			return filho
+	return null
+
+
 func _achar_animador(no: Node) -> AnimationPlayer:
 	if no is AnimationPlayer:
 		return no as AnimationPlayer
@@ -386,6 +603,7 @@ func tocar(
 ) -> bool:
 	if _animador == null:
 		return false
+	nome = _resolver(nome)
 	if not _animador.has_animation(nome):
 		if not _reclamados.has(nome):
 			_reclamados[nome] = true
@@ -398,13 +616,33 @@ func tocar(
 	_animador.play(nome, -1, velocidade)
 	return true
 
+## Um verbo ESTENDIDO num corpo que não o fala vira a reserva universal dele.
+##
+## Sem aviso, e é de propósito: o vocabulário estendido
+## (`VocabularioDeAnimacao.Estendido`) declara a ausência como contrato — o
+## reserva gerado não tem besta nem escudada, e `RESERVA_DO_ESTENDIDO` diz o
+## que toca no lugar. Verbo UNIVERSAL ausente continua reclamando em `tocar`,
+## porque aí a ausência é defeito.
+func _resolver(nome: String) -> String:
+	if _animador.has_animation(nome):
+		return nome
+	var reserva: Variant = VocabularioDeAnimacao.RESERVA_DO_ESTENDIDO.get(
+		StringName(nome)
+	)
+	if reserva != null and _animador.has_animation(reserva):
+		return String(reserva)
+	return nome
+
 ## Quanto dura um clipe, em segundos. Zero quando ele não existe.
 ##
 ## Existe para o gesto durar o que o CLIPE dura. Sem isto o gesto de
 ## conjuração usava um tempo próprio e a caminhada retomava o corpo no meio do
 ## golpe — o clipe de ataque vivia um quadro.
 func duracao_de(nome: String) -> float:
-	if _animador == null or not _animador.has_animation(nome):
+	if _animador == null:
+		return 0.0
+	nome = _resolver(nome)
+	if not _animador.has_animation(nome):
 		return 0.0
 	return _animador.get_animation(nome).length
 

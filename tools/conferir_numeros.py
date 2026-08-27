@@ -2544,6 +2544,124 @@ def _conferir_o_modelo_kaykit(c: "Conferencia") -> None:
             )
 
 
+def _conferir_o_vocabulario_estendido(c: "Conferencia") -> None:
+    """A camada ESTENDIDA do vocabulário e o equipamento por campeão.
+
+    Os cinco verbos de `VocabularioDeAnimacao.Estendido` não entram em `TODOS`
+    de propósito — o universal é o contrato de TODO corpo, o estendido é o do
+    modelo que o tem —, então nenhuma conferência existente os cobre. Esta
+    fecha o mesmo buraco da lição 9 na camada nova:
+
+      1. todo verbo estendido tem entrada em `NO_KAYKIT` citando um clipe que
+         EXISTE no `Knight.glb` — nome errado é `tocar` calado;
+      2. todo verbo estendido tem reserva em `RESERVA_DO_ESTENDIDO`, e a
+         reserva é um verbo UNIVERSAL (uma constante de coluna zero) — é a
+         reserva que mantém o corpo gerado funcional;
+      3. nenhum estendido está em `CICLOS`: golpe que se repete sozinho não é
+         golpe, e o loop mora no recurso compartilhado;
+      4. todo prop externo que `boneco.gd` pendura (`EQUIPAMENTOS`) existe no
+         repositório, com o `.bin` do buffer ao lado — um `.gltf` sem o `.bin`
+         carrega nulo e vira besta invisível sem erro.
+
+    `tools/sondar_kaykit.gd` prova o mesmo EM EXECUÇÃO (o verbo toca, o prop
+    prende no osso); aqui se prova sem a engine, em toda execução.
+    """
+    vocabulario = ler("scripts/gameplay/vocabulario_de_animacao.gd")
+    boneco = ler("scripts/gameplay/boneco.gd")
+
+    c.contar()
+    classe = re.search(
+        r"^class Estendido:\n(.*?)(?=^(?:const|class|func|# -))",
+        vocabulario, re.S | re.M,
+    )
+    universais = dict(re.findall(
+        r'^const ([A-Z_]+): StringName = &"(\w+)"', vocabulario, re.M))
+    reserva_bloco = re.search(
+        r"^const RESERVA_DO_ESTENDIDO: Dictionary = \{(.*?)\n\}",
+        vocabulario, re.S | re.M,
+    )
+    kaykit_bloco = re.search(
+        r"const NO_KAYKIT: Dictionary = \{(.*?)\n\}", vocabulario, re.S)
+    if not classe or not universais or not reserva_bloco or not kaykit_bloco:
+        c.falhas.append(
+            "não achei `class Estendido`, as constantes universais, "
+            "`RESERVA_DO_ESTENDIDO` ou `NO_KAYKIT` em "
+            "`vocabulario_de_animacao.gd` — conferência órfã"
+        )
+        return
+    estendidos = dict(re.findall(
+        r'const ([A-Z_]+): StringName = &"(\w+)"', classe.group(1)))
+    c.contar()
+    if not estendidos:
+        c.falhas.append("`class Estendido` está sem verbo nenhum")
+        return
+
+    try:
+        cabecalho = _cabecalho_do_glb("arte/kaykit/Knight.glb")
+    except (OSError, ValueError) as erro:
+        c.falhas.append("não consegui ler `Knight.glb`: %s" % erro)
+        return
+    clipes_do_glb = {a.get("name", "") for a in cabecalho.get("animations", [])}
+
+    no_kaykit = dict(re.findall(
+        r'Estendido\.([A-Z_]+): &"([^"]+)"', kaykit_bloco.group(1)))
+    reservas = dict(re.findall(
+        r"Estendido\.([A-Z_]+): ([A-Z_]+)", reserva_bloco.group(1)))
+    ciclos = re.search(
+        r"^const CICLOS: Array\[StringName\] = \[(.*?)^\]",
+        vocabulario, re.S | re.M,
+    )
+    nomes_ciclos = set(re.findall(r"\b([A-Z][A-Z_]+)\b", ciclos.group(1))) \
+        if ciclos else set()
+
+    for nome in sorted(estendidos):
+        c.contar()
+        if nome not in no_kaykit:
+            c.falhas.append("`NO_KAYKIT` não verte o verbo estendido `%s`" % nome)
+        elif no_kaykit[nome] not in clipes_do_glb:
+            c.falhas.append(
+                "`NO_KAYKIT` manda o estendido `%s` tocar `%s`, que não "
+                "existe no `Knight.glb`" % (nome, no_kaykit[nome])
+            )
+        c.contar()
+        if nome not in reservas:
+            c.falhas.append(
+                "o verbo estendido `%s` está sem reserva em "
+                "`RESERVA_DO_ESTENDIDO`" % nome
+            )
+        elif reservas[nome] not in universais:
+            c.falhas.append(
+                "a reserva do estendido `%s` é `%s`, que não é um verbo "
+                "UNIVERSAL do vocabulário" % (nome, reservas[nome])
+            )
+        c.contar()
+        if nome in nomes_ciclos:
+            c.falhas.append(
+                "o verbo estendido `%s` está em `CICLOS` — golpe que se "
+                "repete sozinho não é golpe" % nome
+            )
+
+    # Os props externos do equipamento existem, com o buffer ao lado.
+    props = re.findall(r'"malha": "res://([^"]+\.gltf)"', boneco)
+    c.contar()
+    if not props:
+        c.falhas.append(
+            "não achei prop externo nenhum em `EQUIPAMENTOS` de `boneco.gd` "
+            "— a besta do MARKSMAN sumiu ou a conferência ficou órfã"
+        )
+    for prop in props:
+        c.contar()
+        caminho = os.path.join(RAIZ, *prop.split("/"))
+        binario = caminho[:-len(".gltf")] + ".bin"
+        if not os.path.exists(caminho):
+            c.falhas.append("o prop `%s` não existe no repositório" % prop)
+        elif not os.path.exists(binario):
+            c.falhas.append(
+                "o prop `%s` está sem o `.bin` do buffer ao lado — carrega "
+                "nulo e vira arma invisível" % prop
+            )
+
+
 def _conferir_as_mutacoes(c: "Conferencia") -> None:
     """O `CLAUDE.md` publica quantas mutações existem; elas têm que existir.
 
@@ -4315,6 +4433,7 @@ def main() -> int:
     _conferir_as_mutacoes(c)
     _conferir_o_boneco_novo(c)
     _conferir_o_modelo_kaykit(c)
+    _conferir_o_vocabulario_estendido(c)
     _conferir_as_folgas_do_boneco(c)
     _conferir_o_artefato_do_boneco(c)
     _conferir_os_nomes_do_boneco(c)

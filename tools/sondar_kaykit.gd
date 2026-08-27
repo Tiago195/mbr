@@ -19,7 +19,12 @@ extends SceneTree
 ##      segundo a escrever venceria em silêncio;
 ##   4. o corpo tem altura de personagem (1,4 a 2,8 m — ver o comentário na
 ##      medição), medida por `global_transform * AABB` de cada malha — o
-##      termo que engloba, não a lista de propriedades (lição 10).
+##      termo que engloba, não a lista de propriedades (lição 10);
+##   5. o vocabulário ESTENDIDO (`VocabularioDeAnimacao.Estendido`) toca, não
+##      roda em laço, e cada verbo declara reserva universal;
+##   6. o equipamento por campeão veste: espada no padrão, espada e escudo no
+##      Leo, besta e aljava presas por osso no MARKSMAN — com MALHA dentro do
+##      prendedor, porque prendedor vazio é arma invisível sem erro.
 ##
 ## O que ela NÃO sabe: se a silhueta diz o que o clipe é, e para onde o rosto
 ## aponta — o Knight não tem as caixas nomeadas que `sondar_campeoes.gd` mede
@@ -84,6 +89,26 @@ func _sondar() -> Array[String]:
 				]
 			)
 
+	# O vocabulário ESTENDIDO (decisão 25, camada nova): o modelo padrão fala
+	# cada verbo, nenhum roda em laço — golpe que se repete sozinho não é
+	# golpe —, e cada um declara reserva UNIVERSAL, que é o que mantém o
+	# corpo gerado funcional quando pede `disparo` sem ter besta.
+	for nome: StringName in VocabularioDeAnimacao.Estendido.VERBOS:
+		if not animador.has_animation(nome):
+			falhas.append("o verbo estendido '%s' não toca em nada" % nome)
+			continue
+		if boneco.duracao_de(nome) <= 0.0:
+			falhas.append("o verbo estendido '%s' tem duração zero" % nome)
+		if animador.get_animation(nome).loop_mode != Animation.LOOP_NONE:
+			falhas.append(
+				"o verbo estendido '%s' roda em laço — golpe não repete" % nome
+			)
+		var reserva: Variant = VocabularioDeAnimacao.RESERVA_DO_ESTENDIDO.get(nome)
+		if reserva == null or not VocabularioDeAnimacao.TODOS.has(reserva):
+			falhas.append(
+				"o verbo estendido '%s' está sem reserva universal" % nome
+			)
+
 	var caixa: AABB = _caixa_do_corpo(boneco)
 	var altura: float = caixa.size.y
 	print("  caixa do corpo: %.3f x %.3f x %.3f m (pé em y=%.3f)" % [
@@ -100,7 +125,79 @@ func _sondar() -> Array[String]:
 			% altura
 		)
 
+	falhas.append_array(_sondar_equipamentos(boneco))
+
 	return falhas
+
+## A arma por campeão: o corpo veste o que o papel — ou a exceção — manda.
+##
+## Depois da medição da caixa, de propósito: a caixa é do corpo COMUM, e uma
+## besta presa entraria na medida. No fim, o corpo volta ao equipamento
+## padrão pela mesma razão.
+func _sondar_equipamentos(boneco: Boneco) -> Array[String]:
+	var falhas: Array[String] = []
+
+	# O padrão: espada na mão, escudo guardado, golpe de lâmina.
+	if not _prop_visivel(boneco, &"1H_Sword"):
+		falhas.append("o equipamento padrão está sem a espada visível")
+	if _prop_visivel(boneco, &"Round_Shield"):
+		falhas.append("o equipamento padrão mostra escudo sem campeão pedir")
+	if boneco.ataque_e_disparo():
+		falhas.append("o equipamento padrão não deveria atacar com disparo")
+
+	# A exceção por campeão: o E do Leo ARREMESSA o escudo, então o corpo
+	# dele precisa ter um escudo para arremessar.
+	boneco.equipar_para(&"leo", &"FIGHTER")
+	if not _prop_visivel(boneco, &"1H_Sword"):
+		falhas.append("o Leo está sem a espada")
+	if not _prop_visivel(boneco, &"Round_Shield"):
+		falhas.append("o Leo está sem o escudo — o E dele arremessa o quê?")
+
+	# A regra por papel: MARKSMAN larga a espada e ganha besta no encaixe da
+	# mão e aljava no peito — props EXTERNOS, presos por BoneAttachment3D.
+	boneco.equipar_para(&"bella", &"MARKSMAN")
+	if _prop_visivel(boneco, &"1H_Sword"):
+		falhas.append("MARKSMAN ainda segura a espada")
+	if not boneco.ataque_e_disparo():
+		falhas.append("MARKSMAN deveria atacar com disparo")
+	for osso: String in ["handslot.r", "chest"]:
+		if not _tem_prop_preso(boneco, osso):
+			falhas.append("MARKSMAN sem prop preso no osso '%s'" % osso)
+
+	boneco.equipar_para(&"", &"")
+	if not _prop_visivel(boneco, &"1H_Sword"):
+		falhas.append("o corpo não voltou ao equipamento padrão")
+	return falhas
+
+func _prop_visivel(boneco: Boneco, nome: StringName) -> bool:
+	var no: MeshInstance3D = boneco.no_de_prop(nome)
+	return no != null and no.visible
+
+## Há um `BoneAttachment3D` neste osso com uma MALHA dentro? Malha, e não só
+## filho: um `.gltf` que falhou ao instanciar deixaria o prendedor vazio, e
+## prendedor vazio é besta invisível sem erro nenhum.
+func _tem_prop_preso(boneco: Boneco, osso: String) -> bool:
+	var esqueleto: Skeleton3D = boneco.esqueleto()
+	if esqueleto == null:
+		return false
+	for filho: Node in esqueleto.get_children():
+		var preso: BoneAttachment3D = filho as BoneAttachment3D
+		if preso == null:
+			continue
+		var nome: String = String(preso.bone_name).replace("_", ".")
+		if nome != osso.replace("_", "."):
+			continue
+		if _tem_malha(preso):
+			return true
+	return false
+
+func _tem_malha(no: Node) -> bool:
+	if no is MeshInstance3D and (no as MeshInstance3D).mesh != null:
+		return true
+	for filho: Node in no.get_children():
+		if _tem_malha(filho):
+			return true
+	return false
 
 ## A caixa de TUDO que o corpo desenha, no espaço do próprio `Boneco`.
 ##
