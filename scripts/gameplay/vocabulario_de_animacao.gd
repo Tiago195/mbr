@@ -224,6 +224,58 @@ const GESTOS: Array[StringName] = [
 	ESTOCADA, GIRO, SALTO, ERGUER, PREPARO,
 ]
 
+# ------------------------------------------------------ vocabulário estendido
+#
+# **Verbos que existem só onde o MODELO os tem.** O vocabulário universal
+# (`TODOS`) é o contrato que TODO corpo cumpre — o do pack, o gerado e o
+# reserva —, e é contra ele que `conferir_numeros.py` compara o gerador e o
+# `.glb`. Estes cinco não entram nele DE PROPÓSITO: são gestos que o Knight do
+# KayKit sabe fazer (disparar, encadear dois cortes, esquivar, dar escudada) e
+# que obrigariam o gerador a autorar cinco clipes novos só para o modelo padrão
+# poder usá-los — nivelar por baixo.
+#
+# O contrato deles é outro: **cada um declara o verbo UNIVERSAL que o substitui**
+# (`RESERVA_DO_ESTENDIDO`). Num corpo que não fala o estendido, `Boneco.tocar`
+# toca a reserva — sem aviso, porque aqui a ausência é contrato, não defeito.
+# Quem confere que o modelo padrão fala TODOS eles é `tools/sondar_kaykit.gd`,
+# e quem confere o mapa sem a engine é `_conferir_o_vocabulario_estendido` em
+# `tools/conferir_numeros.py`.
+class Estendido:
+	## Tiro de arma à distância. O ataque básico de quem empunha besta —
+	## estocar com uma besta na mão lia como coronhada.
+	const DISPARO: StringName = &"disparo"
+	## Primeiro elo de uma corrente de golpes: corte diagonal.
+	const GOLPE_A: StringName = &"golpe_a"
+	## Segundo elo: talho de cima. O par de [[golpe_a]] — é a alternância que
+	## mostra que o Q do Leo bate DUAS vezes, e não uma vez desenhada duas.
+	const GOLPE_B: StringName = &"golpe_b"
+	## Deslocamento curto rente ao chão — o dash. `SALTO` desenhava isso como
+	## pulo, e dash não sobe: esquiva.
+	const ESQUIVA: StringName = &"esquiva"
+	## Golpe com o escudo: a forma que EMPURRA os outros, distinta do
+	## deslocamento que move a si.
+	const EMPURRAO: StringName = &"empurrao"
+
+	## Todos os estendidos. `sondar_kaykit.gd` exige que o modelo padrão
+	## responda a cada um, e que cada um tenha reserva universal declarada.
+	const VERBOS: Array[StringName] = [
+		DISPARO, GOLPE_A, GOLPE_B, ESQUIVA, EMPURRAO,
+	]
+
+## O verbo UNIVERSAL que cobre cada estendido num corpo que não o fala.
+##
+## É o que mantém o reserva (`arte/personagem.glb`) funcional sem autorar
+## clipe novo: pedir `disparo` a um corpo sem besta animada toca `arremesso`,
+## que é o mesmo gesto sem o objeto. Nenhum estendido é ciclo, e nenhuma
+## reserva aqui pode ser ciclo — golpe que se repete sozinho não é golpe.
+const RESERVA_DO_ESTENDIDO: Dictionary = {
+	Estendido.DISPARO: ARREMESSO,
+	Estendido.GOLPE_A: ESTOCADA,
+	Estendido.GOLPE_B: ESTOCADA,
+	Estendido.ESQUIVA: SALTO,
+	Estendido.EMPURRAO: ESTOCADA,
+}
+
 ## O nome que cada verbo nosso tem no pack do KayKit (`arte/kaykit/`).
 ##
 ## **É a mesma espécie de tabela que `NO_ORIGINAL`**: o boneco deixou de ser
@@ -269,6 +321,17 @@ const NO_KAYKIT: Dictionary = {
 	SALTO: &"Jump_Full_Short",
 	ERGUER: &"Spellcast_Raise",
 	PREPARO: &"Spellcasting",
+	# Os estendidos. `GOLPE_B` seria o corte horizontal — o par natural do
+	# diagonal —, mas `1H_Melee_Attack_Slice_Horizontal` já é o clipe de
+	# `CORTANDO`, que é CICLO: dois verbos no mesmo clipe têm que concordar
+	# sobre ser ciclo (o loop mora no recurso compartilhado), e um golpe de
+	# combate que roda em laço não é golpe. O talho de cima é o clipe livre
+	# que mantém os dois elos visivelmente diferentes.
+	Estendido.DISPARO: &"2H_Ranged_Shoot",
+	Estendido.GOLPE_A: &"1H_Melee_Attack_Slice_Diagonal",
+	Estendido.GOLPE_B: &"1H_Melee_Attack_Chop",
+	Estendido.ESQUIVA: &"Dodge_Forward",
+	Estendido.EMPURRAO: &"Block_Attack",
 }
 
 ## Tudo que o boneco sabe fazer: os verbos universais mais os gestos.
