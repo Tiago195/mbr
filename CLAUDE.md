@@ -233,8 +233,9 @@ personagem chibi rigado com biblioteca CC0. IA não muda isso em 2026: auto-rig
 colapsa nas juntas, Mixamo está sem manutenção, mocap falha nos pés.
 
 O que mudou (tudo na decisão 25 de `docs/02`): o jogo carrega
-`arte/kaykit/Knight.glb` (CC0, 41 ossos, 76 clipes embutidos, escala 0,709
-para 1,75 m), `VocabularioDeAnimacao.NO_KAYKIT` verte os nossos verbos para os
+`arte/kaykit/Knight.glb` (CC0, 41 ossos, 76 clipes embutidos, escala 1,0 —
+os 2,467 m autorados; o 1,75 da direção de arte lia minúsculo na câmera e o
+usuário reprovou), `VocabularioDeAnimacao.NO_KAYKIT` verte os nossos verbos para os
 clipes dele por APELIDO na `AnimationLibrary`, e `tools/sondar_kaykit.gd` +
 `_conferir_o_modelo_kaykit` em `conferir_numeros.py` conferem — com três
 mutações pegas no dia do nascimento. Os geradores e as suítes de mutação deles

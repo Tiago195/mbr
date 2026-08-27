@@ -17,9 +17,9 @@ extends SceneTree
 ##      `CICLOS`. Isto também pega o par de verbos que divide um clipe e
 ##      DISCORDA sobre ser ciclo — o loop mora no recurso compartilhado, e o
 ##      segundo a escrever venceria em silêncio;
-##   4. o corpo tem altura de personagem (1,2 a 2,4 m), medida por
-##      `global_transform * AABB` de cada malha — o termo que engloba, não a
-##      lista de propriedades (lição 10).
+##   4. o corpo tem altura de personagem (1,4 a 2,8 m — ver o comentário na
+##      medição), medida por `global_transform * AABB` de cada malha — o
+##      termo que engloba, não a lista de propriedades (lição 10).
 ##
 ## O que ela NÃO sabe: se a silhueta diz o que o clipe é, e para onde o rosto
 ## aponta — o Knight não tem as caixas nomeadas que `sondar_campeoes.gd` mede
@@ -89,9 +89,14 @@ func _sondar() -> Array[String]:
 	print("  caixa do corpo: %.3f x %.3f x %.3f m (pé em y=%.3f)" % [
 		caixa.size.x, altura, caixa.size.z, caixa.position.y,
 	])
-	if altura < 1.2 or altura > 2.4:
+	# A faixa era 1,2–2,4 quando o alvo era os 1,75 m da direção de arte — e
+	# o usuário reprovou o 1,75 na tela em quinze segundos: numa câmera de
+	# MOBA o chibi lia com metade da cápsula de treino (2,0 m). O alvo passou
+	# a ser o tamanho autorado do pack, 2,467 m, e a faixa acompanha: piso
+	# acima da metade da cápsula, teto pouco acima do autorado.
+	if altura < 1.4 or altura > 2.8:
 		falhas.append(
-			"o corpo mede %.2f m — fora da faixa de personagem (1,2 a 2,4)"
+			"o corpo mede %.2f m — fora da faixa de personagem (1,4 a 2,8)"
 			% altura
 		)
 

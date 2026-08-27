@@ -116,6 +116,17 @@ enum Gesto {
 ## porque mover o corpo todo lê como empurrão e não como golpe.
 var _boneco: Boneco
 var _malha: Node3D
+
+## O combatente dono do corpo — é dele que sai a cadência do ataque.
+var _combatente: Node = null
+
+## Verdadeiro quando o gesto em curso é de ATAQUE BÁSICO, e não de habilidade.
+##
+## A distinção existe porque andar cancela um e não o outro: no esquema do
+## LoL, mover-se durante o golpe básico corta a animação e o corpo volta a
+## correr, mas o gesto de uma habilidade é a telegrafia dela — cortá-lo
+## apagaria exatamente o que o jogador precisa ler.
+var _de_ataque: bool = false
 var _caster: AbilityCaster
 var _base_posicao: Vector3
 var _base_escala: Vector3
@@ -125,12 +136,12 @@ var _total: float = 0.0
 
 func _ready() -> void:
 	_boneco = _achar_boneco()
-	var combatente: Node = _achar_irmao("Combatant")
-	if combatente != null:
-		if combatente.has_signal("atacou"):
-			combatente.connect("atacou", _ao_atacar)
-		if combatente.has_signal("displaced"):
-			combatente.connect("displaced", _ao_deslocar)
+	_combatente = _achar_irmao("Combatant")
+	if _combatente != null:
+		if _combatente.has_signal("atacou"):
+			_combatente.connect("atacou", _ao_atacar)
+		if _combatente.has_signal("displaced"):
+			_combatente.connect("displaced", _ao_deslocar)
 	_malha = _achar_malha()
 	if _boneco != null:
 		_malha = _boneco
@@ -144,14 +155,65 @@ func _ready() -> void:
 	if _caster != null:
 		_caster.cast_attempted.connect(_ao_conjurar)
 
-## O golpe básico saiu: o corpo bate.
+## O golpe básico saiu: o corpo bate — NO RITMO da cadência.
+##
+## O clipe do pack é mais lento que a cadência de vários campeões (a Bella
+## bate a cada 0,43 s num clipe de ~1 s), e tocá-lo em velocidade natural
+## produzia o que o usuário reportou em 26/08: *"o boneco alvo sofre dano
+## várias vezes enquanto a primeira animação de atack básico ainda nem
+## terminou"* — e o dano parecia sair antes de a espada encostar, porque o
+## contato visual do clipe ficava muito depois do tick. O dano continua
+## saindo no tick, como no original (o censo mediu: nenhum clipe de combate
+## de lá tem evento de animação); o que muda é o golpe visual caber no
+## intervalo entre dois ticks.
 func _ao_atacar() -> void:
 	# Sem esqueleto, o ataque usa o mesmo gesto de estocada das habilidades.
 	_gesto = Gesto.ESTOCADA
-	if _tocar(clipe_de_ataque):
+	_de_ataque = true
+	if _tocar_no_ritmo_do_ataque():
 		return
 	_total = duracao
 	_restante = _total
+
+## Toca o clipe de ataque acelerado para caber no intervalo da cadência.
+## Devolve se tocou.
+func _tocar_no_ritmo_do_ataque() -> bool:
+	if _boneco == null or _boneco.animador() == null:
+		return false
+	var roda: RodaDeAnimacao = _achar_roda()
+	if roda != null and roda.esta_mostrando():
+		return false
+	var do_clipe: float = _boneco.duracao_de(clipe_de_ataque)
+	if do_clipe <= 0.0:
+		return false
+	# Nunca DESacelerar: clipe mais rápido que a cadência vira pausa entre
+	# golpes, que é como o ataque lento deve ler.
+	var velocidade: float = maxf(do_clipe / _intervalo_do_ataque(), 1.0)
+	if not _boneco.tocar(clipe_de_ataque, true, velocidade):
+		return false
+	_total = maxf(do_clipe / velocidade, 0.05)
+	_restante = _total
+	return true
+
+## Segundos entre dois ataques básicos deste corpo. `duracao` quando não há
+## como saber — que é o comportamento de antes.
+func _intervalo_do_ataque() -> float:
+	if _combatente == null:
+		return duracao
+	var unidade: Variant = _combatente.get("unit")
+	if unidade == null:
+		return duracao
+	return maxf(unidade.attack_interval(), 0.05)
+
+## Andar cancela o golpe básico — e SÓ ele.
+##
+## `GestoDeCaminhada` chama isto quando o corpo se move com um gesto em
+## curso. Habilidade não é cancelada: o gesto dela é a telegrafia, e é
+## exatamente o que o jogador está tentando ler.
+func cancelar_ataque_em_movimento() -> void:
+	if not _de_ataque or _restante <= 0.0:
+		return
+	_repousar()
 
 
 ## O corpo foi deslocado: a animação de investida acompanha o deslocamento em
@@ -222,6 +284,8 @@ func _ao_conjurar(
 	if not (result.succeeded() or result.started()):
 		return
 
+	# Gesto de habilidade não é cancelável por movimento — ver `_de_ataque`.
+	_de_ataque = false
 	var saiu: Ability = result.ability if result.ability != null else pedida
 	_gesto = Gesto.PREPARO if result.started() else _gesto_para(saiu)
 	# Com esqueleto, o gesto vira CLIPE. O nome sai do mesmo `_gesto` que o
@@ -442,10 +506,10 @@ func _achar_malha() -> Node3D:
 	if host == null:
 		return null
 	for child: Node in host.get_children():
-		# O marcador da frente é filho separado e NÃO entra: ele existe para
-		# mostrar para onde o personagem olha, e girá-lo junto apagaria essa
-		# informação justamente durante o gesto.
-		if child is MeshInstance3D and child.name != "FrontMarker":
+		# O `FrontMarker` que já foi excluído por nome aqui saiu da cena em
+		# 26/08/2026: o modelo da decisão 25 mostra a frente sozinho, e o
+		# usuário apontou o cone vermelho como ruído.
+		if child is MeshInstance3D:
 			return child as Node3D
 	return null
 

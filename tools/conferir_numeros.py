@@ -2518,11 +2518,16 @@ def _conferir_o_modelo_kaykit(c: "Conferencia") -> None:
                 "a decisão 25 publica %s clipes e o `Knight.glb` tem %d"
                 % (publicado.group(2), len(clipes_do_glb))
             )
+    # A escala publicada é a do código. A altura FINAL quem confere é a
+    # sonda, medindo o corpo montado — aqui só se fecha a porta de o
+    # documento e o `boneco.gd` divergirem em silêncio, que foi exatamente o
+    # que aconteceu quando a escala mudou de 0,709 para 1,0 no mesmo dia em
+    # que nasceu.
     c.contar()
     escala = re.search(
         r"@export var escala_do_modelo: float = ([\d.]+)", boneco)
     conta = re.search(
-        r"autorado com ([\d]+,[\d]+) m e entra com escala 0?,?([\d]+)",
+        r"autorado com [\d]+,[\d]+ m e entra com escala ([\d]+(?:,[\d]+)?)",
         decisao)
     if not escala or not conta:
         c.falhas.append(
@@ -2530,18 +2535,12 @@ def _conferir_o_modelo_kaykit(c: "Conferencia") -> None:
             "e entra com escala Y' na decisão 25 — conferência órfã"
         )
     else:
-        altura_autorada = float(conta.group(1).replace(",", "."))
         no_codigo = float(escala.group(1))
-        no_documento = float("0." + conta.group(2))
+        no_documento = float(conta.group(1).replace(",", "."))
         if abs(no_codigo - no_documento) > 1e-3:
             c.falhas.append(
                 "a decisão 25 publica escala %.3f e `boneco.gd` usa %.3f"
                 % (no_documento, no_codigo)
-            )
-        if abs(no_codigo - 1.75 / altura_autorada) > 1e-3:
-            c.falhas.append(
-                "a escala %.3f não é 1,75 / %.3f — ou a altura autorada ou a "
-                "escala envelheceu" % (no_codigo, altura_autorada)
             )
 
 

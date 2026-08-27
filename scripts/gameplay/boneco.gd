@@ -59,14 +59,19 @@ extends Node3D
 	"res://arte/personagem.glb",
 ])
 
-## Quanto multiplicar o modelo padrão. **1,75 / 2,467 — não é gosto.**
+## Quanto multiplicar o modelo padrão. **1,0 — e o 0,709 que esteve aqui
+## durou quinze segundos de jogo.**
 ##
-## O Knight é autorado com 2,467 m do pé ao topo do elmo (medido por
-## `tools/sondar_kaykit.gd`, que reprova corpo fora de 1,2–2,4 m), e a nossa
-## direção de arte manda 1,75 m (§2 de `docs/11` — é a altura de
-## `arte/personagem.glb`, e a que o alcance das habilidades e a câmera já
-## assumem). A escala não mexe nos pés: a origem do modelo é o chão.
-@export var escala_do_modelo: float = 0.709
+## A primeira versão escalava o Knight para os 1,75 m da direção de arte, e o
+## usuário reprovou na hora: *"o boneco parece pequeno de mais, chega a ser
+## exagerado"*. Medido na tela, ele lia com metade da altura visual de uma
+## cápsula de treino — proporção chibi concentra a massa na cabeça, e numa
+## câmera de MOBA o que sobra é um elmo com pés. Os 2,467 m autorados do pack
+## (contra 2,0 m da cápsula) são o que lê como personagem nessa câmera; o
+## 1,75 continua sendo a régua do BONECO GERADO, não deste. A escala não mexe
+## nos pés: a origem do modelo é o chão. `tools/sondar_kaykit.gd` reprova
+## corpo fora de 1,4–2,8 m.
+@export var escala_do_modelo: float = 1.0
 
 ## Malhas do modelo a esconder ao carregar.
 ##
@@ -370,7 +375,15 @@ func animador() -> AnimationPlayer:
 ## como o jogo passou a pedir oito clipes do Royal Crown que nunca estiveram no
 ## nosso arquivo: `tocar` devolvia `false`, ninguém lia o retorno, e o corpo
 ## ficava parado sem uma linha no console. Ver `VocabularioDeAnimacao`.
-func tocar(nome: String, tocar_de_novo: bool = false) -> bool:
+## `velocidade` multiplica o passo do clipe. Existe porque o clipe de ataque
+## do pack é mais LENTO que a cadência de ataque de vários campeões — a Bella
+## bate 2,32 vezes por segundo num clipe de ~1 s —, e sem acelerar o golpe
+## visual dois danos saíam dentro de UMA estocada. Quem calcula a velocidade
+## é quem conhece a cadência (`GestoDeConjuracao._ao_atacar`); aqui ela só é
+## repassada à engine.
+func tocar(
+		nome: String, tocar_de_novo: bool = false, velocidade: float = 1.0
+) -> bool:
 	if _animador == null:
 		return false
 	if not _animador.has_animation(nome):
@@ -382,7 +395,7 @@ func tocar(nome: String, tocar_de_novo: bool = false) -> bool:
 		return false
 	if not tocar_de_novo and _animador.current_animation == nome:
 		return true
-	_animador.play(nome)
+	_animador.play(nome, -1, velocidade)
 	return true
 
 ## Quanto dura um clipe, em segundos. Zero quando ele não existe.

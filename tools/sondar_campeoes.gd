@@ -240,10 +240,12 @@ const OSSOS_DO_PE: Array = [["foot.l", "toes.l"], ["foot.r", "toes.r"]]
 
 ## Quanto o dedo tem que estar À FRENTE do calcanhar, em metros.
 ##
-## Medido no Knight em escala de jogo: +0,082 m na média dos dois pés — é a
-## linha que esta sonda imprime. O piso fica em pouco mais de metade, pela
-## mesma régua do rosto: frouxo aprova torto, apertado reprova quando o pé
-## encurtar. Zerar `Boneco.giro_do_modelo` dá -0,082 e reprova.
+## Medido no Knight em escala 1,0: +0,115 m na média dos dois pés — é a
+## linha que esta sonda imprime, e ela muda junto com `escala_do_modelo`
+## (era +0,082 na escala 0,709). O piso fica abaixo de metade, pela mesma
+## régua do rosto: frouxo aprova torto, apertado reprova quando o pé
+## encurtar ou a escala descer. Zerar `Boneco.giro_do_modelo` inverte o
+## sinal e reprova — foi a mutação que provou a conferência.
 const DEDO_ADIANTE_MINIMO: float = 0.05
 
 ## A frente medida pelos PÉS, para modelo sem o material `rosto`.

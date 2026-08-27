@@ -91,15 +91,23 @@ func _process(delta: float) -> void:
 		return
 	if _reacao != null and _reacao.esta_reagindo():
 		return
-	if _gesto != null and _gesto.esta_gesticulando():
-		# **E devolve o corpo ao lugar antes de sair.** Sem isto a caminhada
-		# larga o corpo inclinado e o gesto de conjuração desenha por cima de
-		# um repouso que não é repouso — foi o que a sonda acusou com "o corpo
-		# não voltou ao repouso depois do gesto".
-		return
 
 	var plana := Vector3(_corpo.velocity.x, 0.0, _corpo.velocity.z)
 	var rapidez: float = plana.length()
+
+	if _gesto != null and _gesto.esta_gesticulando():
+		# **Andar corta o golpe básico**, como no LoL: mover-se durante a
+		# estocada devolve o corpo à corrida no mesmo quadro. Só o ataque —
+		# o gesto de habilidade é telegrafia e fica (ver `_de_ataque`).
+		if rapidez >= velocidade_minima:
+			_gesto.cancelar_ataque_em_movimento()
+		if _gesto.esta_gesticulando():
+			# **E devolve o corpo ao lugar antes de sair.** Sem isto a
+			# caminhada larga o corpo inclinado e o gesto de conjuração
+			# desenha por cima de um repouso que não é repouso — foi o que a
+			# sonda acusou com "o corpo não voltou ao repouso depois do
+			# gesto".
+			return
 
 	# **Com esqueleto, o clipe manda e o quique SAI.** Quique, inclinação e
 	# bamboleio foram escritos para um corpo sem osso; sobre uma passada de

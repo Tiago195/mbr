@@ -1405,10 +1405,20 @@ solo, pipeline para a Godot), e três achados que decidem:
   apelido na `AnimationLibrary` — o mesmo `Animation` sob os dois nomes, sem
   duplicar dado. Verbos que dividem clipe precisam concordar sobre ser ciclo,
   porque o loop mora no recurso compartilhado.
-- O Knight é autorado com 2,467 m e entra com escala 0,709 para os 1,75 m da
-  direção de arte; as opções de empunhadura (duas espadas, quatro escudos, uma
-  de mão inversa, todas visíveis no `.glb`) são escondidas ao carregar, menos a
-  espada de uma mão.
+- O Knight é autorado com 2,467 m e entra com escala 1,0 — no tamanho
+  autorado. A primeira versão o escalava para os 1,75 m da direção de arte e
+  o usuário reprovou em quinze segundos de jogo (*"pequeno de mais, chega a
+  ser exagerado"*): proporção chibi concentra a massa na cabeça, e na câmera
+  de MOBA ele lia com metade da cápsula de treino de 2,0 m. O 1,75 continua
+  sendo a régua do boneco GERADO. As opções de empunhadura (duas espadas,
+  quatro escudos, uma de mão inversa, todas visíveis no `.glb`) são
+  escondidas ao carregar, menos a espada de uma mão.
+- O ataque básico é desenhado NO RITMO da cadência: o clipe acelera para
+  caber no intervalo entre dois ticks (`_tocar_no_ritmo_do_ataque`), e andar
+  durante o golpe corta a animação e devolve o corpo à corrida — só o
+  ataque; o gesto de habilidade é telegrafia e fica. As duas regras saíram do
+  mesmo teste de quinze segundos: dois danos dentro de uma estocada, e o
+  corpo pregado no chão terminando o golpe de quem já mandou andar.
 - `tools/sondar_kaykit.gd` confere que o modelo padrão fala o vocabulário
   INTEIRO — presença, duração, ciclo e altura —, `sondar_campeoes.gd` ganhou a
   medida de frente pelos dedos dos pés para modelo sem o material `rosto`, e
