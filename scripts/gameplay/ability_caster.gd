@@ -81,6 +81,29 @@ var _combatant: Combatant
 ## — deixa o projétil na mesma lista, e um contador crescente basta.
 var _last_drawn_shot: int = 0
 
+## O grupo da habilidade cujo projétil é o PRÓPRIO ESCUDO do corpo —
+## `skill_leo_shieldthrow`, o E do Leo.
+##
+## **Provisório e registrado como tal**: identificar a habilidade pelo grupo é
+## aceitável nesta fatia, mas a forma certa é a habilidade DECLARAR que
+## arremessa um prop do corpo (dado, não código — regra 5), no dia em que uma
+## segunda habilidade precisar disso. Grupo e não id porque o id muda por
+## ranque e o grupo é o mesmo nos cinco.
+const GRUPO_DO_ESCUDO_VOADOR: StringName = &"rc_g_1000100"
+
+## O prop embutido que voa nessa habilidade.
+const PROP_DO_ESCUDO: StringName = &"Round_Shield"
+
+## Voltas por segundo do escudo em voo.
+const GIRO_DO_ESCUDO: float = 3.0
+
+## Escudos em voo: id do projétil → { "no": Node3D, "shot": Projectile }.
+##
+## O nó LÊ a posição da entidade do core a cada tique — nunca calcula
+## trajetória própria (regra 3): se o motor desviar o projétil, o escudo
+## desvia junto, porque ele não tem opinião.
+var _escudos_em_voo: Dictionary = {}
+
 func _ready() -> void:
 	ensure_ready()
 
@@ -198,6 +221,10 @@ func tick(delta: float) -> void:
 		# esta emissão o sinal perderia TODO acerto de projétil, e o texto dele
 		# promete ser a única forma de saber o que aconteceu.
 		resolved.emit(hit)
+
+	# Depois do voo, para o escudo acompanhar a posição DESTE tique — e para
+	# um tiro que gastou agora devolver o escudo ao braço agora.
+	_seguir_escudos_em_voo(delta)
 
 # ---------------------------------------------------------------- conjuração
 
@@ -401,6 +428,71 @@ func _draw_new_projectiles() -> void:
 			continue
 		_last_drawn_shot = shot.id
 		AbilityTelegraph.follow(scene_root, shot, _cor_da_marca(color_line))
+		if shot.ability != null and shot.ability.group_id == GRUPO_DO_ESCUDO_VOADOR:
+			_lancar_escudo_visual(scene_root, shot)
+
+# ---------------------------------------------------------------- escudo voador
+
+## O projétil do E do Leo É o escudo dele: a malha sai do braço, gira no ar
+## colada na entidade do core, e volta ao braço quando o voo acaba. Sem isto o
+## arremesso do escudo era uma esfera genérica com o escudo ainda no braço —
+## a habilidade dizia uma coisa e o corpo dizia outra.
+func _lancar_escudo_visual(scene_root: Node, shot: ProjectileSet.Projectile) -> void:
+	var boneco: Boneco = _achar_boneco()
+	if boneco == null:
+		return
+	var do_braco: MeshInstance3D = boneco.no_de_prop(PROP_DO_ESCUDO)
+	if do_braco == null or do_braco.mesh == null:
+		return
+	var voador := Node3D.new()
+	voador.name = "EscudoVoador"
+	var malha := MeshInstance3D.new()
+	malha.mesh = do_braco.mesh
+	# De pé e de frente para o voo leria como parede; deitado e girando lê
+	# como disco arremessado, que é a leitura do original.
+	malha.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+	voador.add_child(malha)
+	scene_root.add_child(voador)
+	voador.global_position = Vector3(
+		shot.position.x, AbilityTelegraph.ALTURA_DO_VOO, shot.position.z
+	)
+	boneco.esconder_prop(PROP_DO_ESCUDO)
+	_escudos_em_voo[shot.id] = {"no": voador, "shot": shot}
+
+## Cola cada escudo na entidade dele e devolve ao braço o que já pousou.
+func _seguir_escudos_em_voo(delta: float) -> void:
+	if _escudos_em_voo.is_empty():
+		return
+	var acabados: Array = []
+	for id: int in _escudos_em_voo:
+		var registro: Dictionary = _escudos_em_voo[id]
+		var voador: Node3D = registro["no"]
+		var shot: ProjectileSet.Projectile = registro["shot"]
+		if shot.spent or not is_instance_valid(voador):
+			if is_instance_valid(voador):
+				voador.queue_free()
+			acabados.append(id)
+			continue
+		voador.global_position = Vector3(
+			shot.position.x, AbilityTelegraph.ALTURA_DO_VOO, shot.position.z
+		)
+		voador.rotate_y(TAU * GIRO_DO_ESCUDO * delta)
+	for id: int in acabados:
+		_escudos_em_voo.erase(id)
+	if _escudos_em_voo.is_empty():
+		var boneco: Boneco = _achar_boneco()
+		if boneco != null:
+			boneco.devolver_prop(PROP_DO_ESCUDO)
+
+## O corpo visual irmão, quando existe.
+func _achar_boneco() -> Boneco:
+	var host: Node = get_parent()
+	if host == null:
+		return null
+	for child: Node in host.get_children():
+		if child is Boneco:
+			return child as Boneco
+	return null
 
 ## Console em vez de HUD: a Fase 1 não tem UI, e a recusa precisa ser visível
 ## para dar para testar. Vira ícone acinzentado e aviso na tela na Fase 6.
