@@ -315,6 +315,16 @@ GRAVIDADE_DO_ARREMESSO = 9.8
 ## É a mediana dos 20 casos deriváveis. Inventado, e contado como tal.
 TEMPO_DE_AR_PADRAO = 0.9
 
+## Metros de empurrão por unidade de `MoveSpeed`, quando o controle não declara
+## `Distance` — o caso das 11 linhas cuja distância mora numa curva-asset
+## (`CCCurve_LeoShieldWallZ` e afins), que antes viravam empurrão NENHUM.
+##
+## Medido, não suposto: todas as 20 linhas de `ThrowUp`/`KnockBack` que
+## declaram `Distance` declaram `MoveSpeed` também, e a razão entre os dois é
+## 0,5 na mediana (faixa 0,2 a 0,75). Ou seja: no dado do original, o empurrão
+## dura por volta de meio segundo de `MoveSpeed`. Ver a decisão 26.
+EMPURRAO_POR_VELOCIDADE = 0.5
+
 ## `TriggerTiming` de `impact_xml` -> evento do nosso `TriggerSet`.
 ##
 ## Só entram os que a camada `core/` sabe emitir sozinha. `Start` é ausência de
@@ -483,6 +493,10 @@ CONSULTADAS = {
         "RemoveCC", "RemoveDebuff", "UseChainBreak", "UltimateCharge",
         "ResetAttackCoolTime", "ComboSkillInfo_SkillID",
         "ComboSkillInfo_StartTime", "ComboSkillInfo_LimitTime",
+        # Curva de deslocamento: a Z vira dash reto e a Y sozinha é lacuna
+        # registrada — as duas são LIDAS (decisão 26). Em `crowd_control` as
+        # colunas homônimas continuam em `IGNORADAS`.
+        "ZMoveCurvePath", "YMoveCurvePath",
         "__tabela",
     } | {f"Impact{n}" for n in range(1, 13)}
       | {f"StatType{n}" for n in range(1, 5)}
@@ -493,7 +507,11 @@ CONSULTADAS = {
         "ImpactCount", "ProjectileEffectId", "MoveDistance", "MoveSpeedZ",
         "SummonActorId", "SummonPersistTime", "DrainFactor",
         "IgnoreInvincibility", "StartPositionX", "StartPositionZ", "Angle",
-        "FollowTarget", "__tabela",
+        "FollowTarget",
+        # Escala X do colisor-cubo: é a largura do projétil-parede quando nem
+        # `CastDirection_Width` nem `Radius` existem (decisão 26).
+        "StartScaleX", "EndScaleX",
+        "__tabela",
     } | {f"StatType{n}" for n in range(1, 5)}
       | {f"StatValue{n}" for n in range(1, 5)}
       | {f"ImpactStatType{n}" for n in range(1, 9)}
@@ -507,6 +525,9 @@ CONSULTADAS = {
       | {f"StatValue{n}" for n in range(1, 5)},
     "crowd_control": {
         "Id", "Type", "Duration", "Distance", "Direction", "ApplyToughness",
+        # `MoveSpeed` deriva a distância do empurrão quando `Distance` falta
+        # (decisão 26). Em `skill` a coluna homônima segue em `IGNORADAS`.
+        "MoveSpeed",
         "Impact1", "__tabela",
     } | {f"StatType_{n}" for n in range(1, 5)}
       | {f"StatValue_{n}" for n in range(1, 5)},
@@ -597,7 +618,10 @@ IGNORADAS = {
     "HitTarget1": "reação visual", "HitTarget2": "reação visual",
     "TargetDummy": "reação visual", "ColliderPath": "colisor de cena",
     "InheritanceParentScale": "escala visual",
-    "StartScaleX": "escala visual", "EndScaleX": "escala visual",
+    # `StartScaleX`/`EndScaleX` saíram daqui: viraram largura de colisor e
+    # estão em `CONSULTADAS["impact"]` (decisão 26). A escala Z fica: é a
+    # profundidade do colisor ao longo do voo, e o comprimento já vem de
+    # `MoveDistance`.
     "StartScaleZ": "escala visual", "EndScaleZ": "escala visual",
     "FollowDirection": "orientação visual",
     "Desc": "texto localizado", "DescParam": "texto localizado",
@@ -638,8 +662,12 @@ IGNORADAS = {
     "ComboSkillInfo_SkillID": "corrente de combo (lacuna registrada)",
     "ComboSkillInfo_StartTime": "corrente de combo (lacuna registrada)",
     "ComboSkillInfo_LimitTime": "corrente de combo (lacuna registrada)",
-    "ZMoveCurvePath": "curva de deslocamento (lacuna registrada)",
-    "YMoveCurvePath": "curva de deslocamento (lacuna registrada)",
+    # Em `skill` as duas curvas são LIDAS (decisão 26) e vivem em
+    # `CONSULTADAS["skill"]`; estas entradas cobrem as colunas homônimas de
+    # `crowd_control`, onde a curva é a forma da subida do arremesso — o
+    # empurrão e o tempo de ar já saem de `MoveSpeed` e `MaxHeight`.
+    "ZMoveCurvePath": "em crowd_control: forma da subida do arremesso, visual",
+    "YMoveCurvePath": "em crowd_control: forma da subida do arremesso, visual",
     "MoveCurvePath": "curva de deslocamento (lacuna registrada)",
     "ParabolaCurvePath": "curva de deslocamento (lacuna registrada)",
     "TransverseParabolaCurvePath": "curva de deslocamento (lacuna registrada)",
@@ -661,7 +689,11 @@ IGNORADAS = {
     "ArriveTime": "tempo de voo, aproximado por MoveSpeedZ",
     "StartPositionY": "altura, ignorada como o resto da altura",
     "MaxHeight": "altura do arremesso, visual",
-    "MoveSpeed": "velocidade do arremesso, visual",
+    # Em `crowd_control` a coluna é LIDA — deriva a distância do empurrão
+    # quando `Distance` falta (decisão 26) — e vive em
+    # `CONSULTADAS["crowd_control"]`. Esta entrada cobre a homônima de
+    # `skill`, que é velocidade de animação.
+    "MoveSpeed": "em skill: velocidade de animação do deslocamento",
         # NÃO é redundante com `StartPosition`: `crowd_control_xml` não tem essa
     # coluna. Diz de onde o empurrão irradia — do ponto de impacto (157) ou do
     # conjurador (113). Nós sempre empurramos para longe do conjurador, o que é
@@ -1007,7 +1039,18 @@ class Tradutor:
     def _empurrao(self, cc: dict[str, str], alvo: str, onde: str) -> dict | None:
         distancia = num(cc.get("Distance"))
         if distancia <= 0.0:
-            return None
+            # `Distance` ausente com `MoveSpeed` declarado: a distância mora
+            # numa curva-asset (o R do Leo: `MoveSpeed=8`, `Direction=Front`,
+            # `CCCurve_LeoShieldWallZ`, sem `Distance`). Antes isto devolvia
+            # None e o empurrão sumia inteiro — a parede arremessava sem mover
+            # ninguém. A distância sai da velocidade vezes a razão MEDIDA nas
+            # linhas que declaram os dois; é derivação com assunção
+            # registrada, não dado, e por isso é contada à parte.
+            velocidade = num(cc.get("MoveSpeed"))
+            if velocidade <= 0.0:
+                return None
+            distancia = round(velocidade * EMPURRAO_POR_VELOCIDADE, 2)
+            self.r.usou("displacement:cc derivado de MoveSpeed (sem Distance)")
         direcao = cc.get("Direction", "Front")
         # ASSUNÇÃO registrada: `Backward` puxa, o resto empurra. O original não
         # documenta o eixo, e as entradas com `Distance` são quase todas
@@ -1796,6 +1839,20 @@ class Tradutor:
             if largura <= 0.0:
                 largura = raio * 2.0 if impacto.get("Radius") else 0.0
             if largura <= 0.0:
+                # `StartScaleX`/`EndScaleX`: o colisor destes impactos é um
+                # cubo UNITÁRIO (`Collider_UnitCube`) escalado — a escala X É
+                # a largura em metros. A parede do R do Leo declara 4 e saía
+                # com o 1,0 fabricado; quem paga por uma parede de 4 m que só
+                # pega 1 m é quem mira certo e não acerta. Quando a escala
+                # cresce em voo (Start != End), vale a média — é o único
+                # número que uma largura constante consegue dizer sobre uma
+                # que cresce linearmente, e a aproximação é contada.
+                escala_inicio = num(impacto.get("StartScaleX"))
+                escala_fim = num(impacto.get("EndScaleX"), escala_inicio)
+                if escala_inicio > 0.0:
+                    largura = round((escala_inicio + escala_fim) / 2.0, 2)
+                    self.r.usou("largura do colisor pela escala (StartScaleX)")
+            if largura <= 0.0:
                 self._inventado("largura do projétil", skill)
                 largura = 1.0
 
@@ -2027,8 +2084,12 @@ class Tradutor:
                 passivas.append(mod)
 
 
-        if skill.get("ZMoveCurvePath") or skill.get("YMoveCurvePath"):
-            self.r.lacuna("curva de deslocamento (MoveCurve)", onde)
+        # Curva de deslocamento: o componente RETO vira dash de verdade
+        # (decisão 26); o que sobra — arco vertical puro, curva sem alcance
+        # derivável — continua lacuna, registrada dentro de `_dash_da_curva`.
+        dash = self._dash_da_curva(skill, pulsos, onde)
+        if dash is not None:
+            pulsos.append(dash)
         if skill.get("CancelForbidStartTime"):
             self.r.lacuna("janela de cancelamento por tempo", onde)
 
@@ -2179,6 +2240,77 @@ class Tradutor:
             "hits_allies": False,
             "hits_self": True,
             "effects": efeitos,
+        }
+
+    ## `ZMoveCurvePath` -> um pulso de dash no conjurador (decisão 26).
+    ##
+    ## A curva Z é o PERFIL de velocidade do conjurador ao longo do próprio
+    ## eixo durante a habilidade — o dash. O perfil em si vive num asset e é
+    ## arte (decisão 20), mas a DISTÂNCIA percorrida o XML declara por outro
+    ## caminho, e sem emitir nada o dash do Leo andava zero metro: a lacuna
+    ## inteira ficava registrada como "curva" quando metade dela é um
+    ## deslocamento reto que `DisplacementEffect` já sabe fazer.
+    ##
+    ## A distância, em ordem de evidência: o comprimento do pulso LINE da
+    ## própria habilidade (o dano do dash cobre o trajeto — 5 m no Q do Leo,
+    ## que é a linha de 5 m), senão `AI_SkillRange` (o alcance a que a IA se
+    ## posiciona para usá-la). Sem os dois não há número honesto e a linha
+    ## continua lacuna, junto com `YMoveCurvePath` sozinha — arco vertical
+    ## puro, que segue sendo o caso da decisão 20.
+    def _dash_da_curva(
+        self, skill: dict[str, str], pulsos: list[dict], onde: str
+    ) -> dict | None:
+        if not skill.get("ZMoveCurvePath"):
+            if skill.get("YMoveCurvePath"):
+                self.r.lacuna("curva de deslocamento (MoveCurve)", onde)
+            return None
+        if inteiro(skill.get("Rank"), 1) == 0:
+            # Ranque-modelo: não referencia impacto e não deve ganhar o único
+            # pulso do grupo — quem escolhe ranque escolhe por "tem pulso", e
+            # um modelo conjurável seria estado novo. Contado, não silencioso.
+            self.r.usou("dash não emitido no ranque-modelo")
+            return None
+
+        distancia = 0.0
+        for pulso in pulsos:
+            if pulso.get("form") == "LINE" and float(pulso.get("length", 0.0)) > 0.0:
+                distancia = float(pulso["length"])
+                break
+        if distancia <= 0.0:
+            distancia = num(skill.get("AI_SkillRange"))
+        if distancia <= 0.0:
+            self.r.lacuna("curva de deslocamento (MoveCurve)", onde)
+            return None
+
+        self.r.usou("displacement:dash (curva Z, distância derivada)")
+        return {
+            # Não vem de impacto nenhum; 0 é "sem procedência", o mesmo valor
+            # que a guarda de duplicata ignora.
+            "source_impact": 0,
+            "form": "SINGLE",
+            "origin": "CASTER",
+            "delay": 0.0,
+            "duration": 0.0,
+            "loop_interval": 0.0,
+            "radius": 0.0,
+            "max_targets": 0,
+            # Não pega ninguém de propósito: o efeito é do CONJURADOR, e a
+            # engine aplica efeito de conjurador mesmo com a lista de alvos
+            # vazia. `hits_self` falso preserva a recusa por falta de alvo
+            # das habilidades de mira UNIT — ganhar um dash não deve mudar
+            # quando a conjuração é aceita.
+            "hits_enemies": False,
+            "hits_allies": False,
+            "hits_self": False,
+            "effects": [{
+                "type": "displacement",
+                "recipient": "CASTER",
+                "mode": "ALONG_AIM",
+                "distance": distancia,
+                # Dash é movimento escolhido: imobilização corta. É o oposto
+                # do empurrão sofrido, que a atravessa.
+                "ignores_root": False,
+            }],
         }
 
     # ---------------------------------------------------------- item

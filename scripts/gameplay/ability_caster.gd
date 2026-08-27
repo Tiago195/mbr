@@ -271,8 +271,8 @@ func _ground_under_cursor() -> Variant:
 
 ## Desenha TODOS os pulsos que saíram nesta conjuração.
 ##
-## Antes desenhava só `primary_pulse()`. Dos **127 espaços de campeão** do
-## original, **79 têm vários golpes** — e do segundo em diante nada aparecia na
+## Antes desenhava só `primary_pulse()`. Dos **130 espaços de campeão** do
+## original, **88 têm vários golpes** — e do segundo em diante nada aparecia na
 ## tela. A habilidade funcionava e parecia quebrada, que foi o relato do
 ## usuário ao testar os campeões.
 ##
@@ -302,7 +302,7 @@ func _draw_pulse(part: CastResult) -> void:
 
 	# Área que persiste fica na tela enquanto durar.
 	#
-	# Medido: HOJE isto nunca dispara. Dos **1687 pulsos** do corpus, só
+	# Medido: HOJE isto nunca dispara. Dos **1812 pulsos** do corpus, só
 	# **5 declaram duração**, e valem 0,1s — abaixo dos 0,45s padrão da marca.
 	# Fica porque é a regra certa e uma habilidade nossa pode declarar área
 	# longa; o que não dá é dizer que está coberto por teste, porque não há

@@ -11,10 +11,10 @@
 | ...de `skill_2_xml` | 176 |
 | ...de `skill_4_xml` | 2 |
 | ...de `skill_xml` | 948 |
-| ...com pelo menos um pulso | 964 |
-| ...com mais de um pulso | 416 |
-| Pulsos gerados | 1687 |
-| Efeitos gerados | 3229 |
+| ...com pelo menos um pulso | 979 |
+| ...com mais de um pulso | 462 |
+| Pulsos gerados | 1812 |
+| Efeitos gerados | 3361 |
 | Itens traduzidos | **421** |
 | Atores traduzidos | **384** |
 
@@ -35,18 +35,15 @@
 |---|---|
 | Campeões com Q, W e E | **33** |
 | ...desses, com suprema | 32 |
-| ...com **as quatro** habilidades conjuráveis | **28** |
+| ...com **as quatro** habilidades conjuráveis | **31** |
 | Atores com crescimento por nível | 98 |
 | Atores com passiva | 73 |
 
-Os 5 abaixo citam um grupo de habilidade que não tem nenhum ranque conjurável — a habilidade do original cai numa lacuna já registrada, e o espaço fica vazio em vez de receber um botão que não faz nada.
+Os 2 abaixo citam um grupo de habilidade que não tem nenhum ranque conjurável — a habilidade do original cai numa lacuna já registrada, e o espaço fica vazio em vez de receber um botão que não faz nada.
 
 | Campeão | Grupo sem ranque conjurável |
 |---|---|
-| `kaiba` | `rc_g_1018300` |
 | `sasha` | `rc_g_1019200` |
-| `kara` | `rc_g_1026300` |
-| `violet_1002800` | `rc_g_1028100` |
 | `sasha_1990000` | `` |
 
 ### As que saíram sem pulso
@@ -57,9 +54,9 @@ Uma habilidade sem pulso não é necessariamente uma tradução falha. Separar o
 |---|---|---|
 | Linha-modelo (`Rank 0`) | 115 | A entrada de interface da habilidade ainda não aprendida. Não referencia impacto **por definição** — os ranques 1 a 5 é que carregam os números. |
 | Quebra de combo | 2 | Marcador que interrompe uma corrente de golpes. Não tem efeito porque cancelar é o efeito. |
-| **Sem tradução** | **45** | Referencia impacto e nada saiu. São as lacunas da tabela abaixo — `Link`, `UseSkillSlot`, `ReleaseImpact` e as de modo de jogo. |
+| **Sem tradução** | **30** | Referencia impacto e nada saiu. São as lacunas da tabela abaixo — `Link`, `UseSkillSlot`, `ReleaseImpact` e as de modo de jogo. |
 
-Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 1018301, 1018302, 1018303, 1018304, 1018305, 1019201, 1019202, 1019203, 1019204, 1019205, 1021850, 1021860, 1022350, 1023350, 1026251
+Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 1019201, 1019202, 1019203, 1019204, 1019205, 1021850, 1021860, 1022350, 1023350, 1026251, 1026252, 1026253, 1026254, 1026255, 1900550
 
 ## O que o vocabulário cobriu
 
@@ -95,6 +92,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `heal` | 141 |
 | `dissipa em SHIELD_BROKEN` | 138 |
 | `cc:STUN` | 136 |
+| `displacement:dash (curva Z, distância derivada)` | 125 |
 | `cooldown` | 123 |
 | `cc:AIRBORNE` | 121 |
 | `stat:mana_regen` | 121 |
@@ -128,6 +126,8 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `stat:dodge` | 26 |
 | `stat:crit_chance` | 26 |
 | `stat:heal_received_amp` | 26 |
+| `displacement:cc` | 25 |
+| `largura do colisor pela escala (StartScaleX)` | 24 |
 | `ator:Minion` | 24 |
 | `gatilho DAMAGE_TAKEN` | 23 |
 | `stat:armor_pen_flat` | 22 |
@@ -137,8 +137,8 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `stat:health_regen_amp` | 19 |
 | `stat:magic_pen_flat` | 19 |
 | `tempo de ar derivado da altura` | 18 |
-| `displacement:cc` | 18 |
 | `impacto repetido na habilidade, emitido uma vez` | 16 |
+| `dash não emitido no ranque-modelo` | 15 |
 | `dissipa em ABILITY_CAST` | 15 |
 | `displacement:teleporte` | 15 |
 | `stat:lifesteal` | 15 |
@@ -153,6 +153,7 @@ Ids sem tradução (amostra): 1016250, 1016251, 1016252, 1016253, 1016254, 10183
 | `stat:spell_vamp` | 9 |
 | `stat:magic_pen_percent` | 9 |
 | `stat:heal_power` | 9 |
+| `displacement:cc derivado de MoveSpeed (sem Distance)` | 7 |
 | `impacto dentro de controle` | 7 |
 | `cleanse (RemoveCC)` | 7 |
 | `stat:damage_taken_reduction` | 7 |
@@ -213,12 +214,11 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | atravessar parede (não há sistema de obstáculo em core/) (`ThroughObstacle` em crowd_control) | 263 |  |
 | ricochete para outro inimigo (`TargetCondition` em impact) | 181 |  |
 | atravessar parede (não há sistema de obstáculo em core/) (`ThroughObstacle` em skill) | 167 |  |
-| curva de deslocamento (MoveCurve) | 154 | skill 1000200 |
 | tabela de loot: chance de dropar (`DropItemRate` em actor) | 151 |  |
 | TriggerTiming=Arrived no pulso (aproximado pelo atraso e pela velocidade do projétil) | 143 |  |
 | tabela de loot: o que dropa (`DropItemTableIDs` em actor) | 141 |  |
-| geometria inventada: largura do projétil (o original guarda o colisor fora do XML) | 139 | skill 1000800 |
 | projétil teleguiado (`TrackingMode` em skill) | 118 |  |
+| geometria inventada: largura do projétil (o original guarda o colisor fora do XML) | 115 | skill 1001000 |
 | ataque básico sem alcance declarado | 106 | actor 1000701 |
 | tempo de ar do arremesso (o original guarda a subida numa curva fora do XML; usamos 0.9s) | 103 | skill 1000800 |
 | a investida que PARA ao acertar (OnImpactEnemy / OnDamage / OnLostTarget) — nosso dash sempre completa (`StopCondition` em skill) | 100 |  |
@@ -257,6 +257,7 @@ Cada linha é uma coluna do original que o tradutor encontrou e não soube conve
 | BuffReleaseCondition=InteractionStart | 16 | skill 1003401 |
 | corrente de combo podada (o elo traduzido ficou sem efeito) | 15 | skill 1016201 |
 | habilidade que dispara um ataque básico ao terminar (`ReleaseAutoAttack` em skill) | 15 |  |
+| curva de deslocamento (MoveCurve) | 14 | skill 1018101 |
 | TriggerTiming=OnHitWall no pulso (sem aproximação) | 10 |  |
 | TriggerTiming=OnHitActorObject no pulso (sem aproximação) | 10 |  |
 | geometria inventada: alcance do projétil (o original guarda o colisor fora do XML) | 9 | skill 1001201 |

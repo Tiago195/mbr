@@ -58,8 +58,8 @@ enum Aim {
 ## COLUNA presente, e `"False"` é string não-vazia, então ele soma as duas
 ## metades. É a mesma armadilha que deu 123 `FollowTarget` em 124.
 ##
-## Pelo caminho que o jogo percorre são **44 dos 127 espaços de campeão** —
-## **22 campeões** têm ao menos um.
+## Pelo caminho que o jogo percorre são **46 dos 130 espaços de campeão** —
+## **23 campeões** têm ao menos um.
 ##
 ## **Ao conjurar, não ao acertar** — mesma leitura, e pelo mesmo motivo, de
 ## `ultimate_charge_gain`: a coluna é da habilidade e não do impacto, e o
@@ -119,7 +119,7 @@ enum Aim {
 ## uma habilidade INTEIRA e diferente — `Impact1` muda em 121 dos 125 pares —,
 ## e por isso ele é um id do catálogo e não um modificador.
 ##
-## Medido, vale para **4 dos 127 espaços de campeão**, e não para 14: em 7 o
+## Medido, vale para **7 dos 130 espaços de campeão**, e não para 14: em 7 o
 ## elo seguinte não tem efeito nenhum no nosso vocabulário, e encadeá-lo daria
 ## uma habilidade que não faz nada. O tradutor só emite corrente quando o
 ## destino tem pulso útil — corrente para o vazio é pior que corrente nenhuma.
@@ -152,7 +152,7 @@ func has_combo() -> bool:
 ##
 ## **Não é `cast_range`.** Aquele vem de `AI_SkillRange` do original, que é a
 ## distância em que a IA decide usar a habilidade — e usá-lo como alcance
-## engana: medido, em **43 dos 119 espaços** de campeão com alcance declarado o
+## engana: medido, em **37 dos 122 espaços** de campeão com alcance declarado o
 ## efeito não chega ao número, às vezes por 7 metros. O R do Leo anuncia 4 m e
 ## pega até 3, e foi assim que ele virou "impossível de acertar" em jogo.
 ##
