@@ -1447,3 +1447,80 @@ candidatos pesquisados (VRoid para elenco em escala, malha por imagem→3D com
 rig próprio) estão registrados na sessão de 26/08/2026. O que esta decisão
 compra é o que a Fase 1 pede: um corpo legível com animação de verdade, hoje,
 por zero reais.
+
+## 27. O cenário de treino é o embrião do NOSSO mapa, em escala 0,4
+
+**Decidido em 26/08/2026.** Existe uma cena nova,
+`scenes/cenario_de_treino.tscn` — um greybox de 120×120 m com vila, floresta,
+mina, arbustos, rio com ponte, portais e marcadores de spawn. Ela **não** está
+ligada à `main.tscn` ainda; a integração é trabalho de outra frente.
+
+### O que veio de dado do Royal Crown, e o que é suposição nossa
+
+Da investigação nas tabelas extraídas (as 113 de `C:\Godot\rc-referencia\xml\`):
+
+- **O RC não tinha mapa de treino próprio.** Treino era o mapa REAL — 300×300 m,
+  `GameMode 9000` — populado de bots. Ou seja: um "mapa de treino" que fosse uma
+  sala à parte não teria precedente no original; o que tem precedente é o mapa
+  do jogo servindo de campo de teste.
+- **O vocabulário de pontos de interesse vem de `AreaClassification` e
+  `MapIcon`**: vilas com baús e estátua-loja, florestas, minas com pedras de
+  mana, arbustos que escondem, rio, portais, forja. São esses os POIs que o
+  greybox instancia — um exemplar de cada, não a distribuição real.
+- **A zona que fecha** já existe como lógica (`core/match/zone.gd`); o mapa
+  nasce quadrado como o do original e a zona continua circular, como lá.
+
+O que é NOSSO, sem apoio em tabela: a escala **0,4** (120 m testam os mesmos
+sistemas a um custo de travessia menor — atravessar o mapa a 3,3 m/s leva ~36 s,
+não 90), o layout (vila ao norte, floresta NE, mina SE, arbustos SW, rio a
+oeste), e toda posição individual. Quando o mapa de verdade vier, ele nasce
+deste esqueleto crescendo para 300×300 — por isso "embrião", não "descartável".
+
+### Como a cena é construída, e por que não à mão
+
+`tools/gerar_cenario.gd` MONTA a árvore por código — `position` e
+`rotation_degrees`, nunca uma matriz literal — e salva com
+`PackedScene.pack()` + `ResourceSaver.save()`. A razão é a armadilha já paga
+deste documento: `Transform3D` em `.tscn` serializa por LINHAS, escrever
+transposto não dá erro e custou uma sessão. Aqui quem compõe toda matriz é a
+engine.
+
+Duas propriedades do gerador que valem registrar:
+
+- **Determinismo de autoria**: toda posição é literal no script — a floresta
+  "irregular" é irregular porque foi escrita assim, não sorteada. Regerar dá o
+  mesmo layout; os IDs internos de sub-recurso do `.tscn` é que mudam a cada
+  `save` (a engine os sorteia), então o artefato se confere por instância, não
+  por byte.
+- **O artefato é conferido lido do DISCO** (`--conferir` roda só essa metade):
+  contagem exata de nós por tipo, nada com a base da malha abaixo do chão,
+  caixa total dentro dos 120×120, todo `StaticBody3D` e toda `Area3D` com forma
+  de colisão, marcadores no anel de 55 m e no triângulo de lado 5, **e as
+  portas das casas vazadas por raycast** — cada porta com um par de raios: um
+  pelo vão que não pode bater, um de controle contra a parede que TEM de bater
+  (sem o par, um raycast cego aprovaria qualquer parede). O mesmo par confere a
+  travessia da ponte. Provado por mutação tripla no dia do nascimento: casa
+  afundada 3 m, verga baixada a 1 m e vão da ponte deslocado 10 m — as três
+  reprovaram, cada uma numa conferência diferente.
+
+### Três escolhas dentro do greybox
+
+- **A fileira de bonecos de treino NÃO mora nesta cena** — é da `main.tscn`. O
+  conferidor reprova se algo estático invadir o retângulo em torno de
+  `(-16, 0, 10)`, para a fusão das duas não nascer com uma árvore dentro de um
+  boneco.
+- **Baús e ponte são só malha, sem colisão.** O baú porque o sistema de loot
+  vem depois e um baú que colide sem abrir só atrapalha; a ponte porque quem
+  carrega o passo é o chão — um tablado com colisão viraria um degrau que
+  `CharacterBody3D` não sobe. Quem torna o rio intransponível são as MARGENS,
+  e a ponte é o vão nelas.
+- **As áreas de arbusto e de portal já nascem com nome claro**
+  (`AreaDeArbusto`, `AreaDePortal`) e forma de colisão, mas sem sistema: o
+  esconder e o teleporte vêm depois, e quem os ligar procura pelo nome.
+
+### O que só olho humano valida
+
+O conferidor sabe que a geometria cumpre o combinado; não sabe se o greybox LÊ
+— se vila parece vila na câmera isométrica, se as cores chapadas separam as
+classes de coisa, se as distâncias têm ritmo de jogo. Isso é a validação que o
+usuário faz quando a cena entrar na `main.tscn`.
