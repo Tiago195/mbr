@@ -233,6 +233,19 @@ func _sondar() -> Array[String]:
 			+ "cadência; o par de controle não distingue nada")
 		)
 
+	# ------------------------------------------- o mob persegue e bate
+	#
+	# A primeira oposição, ponta a ponta: o `SpawnerDeMobs` leu o catálogo, o
+	# `adopt_profile` valeu, e `bot.gd` percebe, anda até o alcance e bate na
+	# cadência do `Unit` — e, morto, para de bater e o corpo some. Nenhuma
+	# outra ferramenta roda `bot.gd`: a suíte não alcança `gameplay/` e a
+	# sonda de campeões não roda quadro de física.
+	#
+	# Vem ANTES das conferências de gesto e vocabulário de propósito: este
+	# bloco termina com o mob morto e fora da árvore, então nada fica batendo
+	# no jogador enquanto elas esperam o corpo em `parado`.
+	falhas.append_array(await _conferir_o_mob(jogador, meu))
+
 	# ------------------------------------------- o gesto de caminhada
 	#
 	# O corpo tem que se MEXER enquanto anda, em vez de deslizar. Não foi
@@ -977,6 +990,181 @@ func _conferir_gesto(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
 			"o corpo não voltou ao repouso depois do gesto (%s)"
 				% str(boneco.position)
 		)
+	return falhas
+
+## O mob do `SpawnerDeMobs` persegue o jogador, bate na cadência, e morre.
+##
+## Usa o mob que a CENA spawnou — o caminho real, com o perfil vindo do
+## catálogo —, movido para perto do jogador: dentro da percepção e FORA do
+## alcance de ataque. A distância importa: um mob posto já no alcance bateria
+## sem nunca ter perseguido, e a conferência aprovaria uma perseguição
+## apagada. Por isso também se mede quanto ele ANDOU até o primeiro golpe.
+##
+## A cadência conferida é a do PERFIL (`attack_speed` 0,5 no ator padrão, um
+## golpe a cada 2 s), não a do Inspector — junto com a conferência de vida
+## contra o export, é o que prova que `adopt_profile` valeu.
+func _conferir_o_mob(jogador: CharacterBody3D, meu: Combatant) -> Array[String]:
+	var falhas: Array[String] = []
+	var mob: Mob = null
+	for no: Node in get_nodes_in_group(Combatant.GROUP):
+		var combatente := no as Combatant
+		if combatente != null and combatente.body() is Mob:
+			mob = combatente.body() as Mob
+	if mob == null:
+		return ["a cena não tem mob do SpawnerDeMobs"] as Array[String]
+	var dele: Combatant = Combatant.of(mob)
+
+	# A AIPath virou comportamento: `playeraggressive` tem que caçar.
+	if not mob.agressivo:
+		falhas.append(
+			"o mob da cena devia ser agressivo (AIPath `playeraggressive`)"
+		)
+	# E o perfil valeu: a vida veio do catálogo, não do export do Inspector.
+	# Igualdade aqui significaria `adopt_profile` apagado — o ator padrão tem
+	# 1620 contra 600 do export, e qualquer ator do corpus difere do export.
+	if is_equal_approx(
+			dele.stats.get_value(Stat.Id.MAX_HEALTH), dele.max_health
+	):
+		falhas.append(
+			("a vida do mob (%.0f) é a do export do Inspector; o perfil do "
+			+ "catálogo não foi adotado") % dele.max_health
+		)
+
+	# O jogador aguenta a medição inteira — mesmo desenho da vida do boneco.
+	meu.unit.stats.set_base(Stat.Id.MAX_HEALTH, VIDA_DE_TESTE)
+	meu.unit.health.reset()
+
+	# Dentro da percepção, fora do alcance: o mob tem que ANDAR antes de bater.
+	# No eixo +Z, onde não há boneco de treino no caminho — no +X o DummyNear
+	# ficaria entre os dois e o mob pararia nele.
+	var alcance: float = dele.stats.get_value(Stat.Id.ATTACK_RANGE)
+	var percepcao: float = dele.stats.get_value(Stat.Id.SIGHT_RANGE)
+	var distancia: float = minf(percepcao - 0.5, alcance + 1.5)
+	if distancia <= alcance:
+		falhas.append(
+			("a percepção (%.1f m) não passa do alcance (%.1f m); não há onde "
+			+ "pôr o mob que exija perseguição") % [percepcao, alcance]
+		)
+		return falhas
+	var corpo: Node3D = dele.body()
+	corpo.global_position = jogador.global_position + Vector3(0.0, 0.0, distancia)
+	dele.unit.position = corpo.global_position
+	# A âncora do leash acompanha o teleporte, senão o mob mediria a distância
+	# até o ponto de spawn lá do outro lado do mapa e desistiria na hora.
+	mob.origem = corpo.global_position
+	var partida: Vector3 = corpo.global_position
+	var sumir_declarado: float = mob.sumir_apos
+
+	# **Array e não variável solta**: lambda captura por valor (CLAUDE.md).
+	var batidas: Array[int] = []
+	var relogio: Array[int] = [0]
+	var contar := func(resultado: DamageResult) -> void:
+		if not resultado.missed and resultado.raw_damage > 0.0:
+			batidas.append(relogio[0])
+	meu.damaged.connect(contar)
+
+	var por_segundo: int = Engine.physics_ticks_per_second
+	var intervalo: float = dele.unit.attack_interval()
+
+	# Até o primeiro golpe: percepção + perseguição + primeiro ataque.
+	var limite: int = 3 * por_segundo
+	while batidas.is_empty() and relogio[0] < limite:
+		await physics_frame
+		relogio[0] += 1
+	if batidas.is_empty():
+		meu.damaged.disconnect(contar)
+		falhas.append(
+			"em 3 s o mob a %.1f m não alcançou nem bateu no jogador" % distancia
+		)
+		return falhas
+
+	# E ele PERSEGUIU: saiu do lugar pelo menos o vão entre a distância e o
+	# alcance. Sem isto, um alcance mutado para 100 m bateria parado e passaria.
+	var andou: float = partida.distance_to(corpo.global_position)
+	var vao: float = distancia - alcance
+	if andou < vao - 0.5:
+		falhas.append(
+			("o mob bateu tendo andado %.2f m onde a perseguição pedia ~%.2f "
+			+ "— bateu de longe em vez de perseguir") % [andou, vao]
+		)
+
+	# A cadência: a janela começa NUM golpe, então cabem exatamente
+	# `floor(janela/intervalo) + 1` — nem um a menos (travou), nem um a mais
+	# (a cadência não vale para o mob).
+	var quadros_de_janela: int = int(round(2.2 * intervalo * float(por_segundo)))
+	for _passo: int in quadros_de_janela:
+		await physics_frame
+		relogio[0] += 1
+	var esperados: int = int(floor(
+		float(quadros_de_janela) / (intervalo * float(por_segundo))
+	)) + 1
+	print("  mob: %d golpes em %.1f s (cadência %.3f s); quadros %s" % [
+		batidas.size(), float(quadros_de_janela) / float(por_segundo),
+		intervalo, str(batidas),
+	])
+	if batidas.size() != esperados:
+		falhas.append(
+			("o mob deu %d golpes onde a cadência de %.3f s permite exatamente "
+			+ "%d na janela") % [batidas.size(), intervalo, esperados]
+		)
+
+	# E o espaçamento, que é o que fecha a classe — contagem certa com ritmo
+	# errado é possível, como na conferência do jogador lá em cima.
+	var passo_esperado: float = intervalo * float(por_segundo)
+	for indice: int in range(1, batidas.size()):
+		var vao_de_quadros: int = batidas[indice] - batidas[indice - 1]
+		if absf(float(vao_de_quadros) - passo_esperado) <= 1.5:
+			continue
+		falhas.append(
+			("dois golpes do mob saíram com %d quadros de intervalo, e a "
+			+ "cadência de %.3fs pede %.1f") % [
+				vao_de_quadros, intervalo, passo_esperado
+			]
+		)
+		break
+
+	# Morto, o mob PARA — de bater e de colidir — e o corpo SOME.
+	var golpes_antes: int = batidas.size()
+	dele.unit.receive_damage(
+		meu.unit, VIDA_DE_TESTE, Damage.Type.PHYSICAL, Damage.Source.ABILITY
+	)
+	if dele.is_alive():
+		falhas.append("o golpe de misericórdia da sonda não matou o mob")
+	if mob.collision_layer != 0:
+		falhas.append(
+			"morto, o mob continua na camada de colisão %d" % mob.collision_layer
+		)
+	var quadros_de_silencio: int = int(round(
+		1.2 * intervalo * float(por_segundo)
+	))
+	for _passo: int in quadros_de_silencio:
+		await physics_frame
+		relogio[0] += 1
+	var golpes_de_cadaver: int = batidas.size() - golpes_antes
+	meu.damaged.disconnect(contar)
+	if golpes_de_cadaver != 0:
+		falhas.append(
+			"o mob morto continuou batendo (%d golpes depois da morte)"
+				% golpes_de_cadaver
+		)
+
+	# O corpo some sozinho depois de `sumir_apos` — o silêncio acima já gastou
+	# parte do prazo; o resto é esperado com um segundo de folga.
+	var prazo: int = int(round(sumir_declarado * float(por_segundo))) + por_segundo
+	var sumiu: bool = false
+	for _passo: int in prazo:
+		if not is_instance_valid(mob) or not mob.is_inside_tree():
+			sumiu = true
+			break
+		await physics_frame
+	if not sumiu:
+		falhas.append(
+			"morto, o corpo do mob não sumiu no prazo de %.1f s" % sumir_declarado
+		)
+	print(
+		("  mob: perseguiu %.2f m, morto parou de bater, corpo %s")
+			% [andou, "sumiu" if sumiu else "FICOU"]
+	)
 	return falhas
 
 ## Uma habilidade instantânea e inofensiva, zeradora ou não.
